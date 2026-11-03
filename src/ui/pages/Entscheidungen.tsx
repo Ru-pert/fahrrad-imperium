@@ -25,6 +25,7 @@ import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
 import { usePreview } from '../hooks';
 import { Card, NumberField, Warnung } from '../components/ui';
+import { BikeIcon } from '../components/BikeIcon';
 import { KapazitaetsGrafik, PersonalErklaerung, TechnikVergleich } from '../components/Erklaer';
 
 type AendereFn = (fn: (d: Decisions) => void) => void;
@@ -95,7 +96,7 @@ function Preise({ state, d, aendere, vorschau }: Ctx) {
           const seg = vorschau?.segmente.find((s) => s.produkt === p && s.region === r);
           const ang = vorschau?.angebote.find((a) => a.produkt === p && a.region === r);
           return (
-            <Card key={`${p}${r}`} titel={<span style={{ color: PRODUKT_FARBE[p] }}>{PRODUKTE[p].name}{aktiveRegionen(state).length > 1 ? ` · ${r}` : ''}</span>}>
+            <Card key={`${p}${r}`} titel={<span className="flex items-center gap-2" style={{ color: PRODUKT_FARBE[p] }}><BikeIcon produkt={p} className="h-7 w-11" />{PRODUKTE[p].name}{aktiveRegionen(state).length > 1 ? ` · ${r}` : ''}</span>}>
               <NumberField
                 label="Verkaufspreis"
                 unit="€"

@@ -18,4 +18,7 @@ export function saison(t: number): number {
 }
 
 /** Rundet auf ganze Zahlen (Stückzahlen). */
+/** ID des Spielers in Marktdaten */
+export const SPIELER_ID = 'spieler';
+
 export const stk = (x: number): number => Math.max(0, Math.round(x));

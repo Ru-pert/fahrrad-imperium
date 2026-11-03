@@ -8,6 +8,7 @@ import { Badge, Icon, Toasts } from './components/ui';
 import { Auswertung } from './components/Auswertung';
 import { Cockpit } from './pages/Cockpit';
 import { Bericht } from './pages/Bericht';
+import { Zeitung } from './pages/Zeitung';
 import { Entscheidungen } from './pages/Entscheidungen';
 import { Markt } from './pages/Markt';
 import { Finanzen } from './pages/Finanzen';
@@ -16,18 +17,20 @@ import { Einstellungen, NeuesSpielForm } from './pages/Einstellungen';
 
 const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
   { id: 'cockpit', label: 'Cockpit', kurz: 'Cockpit', icon: 'cockpit' },
-  { id: 'bericht', label: 'Quartalsbericht', kurz: 'Bericht', icon: 'bericht' },
+  { id: 'zeitung', label: 'Zeitung', kurz: 'Zeitung', icon: 'bericht' },
+  { id: 'bericht', label: 'Quartalsbericht', kurz: 'Bericht', icon: 'cockpit' },
   { id: 'entscheidungen', label: 'Entscheidungen', kurz: 'Entscheiden', icon: 'entscheidungen' },
   { id: 'markt', label: 'Markt', kurz: 'Markt', icon: 'markt' },
   { id: 'finanzen', label: 'Finanzen', kurz: 'Finanzen', icon: 'finanzen' },
   { id: 'werke', label: 'Werke', kurz: 'Werke', icon: 'werke' },
   { id: 'einstellungen', label: 'Einstellungen & Speichern', kurz: 'Einstellungen', icon: 'einstellungen' },
 ];
-const MOBIL_HAUPT: Seite[] = ['cockpit', 'bericht', 'entscheidungen', 'markt'];
+const MOBIL_HAUPT: Seite[] = ['cockpit', 'zeitung', 'entscheidungen', 'markt'];
 
 function Seiteninhalt({ seite }: { seite: Seite }) {
   switch (seite) {
     case 'cockpit': return <Cockpit />;
+    case 'zeitung': return <Zeitung />;
     case 'bericht': return <Bericht />;
     case 'entscheidungen': return <Entscheidungen />;
     case 'markt': return <Markt />;

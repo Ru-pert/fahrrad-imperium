@@ -10,8 +10,8 @@ import {
 } from '../engine';
 import { istSpielstand, laden, speichern, type HistorieEintrag, type Spielstand } from './saveSlots';
 
-export type Seite = 'cockpit' | 'bericht' | 'entscheidungen' | 'markt' | 'finanzen' | 'werke' | 'einstellungen';
-export const SEITEN: Seite[] = ['cockpit', 'bericht', 'entscheidungen', 'markt', 'finanzen', 'werke', 'einstellungen'];
+export type Seite = 'cockpit' | 'zeitung' | 'bericht' | 'entscheidungen' | 'markt' | 'finanzen' | 'werke' | 'einstellungen';
+export const SEITEN: Seite[] = ['cockpit', 'zeitung', 'bericht', 'entscheidungen', 'markt', 'finanzen', 'werke', 'einstellungen'];
 
 interface Hinweis {
   id: number;
@@ -125,7 +125,8 @@ export const useGame = create<Store>((set, get) => ({
   abschliessen() {
     const { state, entwurf, historie } = get();
     if (!state || !entwurf || state.spielende) return null;
-    const { nextState, report } = simulateQuarter(state, entwurf);
+    const vorher = historie.length ? historie[historie.length - 1].report : null;
+    const { nextState, report } = simulateQuarter(state, entwurf, undefined, { vorherBericht: vorher });
     const eintrag: HistorieEintrag = { stateVor: state, decisions: entwurf, report };
     const neueHistorie = [...historie, eintrag];
     set({

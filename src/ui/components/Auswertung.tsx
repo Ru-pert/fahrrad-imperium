@@ -167,7 +167,7 @@ export function Auswertung() {
       ? `${quartalLabel(daten.periode[0].quartal)} – ${quartalLabel(daten.periode[daten.periode.length - 1].quartal)}`
       : quartalLabel(bericht.quartal);
   const platz = daten.rangliste.findIndex((r) => r.eigen) + 1;
-  const weiter = (ziel: 'entscheidungen' | 'cockpit' | 'bericht') => {
+  const weiter = (ziel: 'zeitung' | 'cockpit' | 'bericht') => {
     schliessen();
     gehe(ziel);
   };
@@ -328,8 +328,8 @@ export function Auswertung() {
         <div className="mx-auto grid max-w-4xl grid-cols-[1fr_1fr_1.4fr] gap-2 p-3">
           <button className="btn-ghost" onClick={() => weiter('cockpit')}>Cockpit</button>
           <button className="btn-ghost" onClick={() => weiter('bericht')}>Details</button>
-          <button className="btn-primary" onClick={() => weiter('entscheidungen')} disabled={!!state.spielende}>
-            Nächste Runde <Icon name="chevron" className="h-4 w-4" />
+          <button className="btn-primary" onClick={() => weiter('zeitung')}>
+            Zur Zeitung von {quartalLabel(state.quartal)} <Icon name="chevron" className="h-4 w-4" />
           </button>
         </div>
       </div>
