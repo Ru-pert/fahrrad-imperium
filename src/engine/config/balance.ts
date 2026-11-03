@@ -28,6 +28,8 @@ export const BALANCE = {
     startAnteil: 0.003,
     schrumpfungProQuartal: 0.01,
     technikWachstumProQuartal: 0.015,
+    /** Preisverfall des Restmarkts je Quartal (Wettbewerbsdruck) – Balancing */
+    preisVerfallProQuartal: 0.008,
     /** Technik-Startwert des Restmarkts je Segment (so, dass TI Stadtrad ≈ 105, E-Bike ≈ 104) */
     technikStart: { stadtrad: 0.405, ebike: 0.49, mountainbike: 0.45, lastenrad: 0.45, rennrad: 0.45, emtb: 0.5 },
   },
@@ -40,7 +42,7 @@ export const BALANCE = {
     eintrittStart: 0.01,
     eintrittAnteilHoechste: 0.1,
     /** Skalierung des Werbebudgets in der Bekanntheitsgleichung (Feinjustage für das Tempo des Markenaufbaus) */
-    werbeSkala: 0.35,
+    werbeSkala: 0.12,
   },
 
   /** Technologie (5.5) */
@@ -89,6 +91,8 @@ export const BALANCE = {
 
   /** Produktion (6, 6.2) */
   produktion: {
+    /** Aufschlag auf die Materialkosten der Produkttabelle (Einkaufsnebenkosten, Ausschuss) – Balancing */
+    materialFaktor: 1.35,
     lernkurveExponent: -0.15,
     lernkurveBasis: 2000,
     lernkurveMin: 0.6,
@@ -121,7 +125,7 @@ export const BALANCE = {
     mindestkasse: 50_000,
     forderungenAnteil: 0.15,
     verbindlichkeitenAnteil: 0.2,
-    verwaltungSachkosten: 50_000,
+    verwaltungSachkosten: 100_000,
     hqUnterhaltSatz: 0.01,
     abschreibungWerkQuartale: 40,
     abschreibungHqQuartale: 80,

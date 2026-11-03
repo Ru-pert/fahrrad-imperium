@@ -64,7 +64,7 @@ export function neuesSpiel(opt: NeuesSpielOptionen): GameState {
       kumMenge: START.kumProduktion,
       lager: { stueck: START.lagerFertig, hk },
       materialSets: START.lagerMaterialSets,
-      materialWert: START.lagerMaterialSets * PRODUKTE[p].material * lk,
+      materialWert: START.lagerMaterialSets * PRODUKTE[p].material * BALANCE.produktion.materialFaktor * lk,
       letzteHk: hk,
     };
   }

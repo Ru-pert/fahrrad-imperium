@@ -403,3 +403,33 @@ describe('Hallenerweiterung', () => {
     expect(r.nextState.werke[0].hallenPlaetze).toBe(8);
   });
 });
+
+describe('Balancing: Strategien', () => {
+  const lauf = (fn: (s: GameState, r: QuarterReport | null) => Decisions, n = 20) => {
+    let s = neu(1);
+    let r: QuarterReport | null = null;
+    let ebit = 0;
+    for (let i = 0; i < n && !s.spielende; i++) {
+      const res = simulateQuarter(s, fn(s, r), undefined, { vorherBericht: r });
+      s = res.nextState;
+      r = res.report;
+      ebit += r.guv.ebit;
+    }
+    return { ebit, pleite: !!s.spielende };
+  };
+  it('gute Strategie schlägt Nichtstun deutlich, Ausmaxen führt in die Pleite', () => {
+    const gut = lauf((s, r) => botEntscheidungen(s, r));
+    const nichts = lauf((s) => ({ ...standardEntscheidungen(s) }));
+    const maximal = lauf((s, r) => {
+      const d = botEntscheidungen(s, r, { ...STANDARD_BOT, preisFaktor: 0.85 });
+      for (const p of ['stadtrad', 'ebike'] as const) {
+        d.marketing[p] = { DE: 300_000 };
+        d.fe[p] = 300_000;
+      }
+      return d;
+    });
+    expect(gut.pleite).toBe(false);
+    expect(gut.ebit).toBeGreaterThan(nichts.ebit * 3);
+    expect(maximal.pleite).toBe(true);
+  });
+});

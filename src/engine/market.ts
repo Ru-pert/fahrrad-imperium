@@ -67,6 +67,11 @@ export function referenzPreis(region: RegionId, produkt: ProductId): number {
 }
 
 /** Ausgangsvolumen V₀ (Stück/Quartal) eines Segments in einer Region */
+/** Preis des Restmarkts: Referenzpreis mit langsamem Preisverfall */
+export function restPreis(region: RegionId, produkt: ProductId, t: number): number {
+  return referenzPreis(region, produkt) * Math.pow(1 - BALANCE.restmarkt.preisVerfallProQuartal, Math.max(0, t));
+}
+
 export function startVolumen(region: RegionId, produkt: ProductId): number {
   const r = REGIONEN[region];
   return (r.startvolumen * r.mix[produkt]) / 100;
@@ -110,7 +115,6 @@ function attraktivitaeten(inp: SegmentInput, volumen: number, pBar: number, tBar
 
 /** Gewichtete Durchschnitte (Ø-Preis, Ø-Technik) mit den Absatzanteilen des Vorquartals inkl. Restmarkt */
 function durchschnitte(inp: SegmentInput) {
-  const ref = referenzPreis(inp.region, inp.produkt);
   let sw = 0;
   let sp = 0;
   let st = 0;
@@ -125,7 +129,7 @@ function durchschnitte(inp: SegmentInput) {
   }
   const wRest = Math.max(inp.zustand.anteile['rest'] ?? 1 - sumAnbieter, 0.05);
   sw += wRest;
-  sp += wRest * ref;
+  sp += wRest * restPreis(inp.region, inp.produkt, inp.t);
   st += wRest * inp.zustand.tRest;
   return { pBar: sp / sw, tBar: st / sw };
 }

@@ -51,7 +51,7 @@ export const lohnProStunde = (w: Pick<Werk, 'lohnIndex'>): number => lohnProMita
 /** Herstellkosten je Stück: Material (inkl. Lieferant, Ereignis, Lernkurve) + Fertigungslohn */
 export function herstellkosten(p: ProductId, werk: Werk, lf: number, lk: number, ePreis = 1): { material: number; lohn: number; hk: number } {
   const cfg = PRODUKTE[p];
-  const material = cfg.material * lf * ePreis * lk;
+  const material = cfg.material * BALANCE.produktion.materialFaktor * lf * ePreis * lk;
   const lohn = cfg.montageStunden * lk * lohnProStunde(werk);
   return { material, lohn, hk: material + lohn };
 }
