@@ -1,10 +1,12 @@
 import { PRODUKTE, quartalLabel, umsatz4Q } from '../../engine';
 import { ereignisDef } from '../../engine/events';
 import { BikeIcon } from '../components/BikeIcon';
+import { CockpitBanner } from '../components/Banner';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
 import { LinienDiagramm } from '../components/charts';
-import { Card, Fortschritt, KpiTile, Warnung } from '../components/ui';
+import { Card, Fortschritt, IconBadge, KpiTile, Warnung } from '../components/ui';
+import { EREIGNIS_FARBE, EREIGNIS_ICON } from '../ereignisIcons';
 import { useLetzterBericht, usePreview } from '../hooks';
 
 export function Cockpit() {
@@ -25,22 +27,18 @@ export function Cockpit() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="h-page">Cockpit</h1>
-        <p className="muted text-sm">
-          {state.unternehmen.name} · Entscheidung für {quartalLabel(state.quartal)}
-        </p>
-      </div>
+      <h1 className="sr-only">Cockpit</h1>
+      <CockpitBanner state={state} bericht={bericht} />
 
       {(state.ereignisse ?? []).length > 0 && (
-        <Card titel={`Ereignisse für ${quartalLabel(state.quartal)}`} aktion={<button className="btn-ghost" onClick={() => gehe('zeitung')}>Zur Zeitung</button>}>
+        <Card icon="ereignis" farbe="#f59e0b" titel={`Ereignisse für ${quartalLabel(state.quartal)}`} aktion={<button className="btn-ghost" onClick={() => gehe('zeitung')}>Zur Zeitung</button>}>
           <ul className="space-y-2">
             {state.ereignisse.map((e) => {
               const d = ereignisDef(e.id);
               if (!d) return null;
               return (
                 <li key={e.id} className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700 dark:bg-amber-950/40">
-                  <span className="text-lg">⚡</span>
+                  <IconBadge name={EREIGNIS_ICON[e.id] ?? 'ereignis'} farbe={EREIGNIS_FARBE[e.id] ?? '#f59e0b'} />
                   <div>
                     <div className="font-semibold">{d.name}{e.neu ? ' – neu' : ''}</div>
                     <div>{d.wirkung}{d.dauer > 1 ? ` · noch ${e.rest} Quartal${e.rest > 1 ? 'e' : ''}` : ''}</div>
@@ -55,15 +53,15 @@ export function Cockpit() {
       {state.spielende && <Warnung>{state.spielende.grund} Lade unter „Einstellungen“ einen früheren Spielstand.</Warnung>}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <KpiTile label="Umsatz" wert={letzter?.umsatz ?? 0} format={eurKompakt} vorher={vorletzter?.umsatz} verlauf={reihe((p) => p.umsatz)} farbe={farbe} hinweis={letzter ? quartalLabel(letzter.quartal) : 'noch kein Quartal'} />
-        <KpiTile label="EBIT" wert={letzter?.ebit ?? 0} format={eurKompakt} vorher={vorletzter?.ebit} verlauf={reihe((p) => p.ebit)} farbe={farbe} />
-        <KpiTile label="Kasse" wert={state.finanzen.kasse} format={eurKompakt} vorher={vorletzter?.kasse} verlauf={reihe((p) => p.kasse)} farbe={farbe} />
-        <KpiTile label="Marktanteil" wert={letzter?.marktanteil ?? 0} format={(x) => pct(x, 2)} vorher={vorletzter?.marktanteil} verlauf={reihe((p) => p.marktanteil)} farbe={farbe} hinweis="Deutschland, nach Umsatz" />
-        <KpiTile label="Unternehmenswert" wert={letzter?.unternehmenswert ?? bericht?.kennzahlen.eigenkapitalwert ?? 0} format={eurKompakt} vorher={vorletzter?.unternehmenswert} verlauf={reihe((p) => p.unternehmenswert)} farbe={farbe} hinweis="Eigenkapitalwert" />
-        <KpiTile label="Image" wert={state.unternehmen.image} format={(x) => fmt0(x)} vorher={vorletzter?.image} verlauf={reihe((p) => p.image)} farbe={farbe} hinweis="Skala 0–100" />
+        <KpiTile icon="umsatz" label="Umsatz" wert={letzter?.umsatz ?? 0} format={eurKompakt} vorher={vorletzter?.umsatz} verlauf={reihe((p) => p.umsatz)} farbe={farbe} hinweis={letzter ? quartalLabel(letzter.quartal) : 'noch kein Quartal'} />
+        <KpiTile icon="ebit" label="EBIT" wert={letzter?.ebit ?? 0} format={eurKompakt} vorher={vorletzter?.ebit} verlauf={reihe((p) => p.ebit)} farbe={farbe} />
+        <KpiTile icon="kasse" label="Kasse" wert={state.finanzen.kasse} format={eurKompakt} vorher={vorletzter?.kasse} verlauf={reihe((p) => p.kasse)} farbe={farbe} />
+        <KpiTile icon="marktanteil" label="Marktanteil" wert={letzter?.marktanteil ?? 0} format={(x) => pct(x, 2)} vorher={vorletzter?.marktanteil} verlauf={reihe((p) => p.marktanteil)} farbe={farbe} hinweis="Deutschland, nach Umsatz" />
+        <KpiTile icon="wert" label="Unternehmenswert" wert={letzter?.unternehmenswert ?? bericht?.kennzahlen.eigenkapitalwert ?? 0} format={eurKompakt} vorher={vorletzter?.unternehmenswert} verlauf={reihe((p) => p.unternehmenswert)} farbe={farbe} hinweis="Eigenkapitalwert" />
+        <KpiTile icon="image" label="Image" wert={state.unternehmen.image} format={(x) => fmt0(x)} vorher={vorletzter?.image} verlauf={reihe((p) => p.image)} farbe={farbe} hinweis="Skala 0–100" />
       </div>
 
-      <Card titel="Umsatz und EBIT je Quartal">
+      <Card titel="Umsatz und EBIT je Quartal" icon="umsatz" farbe={farbe}>
         {daten.length >= 2 ? (
           <LinienDiagramm
             daten={daten}
@@ -78,7 +76,7 @@ export function Cockpit() {
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card titel="Nächster Meilenstein: Europa">
+        <Card titel="Nächster Meilenstein: Europa" icon="ziel" farbe="#2563eb">
           <div className="space-y-3">
             <Fortschritt label="Umsatz der letzten 4 Quartale" wert={realUmsatz4Q} ziel={10_000_000} format={eurKompakt} />
             <Fortschritt label="Marktanteil Deutschland" wert={anteilDE} ziel={0.01} format={(x) => pct(x, 2)} />
@@ -86,7 +84,7 @@ export function Cockpit() {
           <p className="muted mt-3 text-xs">Europa wird in einer späteren Ausbaustufe freigeschaltet (Eintritt 2 Mio. €).</p>
         </Card>
 
-        <Card titel="Ausblick aktuelles Quartal" aktion={<button className="btn-ghost" onClick={() => gehe('entscheidungen')}>Entscheiden</button>}>
+        <Card titel="Ausblick aktuelles Quartal" icon="kalender" farbe="#7c3aed" aktion={<button className="btn-ghost" onClick={() => gehe('entscheidungen')}>Entscheiden</button>}>
           {vorschau ? (
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <dt className="muted">Umsatz (Schätzung)</dt>

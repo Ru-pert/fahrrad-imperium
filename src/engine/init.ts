@@ -128,6 +128,7 @@ export function neuesSpiel(opt: NeuesSpielOptionen): GameState {
     ereignisse: [],
     euGesetz: false,
     zeitung: null,
+    erfolge: [],
   };
 
   // Eröffnungsbilanz: Kapitalrücklage als Ausgleichsposten

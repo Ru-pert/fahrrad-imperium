@@ -1,36 +1,38 @@
-import { animate, useMotionValue } from 'framer-motion';
+import { animate, motion, useMotionValue } from 'framer-motion';
+import * as L from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { fmt0, parseZahl } from '../format';
 import { useGame } from '../../store/gameStore';
 
 // ---------------------------------------------------------------- Icons
-const ICONS: Record<string, string> = {
-  cockpit: 'M3 13h4v8H3zM10 3h4v18h-4zM17 9h4v12h-4z',
-  bericht: 'M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7',
-  entscheidungen: 'M4 6h16M4 12h16M4 18h16M9 3v6M15 9v6M8 15v6',
-  markt: 'M3 17l6-6 4 4 8-9M15 6h6v6',
-  mehr: 'M5 12h.01M12 12h.01M19 12h.01',
-  finanzen: 'M12 3v18M16 7.5c0-1.9-1.8-3-4-3s-4 1.1-4 3 1.8 2.6 4 3 4 1.1 4 3-1.8 3-4 3-4-1.1-4-3',
-  werke: 'M3 21V10l6 4V10l6 4V6h6v15zM7 21v-3M12 21v-3M17 21v-3',
-  einstellungen: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19 12a7 7 0 00-.1-1.3l2-1.5-2-3.4-2.3.9a7 7 0 00-2.2-1.3L14 3h-4l-.4 2.4a7 7 0 00-2.2 1.3l-2.3-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .9.1 1.3l-2 1.5 2 3.4 2.3-.9a7 7 0 002.2 1.3L10 21h4l.4-2.4a7 7 0 002.2-1.3l2.3.9 2-3.4-2-1.5c.1-.4.1-.9.1-1.3z',
-  check: 'M5 13l4 4L19 7',
-  firmensitz: 'M4 21V8l8-5 8 5v13M9 21v-6h6v6M8 11h2M14 11h2',
-  plus: 'M12 5v14M5 12h14',
-  minus: 'M5 12h14',
-  chevron: 'M9 6l6 6-6 6',
-  chevronLeft: 'M15 6l-6 6 6 6',
-  up: 'M12 19V5M6 11l6-6 6 6',
-  down: 'M12 5v14M6 13l6 6 6-6',
-  warn: 'M12 3l10 18H2zM12 10v5M12 18h.01',
-  sun: 'M12 16a4 4 0 100-8 4 4 0 000 8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
-  moon: 'M21 13A9 9 0 1111 3a7 7 0 0010 10z',
+const ICONS: Record<string, LucideIcon> = {
+  cockpit: L.LayoutDashboard, zeitung: L.Newspaper, bericht: L.FileBarChart2, entscheidungen: L.SlidersHorizontal,
+  markt: L.TrendingUp, mehr: L.MoreHorizontal, finanzen: L.Landmark, werke: L.Factory, firmensitz: L.Building2,
+  einstellungen: L.Settings, erfolge: L.Trophy, check: L.Check, plus: L.Plus, minus: L.Minus, chevron: L.ChevronRight,
+  chevronLeft: L.ChevronLeft, up: L.ArrowUpRight, down: L.ArrowDownRight, warn: L.AlertTriangle, sun: L.Sun, moon: L.Moon,
+  umsatz: L.Coins, ebit: L.BadgeEuro, kasse: L.Wallet, marktanteil: L.PieChart, wert: L.Gem, image: L.Sparkles,
+  rad: L.Bike, personal: L.Users, fe: L.FlaskConical, marketing: L.Megaphone, preis: L.Tag, produktion: L.Cog,
+  lieferkette: L.Truck, geld: L.Banknote, werk: L.Hammer, regen: L.CloudRain, hitze: L.ThermometerSun, akku: L.BatteryLow,
+  energie: L.Zap, zins: L.Percent, streik: L.Megaphone, stahl: L.Anvil, boom: L.Rocket, gesetz: L.Scale, praemie: L.HandCoins,
+  sport: L.Medal, lasten: L.Package, fachkraft: L.UserX, schnee: L.Snowflake, bluete: L.Flower2, laub: L.Leaf,
+  ereignis: L.Zap, info: L.Info, lager: L.Boxes, testsieg: L.Award, rueckruf: L.Wrench, viral: L.Smartphone, qualitaet: L.ShieldCheck,
+  rakete: L.Rocket, stern: L.Star, schloss: L.Lock, ziel: L.Target, kopieren: L.Copy, vorlesen: L.Volume2, kalender: L.CalendarDays,
 };
 
 export function Icon({ name, className = 'h-5 w-5' }: { name: string; className?: string }) {
+  const C = ICONS[name] ?? L.Circle;
+  return <C className={className} strokeWidth={1.8} aria-hidden="true" />;
+}
+
+/** Runder, farbiger Icon-Hintergrund */
+export function IconBadge({ name, farbe = '#0d9488', groesse = 'md' }: { name: string; farbe?: string; groesse?: 'sm' | 'md' | 'lg' }) {
+  const g = { sm: 'h-7 w-7', md: 'h-9 w-9', lg: 'h-12 w-12' }[groesse];
+  const i = { sm: 'h-4 w-4', md: 'h-5 w-5', lg: 'h-6 w-6' }[groesse];
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <path d={ICONS[name] ?? ''} />
-    </svg>
+    <span className={`inline-grid ${g} shrink-0 place-items-center rounded-xl`} style={{ background: `${farbe}1f`, color: farbe }}>
+      <Icon name={name} className={i} />
+    </span>
   );
 }
 
@@ -63,7 +65,7 @@ export function Sparkline({ werte, farbe = '#0d9488', hoehe = 28 }: { werte: num
   const pts = werte.map((v, i) => `${(i / (werte.length - 1)) * 100},${hoehe - 3 - ((v - min) / span) * (hoehe - 6)}`).join(' ');
   return (
     <svg viewBox={`0 0 100 ${hoehe}`} preserveAspectRatio="none" className="w-full" style={{ height: hoehe }} aria-hidden="true">
-      <polyline points={pts} fill="none" stroke={farbe} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+      <motion.polyline points={pts} fill="none" stroke={farbe} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }} />
     </svg>
   );
 }
@@ -80,6 +82,7 @@ export function Trend({ aktuell, vorher, invert = false }: { aktuell: number; vo
 }
 
 export function KpiTile(p: {
+  icon?: string;
   label: string;
   wert: number;
   format: (x: number) => string;
@@ -89,9 +92,12 @@ export function KpiTile(p: {
   hinweis?: string;
 }) {
   return (
-    <div className="card p-3 sm:p-4">
+    <motion.div className="card p-3 sm:p-4" whileHover={{ y: -3, boxShadow: '0 10px 24px rgba(0,0,0,0.08)' }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
       <div className="flex items-start justify-between gap-2">
-        <div className="muted text-xs font-medium uppercase tracking-wide">{p.label}</div>
+        <div className="flex items-center gap-2">
+          {p.icon && <IconBadge name={p.icon} farbe={p.farbe} groesse="sm" />}
+          <div className="muted text-xs font-medium uppercase tracking-wide">{p.label}</div>
+        </div>
         <Trend aktuell={p.wert} vorher={p.vorher} />
       </div>
       <div className="mt-1 text-xl font-bold sm:text-2xl">
@@ -101,7 +107,7 @@ export function KpiTile(p: {
       <div className="mt-2">
         <Sparkline werte={p.verlauf ?? []} farbe={p.farbe} />
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -122,12 +128,12 @@ export function Fortschritt({ label, wert, ziel, format }: { label: string; wert
   );
 }
 
-export function Card({ titel, children, aktion, className = '' }: { titel?: ReactNode; children: ReactNode; aktion?: ReactNode; className?: string }) {
+export function Card({ titel, children, aktion, className = '', icon, farbe }: { titel?: ReactNode; children: ReactNode; aktion?: ReactNode; className?: string; icon?: string; farbe?: string }) {
   return (
-    <section className={`card p-4 ${className}`}>
+    <section className={`card p-4 transition-shadow hover:shadow-md ${className}`}>
       {(titel || aktion) && (
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-base font-semibold">{titel}</h2>
+          <h2 className="flex items-center gap-2 text-base font-semibold">{icon && <IconBadge name={icon} farbe={farbe} groesse="sm" />}{titel}</h2>
           {aktion}
         </div>
       )}
@@ -253,9 +259,15 @@ export function Toasts() {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-20 z-50 flex flex-col items-center gap-2 px-4 lg:bottom-6" aria-live="polite">
       {hinweise.map((h) => (
-        <div key={h.id} className="pointer-events-auto rounded-xl bg-slate-900 px-4 py-2 text-sm text-white shadow-lg dark:bg-slate-100 dark:text-slate-900">
+        <motion.div
+          key={h.id}
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="pointer-events-auto flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm text-white shadow-lg dark:bg-slate-100 dark:text-slate-900"
+        >
+          <Icon name="info" className="h-4 w-4" />
           {h.text}
-        </div>
+        </motion.div>
       ))}
     </div>
   );

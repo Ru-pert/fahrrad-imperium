@@ -33,7 +33,7 @@ export function LinienDiagramm({
           />
           {serien.length > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}
           {serien.map((s) => (
-            <Line key={s.key} type="monotone" dataKey={s.key} name={s.name} stroke={s.farbe} strokeWidth={2.2} dot={false} isAnimationActive={false} />
+            <Line key={s.key} type="monotone" dataKey={s.key} name={s.name} stroke={s.farbe} strokeWidth={2.2} dot={false} animationDuration={900} />
           ))}
         </LineChart>
       </ResponsiveContainer>
@@ -85,7 +85,7 @@ export function Donut({ teile, hoehe = 200, mitte }: { teile: { name: string; we
     <div className="relative" style={{ height: hoehe }}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Pie data={teile} dataKey="wert" nameKey="name" innerRadius="60%" outerRadius="90%" paddingAngle={1} isAnimationActive={false} stroke="none">
+          <Pie data={teile} dataKey="wert" nameKey="name" innerRadius="60%" outerRadius="90%" paddingAngle={1} animationDuration={900} stroke="none">
             {teile.map((t) => (
               <Cell key={t.name} fill={t.farbe} />
             ))}
@@ -110,7 +110,7 @@ export function Balken({ daten, hoehe = 200, farbe = '#0d9488', format = fmt0 }:
           <XAxis dataKey="name" tick={achse} />
           <YAxis tick={achse} width={50} tickFormatter={(v: number) => format(v)} />
           <Tooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, fontSize: 12 }} formatter={(v: number) => format(v)} />
-          <Bar dataKey="wert" isAnimationActive={false}>
+          <Bar dataKey="wert" animationDuration={800}>
             {daten.map((d, i) => (
               <Cell key={i} fill={d.farbe ?? farbe} />
             ))}

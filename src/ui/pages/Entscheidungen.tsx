@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent } from 'react';
 import {
   HQ_STUFEN,
@@ -22,7 +23,7 @@ import { lernkurve } from '../../engine/production';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
 import { usePreview } from '../hooks';
-import { Card, NumberField, Warnung } from '../components/ui';
+import { Card, IconBadge, NumberField, Warnung } from '../components/ui';
 import { BikeIcon } from '../components/BikeIcon';
 import { HebelPanel, HebelZeile } from '../components/Hebel';
 import { useHebel, type HebelWirkung } from '../hebel';
@@ -401,7 +402,15 @@ function Vorschau({ vorschau, kompakt = false }: { vorschau: QuarterReport | nul
   const zeile = (l: string, v: ReactNode, warn = false) => (
     <div key={l} className="flex items-baseline justify-between gap-3 py-1 text-sm">
       <span className="muted">{l}</span>
-      <strong className={`tnum ${warn ? 'text-rose-600 dark:text-rose-400' : ''}`}>{v}</strong>
+      <motion.strong
+        key={typeof v === 'string' ? v : undefined}
+        initial={{ backgroundColor: 'rgba(253, 230, 138, 0.9)' }}
+        animate={{ backgroundColor: 'rgba(253, 230, 138, 0)' }}
+        transition={{ duration: 1 }}
+        className={`tnum rounded px-1 ${warn ? 'text-rose-600 dark:text-rose-400' : ''}`}
+      >
+        {v}
+      </motion.strong>
     </div>
   );
   return (
@@ -428,17 +437,19 @@ function Vorschau({ vorschau, kompakt = false }: { vorschau: QuarterReport | nul
 interface Schritt {
   id: string;
   titel: string;
+  icon: string;
+  farbe: string;
   render: (c: Ctx) => ReactNode;
 }
 const SCHRITTE: Schritt[] = [
-  { id: 'preise', titel: 'Preise', render: (c) => <Preise {...c} /> },
-  { id: 'produktion', titel: 'Produktion', render: (c) => <Produktion {...c} /> },
-  { id: 'marketing', titel: 'Marketing', render: (c) => <Marketing {...c} /> },
-  { id: 'fe', titel: 'F&E', render: (c) => <ForschungEntwicklung {...c} /> },
-  { id: 'personal', titel: 'Personal', render: (c) => <Personal {...c} /> },
-  { id: 'werk', titel: 'Werk & Linien', render: (c) => <WerkBereich {...c} /> },
-  { id: 'lieferkette', titel: 'Lieferkette', render: (c) => <Lieferkette {...c} /> },
-  { id: 'finanzen', titel: 'Finanzen', render: (c) => <FinanzenBereich {...c} /> },
+  { id: 'preise', icon: 'preis', farbe: '#0d9488', titel: 'Preise', render: (c) => <Preise {...c} /> },
+  { id: 'produktion', icon: 'produktion', farbe: '#475569', titel: 'Produktion', render: (c) => <Produktion {...c} /> },
+  { id: 'marketing', icon: 'marketing', farbe: '#db2777', titel: 'Marketing', render: (c) => <Marketing {...c} /> },
+  { id: 'fe', icon: 'fe', farbe: '#7c3aed', titel: 'F&E', render: (c) => <ForschungEntwicklung {...c} /> },
+  { id: 'personal', icon: 'personal', farbe: '#2563eb', titel: 'Personal', render: (c) => <Personal {...c} /> },
+  { id: 'werk', icon: 'werk', farbe: '#b45309', titel: 'Werk & Linien', render: (c) => <WerkBereich {...c} /> },
+  { id: 'lieferkette', icon: 'lieferkette', farbe: '#0891b2', titel: 'Lieferkette', render: (c) => <Lieferkette {...c} /> },
+  { id: 'finanzen', icon: 'geld', farbe: '#16a34a', titel: 'Finanzen', render: (c) => <FinanzenBereich {...c} /> },
 ];
 
 export function Entscheidungen() {
@@ -476,18 +487,18 @@ export function Entscheidungen() {
           <div className="grid gap-4 xl:grid-cols-2">
             {SCHRITTE.map((s) => (
               <div key={s.id} className={s.id === 'werk' ? 'xl:col-span-2' : ''}>
-                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide muted">{s.titel}</h2>
+                <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><IconBadge name={s.icon} farbe={s.farbe} groesse="sm" /><span className="muted">{s.titel}</span></h2>
                 {s.render(ctx)}
               </div>
             ))}
           </div>
         </div>
         <aside className="space-y-4 xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto xl:pb-4">
-          <Card titel="Live-Vorschau">
+          <Card titel="Live-Vorschau" icon="cockpit">
             <Vorschau vorschau={vorschau} />
             <button className="btn-primary mt-3 w-full" onClick={bestaetigen} disabled={!!state.spielende}>Quartal abschließen</button>
           </Card>
-          <Card titel="Was bringt welcher Hebel?">
+          <Card titel="Was bringt welcher Hebel?" icon="ziel" farbe="#7c3aed">
             <HebelPanel hebel={hebel} />
           </Card>
         </aside>

@@ -5,6 +5,7 @@ import { zeitungAlsText } from '../../io/newspaperText';
 import { useGame } from '../../store/gameStore';
 import { eurKompakt, fmt0, pct } from '../format';
 import { BikeIcon } from '../components/BikeIcon';
+import { Icon } from '../components/ui';
 
 const papier = 'bg-[#fbf7ee] text-[#1c1917] dark:bg-[#1f1c17] dark:text-[#f1ece2]';
 const serif = { fontFamily: 'Georgia, "Times New Roman", serif' };
@@ -110,7 +111,7 @@ function Blatt({ z }: { z: ZeitungTyp }) {
             <div className="mb-5 grid grid-cols-2 gap-5">
               {ereignisse.map((a) => (
                 <section key={a.titel} className="border-2 border-current p-4">
-                  <div className="text-xs font-bold uppercase tracking-[0.2em] text-rose-700 dark:text-rose-400">Achtung, wirkt im kommenden Quartal</div>
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-rose-700 dark:text-rose-400"><Icon name="ereignis" className="h-4 w-4" /> Achtung, wirkt im kommenden Quartal</div>
                   <h3 className="mt-1 text-2xl font-bold leading-tight">{a.titel}</h3>
                   <p className="mt-2 leading-relaxed">{a.text}</p>
                   {a.wirkung && <p className="mt-2 bg-black/10 px-2 py-1 text-sm font-bold dark:bg-white/10">Auswirkung: {a.wirkung}</p>}
@@ -242,7 +243,7 @@ export function Zeitung() {
         <label className="flex min-h-[44px] items-center gap-2 text-sm">
           <input type="checkbox" className="h-4 w-4" checked={lage} onChange={(e) => setLage(e.target.checked)} /> „Lage in Zahlen“ anhängen
         </label>
-        <button className="btn-ghost" onClick={kopieren}>Zeitung kopieren</button>
+        <button className="btn-ghost" onClick={kopieren}><Icon name="kopieren" className="h-4 w-4" />Zeitung kopieren</button>
         <Vorlesen text={text} />
         <button className="btn-primary" onClick={() => gehe('entscheidungen')}>Zu den Entscheidungen für {quartalLabel(state.quartal)}</button>
       </div>

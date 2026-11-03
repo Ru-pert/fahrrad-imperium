@@ -12,3 +12,4 @@ export { PRODUKTE, PRODUKT_IDS, STARTPRODUKTE, LIEFERANTEN, LINIENTYPEN, WARTUNG
 export { REGIONEN, REGION_IDS } from './config/markets';
 export { HQ_STUFEN, HQ_EXTRAS } from './config/hq';
 export { KONKURRENTEN } from './config/competitors';
+export { ERFOLGE, type ErfolgDef } from './achievements';

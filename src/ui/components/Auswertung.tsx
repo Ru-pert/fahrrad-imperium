@@ -1,10 +1,12 @@
 import { motion } from 'framer-motion';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Konfetti, RechenAnimation } from './Effekte';
+import { Abzeichen } from './Abzeichen';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { PRODUKTE, SPIELER_ID, quartalLabel, type ProductId, type QuarterReport } from '../../engine';
+import { ERFOLGE, PRODUKTE, SPIELER_ID, quartalLabel, type ProductId, type QuarterReport } from '../../engine';
 import { useGame } from '../../store/gameStore';
 import { eurKompakt, fmt0, fmt2, pct } from '../format';
-import { AnimatedNumber, Icon } from './ui';
+import { AnimatedNumber, Icon, IconBadge } from './ui';
 import { BikeIcon, PRODUKT_FARBE } from './BikeIcon';
 import { Donut } from './charts';
 
@@ -48,11 +50,11 @@ function Stempel({ quartal }: { quartal: number }) {
   );
 }
 
-function Kachel({ label, wert, vorher, format, delay }: { label: string; wert: number; vorher?: number; format: (x: number) => string; delay: number }) {
+function Kachel({ label, wert, vorher, format, delay, icon }: { label: string; wert: number; vorher?: number; format: (x: number) => string; delay: number; icon: string }) {
   const delta = vorher !== undefined && vorher !== 0 ? wert / Math.abs(vorher) - Math.sign(vorher) : undefined;
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }} className="card p-3">
-      <div className="muted text-xs font-medium uppercase tracking-wide">{label}</div>
+      <div className="flex items-center gap-2"><IconBadge name={icon} groesse="sm" /><span className="muted text-xs font-medium uppercase tracking-wide">{label}</span></div>
       <div className="mt-1 text-xl font-bold sm:text-2xl">
         <AnimatedNumber value={wert} format={format} />
       </div>
@@ -65,10 +67,10 @@ function Kachel({ label, wert, vorher, format, delay }: { label: string; wert: n
   );
 }
 
-function Abschnitt({ titel, untertitel, children, delay = 0 }: { titel: string; untertitel?: string; children: React.ReactNode; delay?: number }) {
+function Abschnitt({ titel, untertitel, children, delay = 0, icon }: { titel: string; untertitel?: string; children: React.ReactNode; delay?: number; icon?: string }) {
   return (
     <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }} className="card p-4">
-      <h3 className="text-base font-bold">{titel}</h3>
+      <h3 className="flex items-center gap-2 text-base font-bold">{icon && <IconBadge name={icon} groesse="sm" />}{titel}</h3>
       {untertitel && <p className="muted mb-2 text-xs">{untertitel}</p>}
       {children}
     </motion.section>
@@ -82,6 +84,11 @@ export function Auswertung() {
   const state = useGame((s) => s.state);
   const historie = useGame((s) => s.historie);
   const [zeitraum, setZeitraum] = useState<Zeitraum>('quartal');
+  const frisch = useGame((s) => s.auswertungFrisch);
+  const reduziert = useGame((s) => s.reduziert);
+  const [fertigFuer, setFertigFuer] = useState<number | null>(null);
+  const phase: 'rechnen' | 'fertig' = bericht && frisch && fertigFuer !== bericht.quartal ? 'rechnen' : 'fertig';
+  const rechnenFertig = useCallback(() => setFertigFuer(bericht?.quartal ?? null), [bericht]);
 
   useEffect(() => {
     setZeitraum('quartal');
@@ -161,6 +168,17 @@ export function Auswertung() {
   }, [bericht, state, historie, zeitraum]);
 
   if (!bericht || !state || !daten) return null;
+  if (phase === 'rechnen') {
+    return (
+      <motion.div className="fixed inset-0 z-[70] bg-[var(--bg)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} role="status" aria-live="polite">
+        <RechenAnimation dauer={reduziert ? 300 : 2400} fertig={rechnenFertig} />
+      </motion.div>
+    );
+  }
+  const frueher = historie.filter((h) => h.report.quartal < bericht.quartal).map((h) => h.report);
+  const rekordUmsatz = frueher.length > 0 && bericht.guv.umsatz > Math.max(...frueher.map((r) => r.guv.umsatz));
+  const wiederGewinn = frueher.length > 0 && bericht.guv.ebit > 0 && frueher[frueher.length - 1].guv.ebit <= 0;
+  const feier = frisch && !state.spielende && (rekordUmsatz || wiederGewinn || (bericht.neueErfolge?.length ?? 0) > 0);
   const { jetzt, vorher } = daten;
   const titelZeitraum =
     zeitraum === 'jahr' && daten.periode.length > 1
@@ -182,7 +200,31 @@ export function Auswertung() {
       aria-label={`Auswertung ${quartalLabel(bericht.quartal)}`}
     >
       <div className="mx-auto max-w-4xl space-y-4 px-4 pb-32 pt-6" style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top))' }}>
+        {feier && !reduziert && <Konfetti />}
         <Stempel quartal={bericht.quartal} />
+        {feier && (
+          <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.5, type: 'spring' }} className="mx-auto w-fit rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-amber-900">
+            {rekordUmsatz ? '🏆 Rekordumsatz!' : wiederGewinn ? '🎉 Zurück in den schwarzen Zahlen!' : '⭐ Neuer Erfolg freigeschaltet!'}
+          </motion.div>
+        )}
+        {bericht.neueErfolge?.length > 0 && (
+          <div className="card mx-auto w-fit p-4 text-center">
+            <div className="mb-2 text-sm font-bold uppercase tracking-widest text-amber-700">Neue Erfolge!</div>
+            <div className="flex flex-wrap justify-center gap-5">
+              {bericht.neueErfolge.map((id, i) => {
+                const e = ERFOLGE.find((x) => x.id === id);
+                if (!e) return null;
+                return (
+                  <div key={id} className="flex w-28 flex-col items-center">
+                    <Abzeichen e={e} erreicht groesse={72} animiert={!reduziert} verzoegerung={0.6 + i * 0.25} />
+                    <div className="mt-1 text-sm font-bold">{e.name}</div>
+                    <div className="muted text-[11px] leading-tight">{e.bedingung}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="muted text-center text-sm">
           Das Quartal ist abgerechnet und gespeichert. Du bist jetzt in <strong className="text-[var(--ink)]">{quartalLabel(state.quartal)}</strong>.
           {platz > 0 && <> Nach Umsatz liegst du auf <strong className="text-[var(--ink)]">Platz {platz} von {daten.rangliste.length}</strong>.</>}
@@ -204,10 +246,10 @@ export function Auswertung() {
         <p className="muted -mt-2 text-center text-xs">Zeitraum: {titelZeitraum}{zeitraum === 'jahr' && daten.periode.length < 4 ? ` (erst ${daten.periode.length} Quartal${daten.periode.length > 1 ? 'e' : ''} gespielt)` : ''}</p>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Kachel label="Umsatz" wert={jetzt.umsatz} vorher={vorher?.umsatz} format={eurKompakt} delay={0.3} />
-          <Kachel label="EBIT" wert={jetzt.ebit} vorher={vorher?.ebit} format={eurKompakt} delay={0.4} />
-          <Kachel label="Verkaufte Räder" wert={jetzt.absatz} vorher={vorher?.absatz} format={fmt0} delay={0.5} />
-          <Kachel label="Marktanteil" wert={jetzt.anteil} vorher={vorher?.anteil} format={(x) => pct(x, 2)} delay={0.6} />
+          <Kachel icon="umsatz" label="Umsatz" wert={jetzt.umsatz} vorher={vorher?.umsatz} format={eurKompakt} delay={0.3} />
+          <Kachel icon="ebit" label="EBIT" wert={jetzt.ebit} vorher={vorher?.ebit} format={eurKompakt} delay={0.4} />
+          <Kachel icon="rad" label="Verkaufte Räder" wert={jetzt.absatz} vorher={vorher?.absatz} format={fmt0} delay={0.5} />
+          <Kachel icon="marktanteil" label="Marktanteil" wert={jetzt.anteil} vorher={vorher?.anteil} format={(x) => pct(x, 2)} delay={0.6} />
         </div>
 
         {bericht.meldungen.length > 0 && (
@@ -218,7 +260,7 @@ export function Auswertung() {
           </div>
         )}
 
-        <Abschnitt titel="Verkaufte Fahrräder im Vergleich" untertitel="Stückzahlen je Fahrradtyp – du und deine Konkurrenz" delay={0.7}>
+        <Abschnitt icon="rad" titel="Verkaufte Fahrräder im Vergleich" untertitel="Stückzahlen je Fahrradtyp – du und deine Konkurrenz" delay={0.7}>
           <div className="mb-2 flex flex-wrap gap-3">
             {daten.produkte.map((p) => (
               <span key={p} className="flex items-center gap-1 text-xs"><BikeIcon produkt={p} className="h-5 w-8" /> {PRODUKTE[p].name}</span>
@@ -240,7 +282,7 @@ export function Auswertung() {
           </div>
         </Abschnitt>
 
-        <Abschnitt titel="Marktanteile in Deutschland" untertitel="Anteil am verkauften Volumen je Segment – grau ist der Restmarkt aus vielen kleinen Anbietern" delay={0.8}>
+        <Abschnitt icon="marktanteil" titel="Marktanteile in Deutschland" untertitel="Anteil am verkauften Volumen je Segment – grau ist der Restmarkt aus vielen kleinen Anbietern" delay={0.8}>
           <div className="grid gap-4 sm:grid-cols-2">
             {daten.anteile.map((a) => {
               const ohneRest = a.teile.filter((t) => !t.name.startsWith('Restmarkt'));
@@ -264,7 +306,7 @@ export function Auswertung() {
           </div>
         </Abschnitt>
 
-        <Abschnitt titel="Testmagazin „Rad & Tat“: Technikindex" untertitel="Wer mehr in F&E investiert, hat die bessere Technik. Unter 100 Punkten gilt ein Rad als nicht marktfähig." delay={0.9}>
+        <Abschnitt icon="testsieg" titel="Testmagazin „Rad & Tat“: Technikindex" untertitel="Wer mehr in F&E investiert, hat die bessere Technik. Unter 100 Punkten gilt ein Rad als nicht marktfähig." delay={0.9}>
           <div className="grid gap-4 sm:grid-cols-2">
             {daten.technik.map((t) => (
               <div key={t.produkt}>
@@ -288,7 +330,7 @@ export function Auswertung() {
           </div>
         </Abschnitt>
 
-        <Abschnitt titel="Unternehmen im Vergleich" untertitel="Umsatz, Image (0–100), Produktqualität (0,8–1,2) und Markenbekanntheit in Deutschland" delay={1.0}>
+        <Abschnitt icon="ziel" titel="Unternehmen im Vergleich" untertitel="Umsatz, Image (0–100), Produktqualität (0,8–1,2) und Markenbekanntheit in Deutschland" delay={1.0}>
           <div className="space-y-3">
             {daten.rangliste.map((f, i) => {
               const maxUmsatz = Math.max(...daten.rangliste.map((x) => x.umsatz), 1);
