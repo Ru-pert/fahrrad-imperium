@@ -37,6 +37,7 @@ interface Store {
   entwurfZuruecksetzen: () => void;
   abschliessen: () => QuarterReport | null;
   frischerBerichtSchliessen: () => void;
+  zeigeAuswertung: (r: QuarterReport) => void;
   speicherstand: (name: string) => Spielstand | null;
   stand: () => Spielstand | null;
   speichereSlot: (slot: number | 'auto', name: string) => Promise<void>;
@@ -139,6 +140,10 @@ export const useGame = create<Store>((set, get) => ({
 
   frischerBerichtSchliessen() {
     set({ frischerBericht: null });
+  },
+
+  zeigeAuswertung(r) {
+    set({ frischerBericht: r });
   },
 
   stand() {

@@ -324,6 +324,10 @@ export interface SegmentBericht {
   absatz: Record<string, number>;
   preise: Record<string, number>;
   marketing: Record<string, number>;
+  /** Technikindex laut Testmagazin „Rad & Tat“ je Anbieter */
+  technikIndex: Record<string, number>;
+  /** Qualität je Anbieter */
+  qualitaet: Record<string, number>;
 }
 
 export interface WerkBericht {
@@ -396,6 +400,9 @@ export interface QuarterReport {
     umsatz: number;
     ebit: number;
     bilanzsumme: number;
+    image: number;
+    qualitaet: number;
+    bekanntheit: number;
   }[];
   warnungen: string[];
   meldungen: string[];

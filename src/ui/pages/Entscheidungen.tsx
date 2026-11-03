@@ -62,6 +62,15 @@ function Segment<T extends string>({ wert, optionen, onChange, label }: { wert: 
   );
 }
 
+/**
+ * Feste Reglerskala für Budgets: hängt nur vom letzten Quartalsumsatz ab,
+ * nicht vom eingestellten Wert (sonst wandert das Ende beim Ziehen mit).
+ */
+function budgetSkala(state: GameState): number {
+  const umsatz = state.kpiHistorie[state.kpiHistorie.length - 1]?.umsatz ?? 2_400_000;
+  return Math.max(200_000, Math.ceil((umsatz * 0.1) / 50_000) * 50_000);
+}
+
 function Gesperrt({ ab }: { ab: string }) {
   return <p className="muted text-sm">Wird {ab} freigeschaltet – bis dahin setzt die Engine sinnvolle Standardwerte.</p>;
 }
@@ -178,7 +187,7 @@ function Marketing({ state, d, aendere, vorschau }: Ctx) {
                 unit="€"
                 value={m}
                 min={0}
-                sliderMax={Math.max(300_000, m * 1.5)}
+                sliderMax={budgetSkala(state)}
                 step={1000}
                 tastenSchritt={5000}
                 farbe={PRODUKT_FARBE[p]}
@@ -206,7 +215,7 @@ function ForschungEntwicklung({ state, d, aendere }: Ctx) {
             unit="€"
             value={fe}
             min={0}
-            sliderMax={Math.max(300_000, fe * 1.5)}
+            sliderMax={budgetSkala(state)}
             step={1000}
             tastenSchritt={5000}
             farbe={PRODUKT_FARBE[p]}
@@ -344,7 +353,7 @@ function Lieferkette({ state, d, aendere, stufe }: Ctx) {
             unit="€"
             value={d.nachhaltigkeitsbudget}
             min={0}
-            sliderMax={Math.max(200_000, d.nachhaltigkeitsbudget * 1.5)}
+            sliderMax={budgetSkala(state)}
             step={1000}
             tastenSchritt={5000}
             onChange={(v) => aendere((x) => { x.nachhaltigkeitsbudget = v; })}

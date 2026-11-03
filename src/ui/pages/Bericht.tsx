@@ -8,6 +8,7 @@ export function Bericht() {
   const bericht = useLetzterBericht();
   const state = useGame((s) => s.state)!;
   const gehe = useGame((s) => s.gehe);
+  const zeige = useGame((s) => s.zeigeAuswertung);
   if (!bericht) {
     return (
       <div className="space-y-4">
@@ -24,7 +25,8 @@ export function Bericht() {
     <div className="space-y-4">
       <div>
         <h1 className="h-page">Quartalsbericht {quartalLabel(bericht.quartal)}</h1>
-        <p className="muted text-sm">Ergebnisse des Vorquartals und Branchenzahlen. (Die Zeitung „Der Kettenblatt-Kurier“ folgt in einer späteren Ausbaustufe.)</p>
+        <p className="muted text-sm">Ergebnisse des Vorquartals und Branchenzahlen.</p>
+        <button className="btn-primary mt-3" onClick={() => zeige(bericht)}>Grafische Auswertung mit Konkurrenzvergleich öffnen</button>
       </div>
 
       {bericht.meldungen.map((m) => <Warnung key={m}>{m}</Warnung>)}

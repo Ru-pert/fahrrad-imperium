@@ -428,13 +428,16 @@ export function simulateQuarter(
 
       const preise: Record<string, number> = {};
       const mark: Record<string, number> = {};
+      const qual: Record<string, number> = {};
       for (const a of anbieter) {
         preise[a.id] = a.preis;
         mark[a.id] = a.marketing;
+        qual[a.id] = a.qualitaet;
       }
       segmente.push({
         region: r, produkt: p, volumen: out.volumen, durchschnittspreis: out.pBar, tBar: out.tBar,
         anteile: out.anteile, absatz: { ...out.absatz, rest: out.restAbsatz }, preise, marketing: mark,
+        technikIndex: { ...out.technikIndex }, qualitaet: qual,
       });
       angebote.push({
         produkt: p, region: r, preis, marketing, nachfrage: out.nachfrage[SPIELER_ID] ?? 0, absatz,
@@ -681,6 +684,7 @@ export function simulateQuarter(
     }
     konkurrenzBericht.push({
       id: k.id, name: k.name, farbe: k.farbe, status: k.status, umsatz: k.letzterUmsatz, ebit: k.letztesEbit, bilanzsumme: k.bilanzsumme,
+      image: k.image, qualitaet: k.qualitaet, bekanntheit: k.bekanntheit.DE ?? 0,
     });
   }
 
