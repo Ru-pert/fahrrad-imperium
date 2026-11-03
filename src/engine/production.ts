@@ -102,4 +102,7 @@ export function neueLinie(id: string, typ: keyof typeof LINIENTYPEN): Linie {
   };
 }
 
+/** Linienplätze eines Werks (Halle) */
+export const hallenPlaetze = (w: Werk): number => w.hallenPlaetze ?? BALANCE.produktion.maxLinienProHalle;
+
 export const aktiveLinien = (w: Werk): Linie[] => w.linien.filter((l) => l.status === 'aktiv');

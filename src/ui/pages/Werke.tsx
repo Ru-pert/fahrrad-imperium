@@ -4,6 +4,7 @@ import { eur, eurKompakt, fmt0, fmt2, pct } from '../format';
 import { LinienDiagramm } from '../components/charts';
 import { Badge, Card, Tabelle } from '../components/ui';
 import { useLetzterBericht, usePreview } from '../hooks';
+import { WerksAnsicht } from '../components/Werk';
 
 const FARBEN = ['#0d9488', '#6366f1', '#d97706', '#db2777'];
 
@@ -34,6 +35,7 @@ export function Werke() {
         const aus = vw?.auslastung ?? wr?.auslastung ?? 0;
         return (
           <Card key={w.id} titel={`Werk ${w.name}`} aktion={<Badge>{w.region}</Badge>}>
+            <div className="mb-4"><WerksAnsicht state={state} werk={w} wr={vw ?? wr} produktion={bericht?.produkte.reduce((s, p) => s + p.produziert, 0) ?? 0} /></div>
             <div className="mb-1 flex justify-between text-sm">
               <span>Auslastung (Vorschau für dieses Quartal)</span>
               <strong className="tnum">{pct(aus, 0)}</strong>

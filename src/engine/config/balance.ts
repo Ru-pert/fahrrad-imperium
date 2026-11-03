@@ -103,6 +103,8 @@ export const BALANCE = {
     verfuegbarkeitBasis: 0.95,
     verfuegbarkeitErholung: 0.05,
     maxLinienProHalle: 4,
+    /** Hallenerweiterung (8): +4 Linienplätze */
+    hallenErweiterung: { kosten: 5_000_000, plaetze: 4, bauzeit: 1, abschreibungQuartale: 40 },
     maxNeueLinienProQuartal: 4,
     linienBauzeit: 1,
   },

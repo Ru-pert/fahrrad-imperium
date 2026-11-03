@@ -382,3 +382,24 @@ describe('Ereignisse und Zeitung', () => {
     expect(mit / ohne).toBeGreaterThan(1.15);
   });
 });
+
+describe('Hallenerweiterung', () => {
+  it('ist erst bei voller Halle möglich und bringt 4 Plätze', () => {
+    let s = neuesSpiel({ firmenname: 'P', farbe: '#000', schwierigkeit: 'normal', profi: true, seed: 3 });
+    s.finanzen.kasse += 18_500_000;
+    s.finanzen.kapitalruecklage += 18_500_000;
+    let d = standardEntscheidungen(s);
+    d.werke['DE-1'].halleErweitern = true;
+    let r = simulateQuarter(s, d);
+    expect(r.report.warnungen.some((w) => w.includes('erst erweitert'))).toBe(true);
+    d = standardEntscheidungen(r.nextState);
+    d.werke['DE-1'].linienKaufen = [{ typ: 'B', anzahl: 2 }];
+    r = simulateQuarter(r.nextState, d);
+    s = r.nextState;
+    d = standardEntscheidungen(s);
+    d.werke['DE-1'].halleErweitern = true;
+    r = simulateQuarter(s, d);
+    expect(Math.abs(r.report.bilanz.aktiva - r.report.bilanz.passiva)).toBeLessThan(0.01);
+    expect(r.nextState.werke[0].hallenPlaetze).toBe(8);
+  });
+});

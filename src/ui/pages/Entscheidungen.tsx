@@ -3,7 +3,6 @@ import {
   HQ_STUFEN,
   KOMPONENTEN,
   LIEFERANTEN,
-  LINIENTYPEN,
   PRODUKTE,
   WARTUNG,
   aktiveProdukte,
@@ -14,7 +13,6 @@ import {
   schuldenGesamt,
   type GameState,
   type Decisions,
-  type LinienTyp,
   type ProductId,
   type QuarterReport,
   type SupplierLevel,
@@ -26,6 +24,9 @@ import { eur, eurKompakt, fmt0, pct } from '../format';
 import { usePreview } from '../hooks';
 import { Card, NumberField, Warnung } from '../components/ui';
 import { BikeIcon } from '../components/BikeIcon';
+import { HebelPanel, HebelZeile } from '../components/Hebel';
+import { useHebel, type HebelWirkung } from '../hebel';
+import { LinienVerwaltung, WerksAnsicht } from '../components/Werk';
 import { KapazitaetsGrafik, PersonalErklaerung, TechnikVergleich } from '../components/Erklaer';
 
 type AendereFn = (fn: (d: Decisions) => void) => void;
@@ -84,9 +85,10 @@ interface Ctx {
   aendere: AendereFn;
   vorschau: QuarterReport | null;
   stufe: 1 | 2 | 3;
+  hebel: HebelWirkung[] | null;
 }
 
-function Preise({ state, d, aendere, vorschau }: Ctx) {
+function Preise({ state, d, aendere, vorschau, hebel }: Ctx) {
   return (
     <div className="space-y-2">
       {aktiveProdukte(state).map((p) =>
@@ -115,6 +117,8 @@ function Preise({ state, d, aendere, vorschau }: Ctx) {
                   Geschätzte Nachfrage {fmt0(ang.nachfrage)} Stück · Absatz {fmt0(ang.absatz)} · Marktanteil {pct(ang.marktanteil, 2)}
                 </div>
               )}
+              <HebelZeile h={hebel?.find((h) => h.id === `preis-${p}`)} />
+              <HebelZeile h={hebel?.find((h) => h.id === `preis+${p}`)} />
             </Card>
           );
         }),
@@ -123,7 +127,7 @@ function Preise({ state, d, aendere, vorschau }: Ctx) {
   );
 }
 
-function Produktion({ state, d, aendere, vorschau }: Ctx) {
+function Produktion({ state, d, aendere, vorschau, hebel }: Ctx) {
   const produkte = aktiveProdukte(state);
   return (
     <div className="space-y-2">
@@ -142,8 +146,8 @@ function Produktion({ state, d, aendere, vorschau }: Ctx) {
               const menge = d.produktion[p]?.[w.id] ?? 0;
               const pb = vorschau?.produkte.find((x) => x.produkt === p);
               return (
+                <div key={p}>
                 <NumberField
-                  key={p}
                   label={`${PRODUKTE[p].name} (${PRODUKTE[p].montageStunden} Std./Stück)`}
                   unit="Stk."
                   value={menge}
@@ -155,6 +159,8 @@ function Produktion({ state, d, aendere, vorschau }: Ctx) {
                   onChange={(v) => aendere((x) => { x.produktion[p] = { ...x.produktion[p], [w.id]: Math.round(v) }; })}
                   hint={pb ? `Lager ${fmt0(state.produkte[p]!.lager.stueck)} · Herstellkosten ${eur(pb.hkProStueck)}/Stück` : undefined}
                 />
+                <HebelZeile h={hebel?.find((h) => h.id === `prod-${p}`)} />
+                </div>
               );
             })}
           </Card>
@@ -164,7 +170,7 @@ function Produktion({ state, d, aendere, vorschau }: Ctx) {
   );
 }
 
-function Marketing({ state, d, aendere, vorschau }: Ctx) {
+function Marketing({ state, d, aendere, vorschau, hebel }: Ctx) {
   return (
     <div className="space-y-2">
       <Card titel="Marketingbudget je Quartal">
@@ -174,8 +180,9 @@ function Marketing({ state, d, aendere, vorschau }: Ctx) {
             const seg = vorschau?.segmente.find((s) => s.produkt === p && s.region === r);
             const ang = vorschau?.angebote.find((a) => a.produkt === p && a.region === r);
             return (
+              <div key={`${p}${r}`}>
               <NumberField
-                key={`${p}${r}`}
+
                 label={`${PRODUKTE[p].name}${aktiveRegionen(state).length > 1 ? ` · ${r}` : ''}`}
                 unit="€"
                 value={m}
@@ -187,6 +194,8 @@ function Marketing({ state, d, aendere, vorschau }: Ctx) {
                 onChange={(v) => aendere((x) => { x.marketing[p] = { ...x.marketing[p], [r]: v }; })}
                 hint={ang && seg ? `Marketingfaktor wirkt mit abnehmendem Grenzertrag · Marktanteil ${pct(ang.marktanteil, 2)}` : undefined}
               />
+              <HebelZeile h={hebel?.find((h) => h.id === `mkt-${p}`)} />
+              </div>
             );
           }),
         )}
@@ -196,7 +205,7 @@ function Marketing({ state, d, aendere, vorschau }: Ctx) {
   );
 }
 
-function ForschungEntwicklung({ state, d, aendere, vorschau }: Ctx) {
+function ForschungEntwicklung({ state, d, aendere, vorschau, hebel }: Ctx) {
   return (
     <Card titel="F&E-Budget je Quartal">
       {aktiveProdukte(state).map((p) => {
@@ -215,6 +224,7 @@ function ForschungEntwicklung({ state, d, aendere, vorschau }: Ctx) {
             onChange={(v) => aendere((x) => { x.fe[p] = v; })}
             hint={`F&E-Stock ${eur(state.produkte[p]!.fe)} – veraltet um 5 % je Quartal`}
           />
+          <HebelZeile h={hebel?.find((h) => h.id === `fe-${p}`)} />
           <TechnikVergleich state={state} p={p} fe={fe} vorschau={vorschau} />
           </div>
         );
@@ -223,7 +233,7 @@ function ForschungEntwicklung({ state, d, aendere, vorschau }: Ctx) {
   );
 }
 
-function Personal({ state, d, aendere, stufe, vorschau }: Ctx) {
+function Personal({ state, d, aendere, vorschau, hebel }: Ctx) {
   return (
     <div className="space-y-2">
       {state.werke.map((w) => {
@@ -231,10 +241,6 @@ function Personal({ state, d, aendere, stufe, vorschau }: Ctx) {
         if (!e) return null;
         const maxPlus = Math.floor(w.mitarbeitende * 0.5);
         const maxMinus = Math.floor(w.mitarbeitende * 0.2);
-        const freiePlaetze = 4 - w.linien.length;
-        const typen: LinienTyp[] = stufe >= 3 ? ['A', 'B', 'C'] : ['B'];
-        const kaufAnzahl = (t: LinienTyp) => e.linienKaufen.find((k) => k.typ === t)?.anzahl ?? 0;
-        const gesamtKauf = e.linienKaufen.reduce((s, k) => s + k.anzahl, 0);
         return (
           <Card key={w.id} titel={`Werk ${w.name}`}>
             <div className="muted mb-2 text-sm tnum">{w.mitarbeitende} Mitarbeitende · Motivation {w.motivation.toFixed(2).replace('.', ',')} · Kompetenz {w.kompetenz.toFixed(2).replace('.', ',')}</div>
@@ -247,6 +253,7 @@ function Personal({ state, d, aendere, stufe, vorschau }: Ctx) {
               onChange={(v) => aendere((x) => { x.werke[w.id].personalAenderung = Math.round(v); })}
               hint={`Erlaubt: −${maxMinus} bis +${maxPlus} · Einstellung 3.000 €, Entlassung 6.000 € je Person`}
             />
+            <HebelZeile h={hebel?.find((h) => h.id === 'personal')} />
             <PersonalErklaerung state={state} wr={vorschau?.werke.find((x) => x.id === w.id)} />
             <NumberField
               label="Schulungsbudget je Mitarbeitende/n"
@@ -259,40 +266,6 @@ function Personal({ state, d, aendere, stufe, vorschau }: Ctx) {
               onChange={(v) => aendere((x) => { x.werke[w.id].schulungProKopf = v; })}
               hint="Hebt Qualität, Kompetenz und Motivation – unter 300 € steigt das Streikrisiko"
             />
-            <div className="mt-3 border-t border-[var(--line)] pt-3">
-              <div className="text-sm font-medium">Neue Fertigungslinien (Bauzeit 1 Quartal)</div>
-              <div className="muted mb-2 text-xs">Aktuell {w.linien.length} von 4 Linien in der Halle{freiePlaetze <= 0 ? ' – Halle voll' : ''}.</div>
-              <div className={`grid gap-2 ${typen.length > 1 ? "sm:grid-cols-3" : ""}`}>
-                {typen.map((t) => {
-                  const cfg = LINIENTYPEN[t];
-                  const n = kaufAnzahl(t);
-                  return (
-                    <div key={t} className="rounded-xl border border-[var(--line)] p-2">
-                      <div className="text-sm font-semibold">Typ {t} · {cfg.name}</div>
-                      <div className="muted text-xs">{eurKompakt(cfg.preis)} · {fmt0(cfg.kapazitaet)} Std./Q · Umweltindex {cfg.umwelt}</div>
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <button className="btn-ghost" aria-label={`Typ ${t} weniger`} disabled={n <= 0} onClick={() => aendere((x) => { x.werke[w.id].linienKaufen = ändern(x.werke[w.id].linienKaufen, t, n - 1); })}>−</button>
-                        <span className="tnum text-lg font-bold">{n}</span>
-                        <button className="btn-ghost" aria-label={`Typ ${t} mehr`} disabled={gesamtKauf >= Math.min(4, freiePlaetze)} onClick={() => aendere((x) => { x.werke[w.id].linienKaufen = ändern(x.werke[w.id].linienKaufen, t, n + 1); })}>+</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {stufe < 3 && <p className="muted mt-2 text-xs">Weitere Linientypen und der Verkauf von Linien werden ab Q5 freigeschaltet.</p>}
-              {stufe >= 3 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {w.linien.filter((l) => l.status === 'aktiv').map((l) => {
-                    const verkauf = e.linienVerkaufen.includes(l.id);
-                    return (
-                      <button key={l.id} className={`btn-ghost text-xs ${verkauf ? '!border-rose-500 text-rose-600' : ''}`} onClick={() => aendere((x) => { const v = x.werke[w.id].linienVerkaufen; x.werke[w.id].linienVerkaufen = verkauf ? v.filter((i) => i !== l.id) : [...v, l.id]; })}>
-                        {verkauf ? 'Verkauf geplant: ' : 'Verkaufen: '}{l.id}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           </Card>
         );
       })}
@@ -300,9 +273,24 @@ function Personal({ state, d, aendere, stufe, vorschau }: Ctx) {
   );
 }
 
-function ändern(liste: { typ: LinienTyp; anzahl: number }[], typ: LinienTyp, n: number) {
-  const rest = liste.filter((k) => k.typ !== typ);
-  return n > 0 ? [...rest, { typ, anzahl: n }] : rest;
+function WerkBereich({ state, d, aendere, vorschau, stufe }: Ctx) {
+  return (
+    <div className="space-y-4">
+      {state.werke.map((w) => {
+        const e = d.werke[w.id];
+        if (!e) return null;
+        const produktion = aktiveProdukte(state).reduce((s, p) => s + (d.produktion[p]?.[w.id] ?? 0), 0);
+        return (
+          <Card key={w.id} titel={`Werk ${w.name}: Halle und Fertigungslinien`}>
+            <WerksAnsicht state={state} werk={w} wr={vorschau?.werke.find((x) => x.id === w.id)} produktion={produktion} geplant={e.linienKaufen.flatMap((k) => Array.from({ length: k.anzahl }, () => k.typ))} verkauf={e.linienVerkaufen} />
+            <div className="mt-4">
+              <LinienVerwaltung state={state} werk={w} e={e} aendere={aendere} stufe={stufe} />
+            </div>
+          </Card>
+        );
+      })}
+    </div>
+  );
 }
 
 function Lieferkette({ state, d, aendere, stufe }: Ctx) {
@@ -411,7 +399,7 @@ function Vorschau({ vorschau, kompakt = false }: { vorschau: QuarterReport | nul
   if (!vorschau) return null;
   const wr = vorschau.werke[0];
   const zeile = (l: string, v: ReactNode, warn = false) => (
-    <div className="flex items-baseline justify-between gap-3 py-1 text-sm">
+    <div key={l} className="flex items-baseline justify-between gap-3 py-1 text-sm">
       <span className="muted">{l}</span>
       <strong className={`tnum ${warn ? 'text-rose-600 dark:text-rose-400' : ''}`}>{v}</strong>
     </div>
@@ -448,6 +436,7 @@ const SCHRITTE: Schritt[] = [
   { id: 'marketing', titel: 'Marketing', render: (c) => <Marketing {...c} /> },
   { id: 'fe', titel: 'F&E', render: (c) => <ForschungEntwicklung {...c} /> },
   { id: 'personal', titel: 'Personal', render: (c) => <Personal {...c} /> },
+  { id: 'werk', titel: 'Werk & Linien', render: (c) => <WerkBereich {...c} /> },
   { id: 'lieferkette', titel: 'Lieferkette', render: (c) => <Lieferkette {...c} /> },
   { id: 'finanzen', titel: 'Finanzen', render: (c) => <FinanzenBereich {...c} /> },
 ];
@@ -461,7 +450,8 @@ export function Entscheidungen() {
   const vorschau = usePreview();
   const mobil = useIstMobil();
   const stufe = komplexitaetsStufe(state);
-  const ctx: Ctx = useMemo(() => ({ state, d: entwurf, aendere, vorschau, stufe }), [state, entwurf, aendere, vorschau, stufe]);
+  const hebel = useHebel(state, entwurf);
+  const ctx: Ctx = useMemo(() => ({ state, d: entwurf, aendere, vorschau, stufe, hebel }), [state, entwurf, aendere, vorschau, stufe, hebel]);
   const [schritt, setSchritt] = useState(0);
   const [vorschauOffen, setVorschauOffen] = useState(false);
   const start = useRef<{ x: number; y: number } | null>(null);
@@ -485,17 +475,20 @@ export function Entscheidungen() {
           </div>
           <div className="grid gap-4 xl:grid-cols-2">
             {SCHRITTE.map((s) => (
-              <div key={s.id} className={s.id === 'personal' || s.id === 'finanzen' || s.id === 'lieferkette' ? '' : ''}>
+              <div key={s.id} className={s.id === 'werk' ? 'xl:col-span-2' : ''}>
                 <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide muted">{s.titel}</h2>
                 {s.render(ctx)}
               </div>
             ))}
           </div>
         </div>
-        <aside className="xl:sticky xl:top-20 xl:self-start">
+        <aside className="space-y-4 xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto xl:pb-4">
           <Card titel="Live-Vorschau">
             <Vorschau vorschau={vorschau} />
             <button className="btn-primary mt-3 w-full" onClick={bestaetigen} disabled={!!state.spielende}>Quartal abschließen</button>
+          </Card>
+          <Card titel="Was bringt welcher Hebel?">
+            <HebelPanel hebel={hebel} />
           </Card>
         </aside>
       </div>
