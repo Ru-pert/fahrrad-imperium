@@ -25,6 +25,7 @@ import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
 import { usePreview } from '../hooks';
 import { Card, NumberField, Warnung } from '../components/ui';
+import { KapazitaetsGrafik, PersonalErklaerung, TechnikVergleich } from '../components/Erklaer';
 
 type AendereFn = (fn: (d: Decisions) => void) => void;
 
@@ -131,16 +132,7 @@ function Produktion({ state, d, aendere, vorschau }: Ctx) {
           <Card key={w.id} titel={`Werk ${w.name}`}>
             {wr && (
               <div className="mb-3">
-                <div className="flex justify-between text-sm">
-                  <span>Auslastung</span>
-                  <span className="tnum font-semibold">{pct(wr.auslastung, 0)}</span>
-                </div>
-                <div className="mt-1 h-3 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
-                  <div className={`h-full rounded-full transition-all ${wr.auslastung > 1.0 ? 'bg-amber-500' : 'bg-brand-500'}`} style={{ width: `${Math.min(100, wr.auslastung * 100)}%` }} />
-                </div>
-                <div className="muted tnum mt-1 text-xs">
-                  {fmt0(wr.benoetigteStunden)} von {fmt0(wr.maxStunden)} Std. nutzbar (Maschinen {fmt0(wr.maschinenStunden)}, Personal {fmt0(wr.personalStundenRegulaer)} + 15 % Überstunden)
-                </div>
+                <KapazitaetsGrafik state={state} wr={wr} />
               </div>
             )}
             {produkte.map((p) => {
@@ -203,14 +195,14 @@ function Marketing({ state, d, aendere, vorschau }: Ctx) {
   );
 }
 
-function ForschungEntwicklung({ state, d, aendere }: Ctx) {
+function ForschungEntwicklung({ state, d, aendere, vorschau }: Ctx) {
   return (
     <Card titel="F&E-Budget je Quartal">
       {aktiveProdukte(state).map((p) => {
         const fe = d.fe[p] ?? 0;
         return (
+          <div key={p} className="mb-3">
           <NumberField
-            key={p}
             label={PRODUKTE[p].name}
             unit="€"
             value={fe}
@@ -222,13 +214,15 @@ function ForschungEntwicklung({ state, d, aendere }: Ctx) {
             onChange={(v) => aendere((x) => { x.fe[p] = v; })}
             hint={`F&E-Stock ${eur(state.produkte[p]!.fe)} – veraltet um 5 % je Quartal`}
           />
+          <TechnikVergleich state={state} p={p} fe={fe} vorschau={vorschau} />
+          </div>
         );
       })}
     </Card>
   );
 }
 
-function Personal({ state, d, aendere, stufe }: Ctx) {
+function Personal({ state, d, aendere, stufe, vorschau }: Ctx) {
   return (
     <div className="space-y-2">
       {state.werke.map((w) => {
@@ -252,6 +246,7 @@ function Personal({ state, d, aendere, stufe }: Ctx) {
               onChange={(v) => aendere((x) => { x.werke[w.id].personalAenderung = Math.round(v); })}
               hint={`Erlaubt: −${maxMinus} bis +${maxPlus} · Einstellung 3.000 €, Entlassung 6.000 € je Person`}
             />
+            <PersonalErklaerung state={state} wr={vorschau?.werke.find((x) => x.id === w.id)} />
             <NumberField
               label="Schulungsbudget je Mitarbeitende/n"
               unit="€"
