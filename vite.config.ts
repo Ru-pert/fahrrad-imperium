@@ -5,11 +5,13 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // GitHub Pages: https://<user>.github.io/fahrrad-imperium/
 export default defineConfig({
+  define: { __BUILD_ZEIT__: JSON.stringify(new Date().toISOString()) },
   base: '/fahrrad-imperium/',
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false,
       includeAssets: ['icon.svg'],
       manifest: {
         name: 'Fahrrad-Imperium',
@@ -27,7 +29,13 @@ export default defineConfig({
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png}'] },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png}'],
+        // Neue Versionen sofort aktivieren, alte Caches entfernen
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+      },
     }),
   ],
   test: { environment: 'node', include: ['src/**/*.test.ts'], testTimeout: 60000 },

@@ -245,6 +245,14 @@ export function simulateQuarter(
       }
     }
     w.wartung = e.wartung;
+    if (e.halleErweitern) {
+      const H = B.produktion.hallenErweiterung;
+      capex += H.kosten;
+      w.gebaeudeBuchwert += H.kosten;
+      w.gebaeudeRestlaufzeit = Math.max(w.gebaeudeRestlaufzeit, H.abschreibungQuartale);
+      w.halleImBau = H.bauzeit;
+      meldungen.push(`Hallenerweiterung in ${w.name} beauftragt (+${H.plaetze} Linienplätze, fertig in ${H.bauzeit} Quartal).`);
+    }
 
     // Personal
     const maAlt = w.mitarbeitende;
@@ -645,6 +653,12 @@ export function simulateQuarter(
     }
   }
   s.unternehmen.firmensitz.buchwert -= hqAfa;
+  for (const w of s.werke) {
+    if ((w.halleImBau ?? 0) > 0) {
+      w.halleImBau = (w.halleImBau ?? 0) - 1;
+      if (w.halleImBau === 0) w.hallenPlaetze = (w.hallenPlaetze ?? B.produktion.maxLinienProHalle) + B.produktion.hallenErweiterung.plaetze;
+    }
+  }
 
   // Personal, Motivation, Kompetenz
   const werkBerichte: WerkBericht[] = [];

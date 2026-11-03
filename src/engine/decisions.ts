@@ -8,7 +8,7 @@ import { kreditlimit, sachanlagen, schuldenGesamt } from './finance';
 import { referenzPreis } from './market';
 import { ereignisEffekte } from './events';
 
-import { KOMPONENTEN } from './production';
+import { KOMPONENTEN, hallenPlaetze } from './production';
 export { KOMPONENTEN };
 
 /** Komplexitätsstufe (4.1): 1 ab Q1, 2 ab Q3, 3 ab Q5; im Profimodus gilt immer Stufe 3. */
@@ -57,7 +57,7 @@ export function standardEntscheidungen(state: GameState): Decisions {
   alt.quartal = state.quartal;
   for (const w of state.werke) {
     const e = alt.werke[w.id] ?? leereWerkEntscheidung(w, START.entscheidungen.schulung);
-    alt.werke[w.id] = { ...e, linienKaufen: [], linienVerkaufen: [], personalAenderung: 0, wartung: e.wartung };
+    alt.werke[w.id] = { ...e, linienKaufen: [], linienVerkaufen: [], personalAenderung: 0, wartung: e.wartung, halleErweitern: false };
   }
   alt.finanzen = { darlehenNeu: 0, tilgungExtra: 0, dividende: 0 };
   alt.firmensitz = { kaufen: [] };
@@ -126,18 +126,23 @@ export function normalisiere(state: GameState, eingabe: Decisions): Normalisiert
       e.linienVerkaufen = [];
     }
     let frei = BALANCE.produktion.maxNeueLinienProQuartal;
-    const platz = BALANCE.produktion.maxLinienProHalle - (w.linien.length - (e.linienVerkaufen?.length ?? 0));
+    const platz = hallenPlaetze(w) - (w.linien.length - (e.linienVerkaufen?.length ?? 0));
     const kaufen: { typ: LinienTyp; anzahl: number }[] = [];
     let gesamtPlatz = Math.max(0, platz);
     for (const k of e.linienKaufen ?? []) {
       if (!(k.typ in LINIENTYPEN)) continue;
       const n = Math.max(0, Math.min(Math.round(k.anzahl), frei, gesamtPlatz));
-      if (n < Math.round(k.anzahl)) warn.push(`${w.name}: Es können höchstens 4 neue Linien je Quartal und 4 Linien je Halle gebaut werden.`);
+      if (n < Math.round(k.anzahl)) warn.push(`${w.name}: Es können höchstens 4 neue Linien je Quartal gebaut werden, und die Halle hat ${hallenPlaetze(w)} Plätze.`);
       if (n > 0) kaufen.push({ typ: k.typ, anzahl: n });
       frei -= n;
       gesamtPlatz -= n;
     }
     e.linienKaufen = kaufen;
+    // Hallenerweiterung nur, wenn die Halle voll ist und gerade keine Erweiterung läuft
+    if (e.halleErweitern && ((w.halleImBau ?? 0) > 0 || w.linien.length < hallenPlaetze(w))) {
+      warn.push(`${w.name}: Die Halle kann erst erweitert werden, wenn alle ${hallenPlaetze(w)} Plätze belegt sind.`);
+      e.halleErweitern = false;
+    }
     e.linienVerkaufen = (e.linienVerkaufen ?? []).filter((id) => w.linien.some((l) => l.id === id && l.status === 'aktiv'));
     if (w.linien.length - e.linienVerkaufen.length < 1) {
       e.linienVerkaufen = e.linienVerkaufen.slice(0, Math.max(0, w.linien.length - 1));

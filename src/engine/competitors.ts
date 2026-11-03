@@ -29,7 +29,7 @@ function effizienzFaktor(state: GameState): number {
 export function stueckHk(k: KonkurrentZustand, p: ProductId, kum: number, effizienz: number): number {
   const lk = lernkurve(kum);
   const cfg = PRODUKTE[p];
-  const material = cfg.material * LIEFERANTEN[k.lieferant].kosten * lk;
+  const material = cfg.material * BALANCE.produktion.materialFaktor * LIEFERANTEN[k.lieferant].kosten * lk;
   const lohn = cfg.montageStunden * lk * KB.lohnProStunde;
   return (material + lohn) * effizienz;
 }

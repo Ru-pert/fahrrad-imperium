@@ -39,6 +39,10 @@ export interface Werk {
   motivation: number;
   kompetenz: number;
   wartung: Wartung;
+  /** Linienplätze in der Halle */
+  hallenPlaetze?: number;
+  /** Quartale bis die Hallenerweiterung fertig ist (0 = keine im Bau) */
+  halleImBau?: number;
 }
 
 export interface Lager {
@@ -255,6 +259,8 @@ export interface GameState {
 export interface WerkEntscheidung {
   linienKaufen: { typ: LinienTyp; anzahl: number }[];
   linienVerkaufen: string[];
+  /** Halle um weitere Linienplätze erweitern */
+  halleErweitern?: boolean;
   wartung: Wartung;
   /** Einstellen (+) / Entlassen (−) */
   personalAenderung: number;

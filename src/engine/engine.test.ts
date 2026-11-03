@@ -382,3 +382,54 @@ describe('Ereignisse und Zeitung', () => {
     expect(mit / ohne).toBeGreaterThan(1.15);
   });
 });
+
+describe('Hallenerweiterung', () => {
+  it('ist erst bei voller Halle möglich und bringt 4 Plätze', () => {
+    let s = neuesSpiel({ firmenname: 'P', farbe: '#000', schwierigkeit: 'normal', profi: true, seed: 3 });
+    s.finanzen.kasse += 18_500_000;
+    s.finanzen.kapitalruecklage += 18_500_000;
+    let d = standardEntscheidungen(s);
+    d.werke['DE-1'].halleErweitern = true;
+    let r = simulateQuarter(s, d);
+    expect(r.report.warnungen.some((w) => w.includes('erst erweitert'))).toBe(true);
+    d = standardEntscheidungen(r.nextState);
+    d.werke['DE-1'].linienKaufen = [{ typ: 'B', anzahl: 2 }];
+    r = simulateQuarter(r.nextState, d);
+    s = r.nextState;
+    d = standardEntscheidungen(s);
+    d.werke['DE-1'].halleErweitern = true;
+    r = simulateQuarter(s, d);
+    expect(Math.abs(r.report.bilanz.aktiva - r.report.bilanz.passiva)).toBeLessThan(0.01);
+    expect(r.nextState.werke[0].hallenPlaetze).toBe(8);
+  });
+});
+
+describe('Balancing: Strategien', () => {
+  const lauf = (fn: (s: GameState, r: QuarterReport | null) => Decisions, n = 20) => {
+    let s = neu(1);
+    let r: QuarterReport | null = null;
+    let ebit = 0;
+    for (let i = 0; i < n && !s.spielende; i++) {
+      const res = simulateQuarter(s, fn(s, r), undefined, { vorherBericht: r });
+      s = res.nextState;
+      r = res.report;
+      ebit += r.guv.ebit;
+    }
+    return { ebit, pleite: !!s.spielende };
+  };
+  it('gute Strategie schlägt Nichtstun deutlich, Ausmaxen führt in die Pleite', () => {
+    const gut = lauf((s, r) => botEntscheidungen(s, r));
+    const nichts = lauf((s) => ({ ...standardEntscheidungen(s) }));
+    const maximal = lauf((s, r) => {
+      const d = botEntscheidungen(s, r, { ...STANDARD_BOT, preisFaktor: 0.85 });
+      for (const p of ['stadtrad', 'ebike'] as const) {
+        d.marketing[p] = { DE: 300_000 };
+        d.fe[p] = 300_000;
+      }
+      return d;
+    });
+    expect(gut.pleite).toBe(false);
+    expect(gut.ebit).toBeGreaterThan(nichts.ebit * 3);
+    expect(maximal.pleite).toBe(true);
+  });
+});
