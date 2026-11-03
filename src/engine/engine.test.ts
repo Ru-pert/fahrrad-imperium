@@ -433,3 +433,17 @@ describe('Balancing: Strategien', () => {
     expect(maximal.pleite).toBe(true);
   });
 });
+
+describe('Firmensitz', () => {
+  it('Stufen und Extras werden aktiviert, Bilanz bleibt ausgeglichen, Extras-Bonus gedeckelt', () => {
+    let s = neu(4);
+    const d = standardEntscheidungen(s);
+    d.firmensitz.kaufen = ['hinterhofbuero', 'brunnen', 'espressobar', 'brunnen'];
+    const r = simulateQuarter(s, d);
+    s = r.nextState;
+    expect(s.unternehmen.firmensitz.stufe).toBe(1);
+    expect(s.unternehmen.firmensitz.extras).toEqual(['brunnen', 'espressobar']);
+    expect(r.report.kapitalfluss.investitionen).toBeCloseTo(-(50_000 + 20_000 + 50_000), 6);
+    expect(Math.abs(r.report.bilanz.aktiva - r.report.bilanz.passiva)).toBeLessThan(0.01);
+  });
+});

@@ -13,6 +13,7 @@ import { Entscheidungen } from './pages/Entscheidungen';
 import { Markt } from './pages/Markt';
 import { Finanzen } from './pages/Finanzen';
 import { Werke } from './pages/Werke';
+import { Firmensitz } from './pages/Firmensitz';
 import { Einstellungen, NeuesSpielForm } from './pages/Einstellungen';
 
 const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
@@ -23,6 +24,7 @@ const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
   { id: 'markt', label: 'Markt', kurz: 'Markt', icon: 'markt' },
   { id: 'finanzen', label: 'Finanzen', kurz: 'Finanzen', icon: 'finanzen' },
   { id: 'werke', label: 'Werke', kurz: 'Werke', icon: 'werke' },
+  { id: 'firmensitz', label: 'Firmensitz', kurz: 'Firmensitz', icon: 'firmensitz' },
   { id: 'einstellungen', label: 'Einstellungen & Speichern', kurz: 'Einstellungen', icon: 'einstellungen' },
 ];
 const MOBIL_HAUPT: Seite[] = ['cockpit', 'zeitung', 'entscheidungen', 'markt'];
@@ -36,6 +38,7 @@ function Seiteninhalt({ seite }: { seite: Seite }) {
     case 'markt': return <Markt />;
     case 'finanzen': return <Finanzen />;
     case 'werke': return <Werke />;
+    case 'firmensitz': return <Firmensitz />;
     case 'einstellungen': return <Einstellungen />;
   }
 }
