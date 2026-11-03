@@ -166,6 +166,7 @@ export function Einstellungen() {
       ) : (
         <button className="btn-ghost w-full" onClick={() => setNeuesSpiel(true)}>Neues Spiel beginnen …</button>
       )}
+      <p className="muted text-center text-xs">Version vom {new Date(__BUILD_ZEIT__).toLocaleString('de-DE')}</p>
       <p className="muted text-center text-xs">Seed dieses Spiels: {state.einstellungen.seed} · {state.einstellungen.schwierigkeit}{state.einstellungen.profi ? ' · Profimodus' : ''}</p>
     </div>
   );
