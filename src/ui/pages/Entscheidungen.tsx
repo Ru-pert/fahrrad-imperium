@@ -482,7 +482,10 @@ export function Entscheidungen() {
               <h1 className="h-page">Entscheidungen</h1>
               <p className="muted text-sm">Stufe {stufe} · nicht veränderte Werte werden aus dem Vorquartal übernommen.</p>
             </div>
-            <button className="btn-ghost" onClick={reset}>Zurücksetzen</button>
+            <div className="flex gap-2">
+              <button className="btn-ghost" onClick={() => useGame.getState().gehe('austausch')}>Mit Claude planen</button>
+              <button className="btn-ghost" onClick={reset}>Zurücksetzen</button>
+            </div>
           </div>
           <div className="grid gap-4 xl:grid-cols-2">
             {SCHRITTE.map((s) => (
