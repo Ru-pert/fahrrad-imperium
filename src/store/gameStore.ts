@@ -1,0 +1,207 @@
+import { create } from 'zustand';
+import {
+  neuesSpiel,
+  simulateQuarter,
+  standardEntscheidungen,
+  type Decisions,
+  type GameState,
+  type NeuesSpielOptionen,
+  type QuarterReport,
+} from '../engine';
+import { istSpielstand, laden, speichern, type HistorieEintrag, type Spielstand } from './saveSlots';
+
+export type Seite = 'cockpit' | 'bericht' | 'entscheidungen' | 'markt' | 'finanzen' | 'werke' | 'einstellungen';
+export const SEITEN: Seite[] = ['cockpit', 'bericht', 'entscheidungen', 'markt', 'finanzen', 'werke', 'einstellungen'];
+
+interface Hinweis {
+  id: number;
+  text: string;
+}
+
+interface Store {
+  bereit: boolean;
+  state: GameState | null;
+  historie: HistorieEintrag[];
+  entwurf: Decisions | null;
+  seite: Seite;
+  hinweise: Hinweis[];
+  dunkel: boolean;
+  reduziert: boolean;
+  /** Bericht, der nach Quartalsabschluss gerade präsentiert wird */
+  frischerBericht: QuarterReport | null;
+
+  start: () => Promise<void>;
+  neu: (opt: NeuesSpielOptionen) => void;
+  gehe: (s: Seite) => void;
+  aendereEntwurf: (fn: (d: Decisions) => void) => void;
+  entwurfZuruecksetzen: () => void;
+  abschliessen: () => QuarterReport | null;
+  frischerBerichtSchliessen: () => void;
+  speicherstand: (name: string) => Spielstand | null;
+  stand: () => Spielstand | null;
+  speichereSlot: (slot: number | 'auto', name: string) => Promise<void>;
+  ladeSlot: (slot: number | 'auto') => Promise<boolean>;
+  ladeStand: (s: unknown) => boolean;
+  zurueckspringen: (index: number) => void;
+  setDunkel: (d: boolean) => void;
+  setReduziert: (r: boolean) => void;
+  hinweis: (text: string) => void;
+}
+
+let hinweisId = 0;
+const lsGet = (k: string): string | null => {
+  try {
+    return localStorage.getItem(k);
+  } catch {
+    return null;
+  }
+};
+const lsSet = (k: string, v: string): void => {
+  try {
+    localStorage.setItem(k, v);
+  } catch {
+    /* ignorieren */
+  }
+};
+
+function seiteAusHash(): Seite {
+  const h = window.location.hash.replace('#/', '').replace('#', '');
+  return (SEITEN as string[]).includes(h) ? (h as Seite) : 'cockpit';
+}
+
+export const useGame = create<Store>((set, get) => ({
+  bereit: false,
+  state: null,
+  historie: [],
+  entwurf: null,
+  seite: seiteAusHash(),
+  hinweise: [],
+  dunkel: document.documentElement.classList.contains('dark'),
+  reduziert: lsGet('fi-reduced') === '1',
+  frischerBericht: null,
+
+  async start() {
+    window.addEventListener('hashchange', () => set({ seite: seiteAusHash() }));
+    if (lsGet('fi-reduced') === '1') document.documentElement.classList.add('reduce-motion');
+    try {
+      const auto = await laden('auto');
+      if (auto && istSpielstand(auto)) {
+        set({ state: auto.state, historie: auto.historie, entwurf: auto.entwurf });
+      }
+    } catch {
+      /* kein Autosave */
+    }
+    set({ bereit: true });
+  },
+
+  neu(opt) {
+    const state = neuesSpiel(opt);
+    const entwurf = standardEntscheidungen(state);
+    set({ state, historie: [], entwurf, frischerBericht: null, seite: 'cockpit' });
+    window.location.hash = '#/cockpit';
+    void get().speichereSlot('auto', 'Autosave');
+  },
+
+  gehe(s) {
+    window.location.hash = `#/${s}`;
+    set({ seite: s });
+    window.scrollTo?.({ top: 0 });
+  },
+
+  aendereEntwurf(fn) {
+    const { entwurf } = get();
+    if (!entwurf) return;
+    const kopie = structuredClone(entwurf);
+    fn(kopie);
+    set({ entwurf: kopie });
+  },
+
+  entwurfZuruecksetzen() {
+    const { state } = get();
+    if (state) set({ entwurf: standardEntscheidungen(state) });
+  },
+
+  abschliessen() {
+    const { state, entwurf, historie } = get();
+    if (!state || !entwurf || state.spielende) return null;
+    const { nextState, report } = simulateQuarter(state, entwurf);
+    const eintrag: HistorieEintrag = { stateVor: state, decisions: entwurf, report };
+    const neueHistorie = [...historie, eintrag];
+    set({
+      state: nextState,
+      historie: neueHistorie,
+      entwurf: standardEntscheidungen(nextState),
+      frischerBericht: report,
+    });
+    void get().speichereSlot('auto', 'Autosave');
+    return report;
+  },
+
+  frischerBerichtSchliessen() {
+    set({ frischerBericht: null });
+  },
+
+  stand() {
+    return get().speicherstand('Spielstand');
+  },
+
+  speicherstand(name) {
+    const { state, historie, entwurf } = get();
+    if (!state || !entwurf) return null;
+    return { format: 'fahrrad-imperium/spielstand', version: 1, name, gespeichert: new Date().toISOString(), state, historie, entwurf };
+  },
+
+  async speichereSlot(slot, name) {
+    const s = get().speicherstand(name);
+    if (!s) return;
+    try {
+      await speichern(slot, s);
+      if (slot !== 'auto') get().hinweis(`Gespeichert: ${name}`);
+    } catch {
+      get().hinweis('Speichern fehlgeschlagen (Browser-Speicher nicht verfügbar).');
+    }
+  },
+
+  async ladeSlot(slot) {
+    const s = await laden(slot);
+    if (!s || !istSpielstand(s)) return false;
+    return get().ladeStand(s);
+  },
+
+  ladeStand(x) {
+    if (!istSpielstand(x)) {
+      get().hinweis('Datei ist kein gültiger Spielstand.');
+      return false;
+    }
+    set({ state: x.state, historie: x.historie, entwurf: x.entwurf, frischerBericht: null });
+    get().hinweis('Spielstand geladen.');
+    return true;
+  },
+
+  zurueckspringen(index) {
+    const { historie } = get();
+    const h = historie[index];
+    if (!h) return;
+    set({ state: h.stateVor, historie: historie.slice(0, index), entwurf: structuredClone(h.decisions), frischerBericht: null });
+    get().hinweis(`Zurückgesprungen – neuer Zweig ab Quartal ${index + 1}.`);
+    void get().speichereSlot('auto', 'Autosave');
+  },
+
+  setDunkel(d) {
+    document.documentElement.classList.toggle('dark', d);
+    lsSet('fi-theme', d ? 'dark' : 'light');
+    set({ dunkel: d });
+  },
+
+  setReduziert(r) {
+    document.documentElement.classList.toggle('reduce-motion', r);
+    lsSet('fi-reduced', r ? '1' : '0');
+    set({ reduziert: r });
+  },
+
+  hinweis(text) {
+    const id = ++hinweisId;
+    set((st) => ({ hinweise: [...st.hinweise, { id, text }] }));
+    setTimeout(() => set((st) => ({ hinweise: st.hinweise.filter((h) => h.id !== id) })), 3500);
+  },
+}));
