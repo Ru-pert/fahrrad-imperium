@@ -10,8 +10,8 @@ import {
 } from '../engine';
 import { istSpielstand, laden, speichern, type HistorieEintrag, type Spielstand } from './saveSlots';
 
-export type Seite = 'cockpit' | 'zeitung' | 'bericht' | 'entscheidungen' | 'markt' | 'finanzen' | 'werke' | 'firmensitz' | 'einstellungen';
-export const SEITEN: Seite[] = ['cockpit', 'zeitung', 'bericht', 'entscheidungen', 'markt', 'finanzen', 'werke', 'firmensitz', 'einstellungen'];
+export type Seite = 'cockpit' | 'zeitung' | 'bericht' | 'entscheidungen' | 'markt' | 'finanzen' | 'werke' | 'firmensitz' | 'erfolge' | 'einstellungen';
+export const SEITEN: Seite[] = ['cockpit', 'zeitung', 'bericht', 'entscheidungen', 'markt', 'finanzen', 'werke', 'firmensitz', 'erfolge', 'einstellungen'];
 
 interface Hinweis {
   id: number;
@@ -29,6 +29,8 @@ interface Store {
   reduziert: boolean;
   /** Bericht, der nach Quartalsabschluss gerade präsentiert wird */
   frischerBericht: QuarterReport | null;
+  /** true direkt nach dem Abschluss (mit Rechen-Animation) */
+  auswertungFrisch: boolean;
 
   start: () => Promise<void>;
   neu: (opt: NeuesSpielOptionen) => void;
@@ -80,6 +82,7 @@ export const useGame = create<Store>((set, get) => ({
   dunkel: document.documentElement.classList.contains('dark'),
   reduziert: lsGet('fi-reduced') === '1',
   frischerBericht: null,
+  auswertungFrisch: false,
 
   async start() {
     window.addEventListener('hashchange', () => set({ seite: seiteAusHash() }));
@@ -134,6 +137,7 @@ export const useGame = create<Store>((set, get) => ({
       historie: neueHistorie,
       entwurf: standardEntscheidungen(nextState),
       frischerBericht: report,
+      auswertungFrisch: true,
     });
     void get().speichereSlot('auto', 'Autosave');
     return report;
@@ -144,7 +148,7 @@ export const useGame = create<Store>((set, get) => ({
   },
 
   zeigeAuswertung(r) {
-    set({ frischerBericht: r });
+    set({ frischerBericht: r, auswertungFrisch: false });
   },
 
   stand() {

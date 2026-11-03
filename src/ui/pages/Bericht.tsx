@@ -31,7 +31,7 @@ export function Bericht() {
 
       {bericht.meldungen.map((m) => <Warnung key={m}>{m}</Warnung>)}
 
-      <Card titel="Ergebnis">
+      <Card icon="ebit" titel="Ergebnis">
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
           {[
             ['Umsatz', eurKompakt(g.umsatz)],
@@ -51,7 +51,7 @@ export function Bericht() {
         </dl>
       </Card>
 
-      <Card titel="Absatz je Produkt">
+      <Card icon="rad" titel="Absatz je Produkt">
         <Tabelle>
           <thead>
             <tr className="muted text-left text-xs">
@@ -81,7 +81,7 @@ export function Bericht() {
         )}
       </Card>
 
-      <Card titel="Branchenbericht (kostenlos)">
+      <Card icon="bericht" titel="Branchenbericht (kostenlos)">
         <Tabelle>
           <thead>
             <tr className="muted text-left text-xs">
@@ -112,7 +112,7 @@ export function Bericht() {
       </Card>
 
       {bericht.warnungen.length > 0 && (
-        <Card titel="Hinweise der Engine">
+        <Card icon="warn" titel="Hinweise der Engine">
           <div className="space-y-2">{bericht.warnungen.map((w) => <Warnung key={w}>{w}</Warnung>)}</div>
         </Card>
       )}

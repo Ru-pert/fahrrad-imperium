@@ -252,6 +252,8 @@ export interface GameState {
   euGesetz: boolean;
   /** Aktuelle Ausgabe des Kettenblatt-Kuriers */
   zeitung: Zeitung | null;
+  /** Erreichte Erfolge */
+  erfolge?: { id: string; quartal: number }[];
 }
 
 // ------------------------------------------------------------ Entscheidungen
@@ -457,6 +459,8 @@ export interface QuarterReport {
   meldungen: string[];
   vorfaelle: Vorfall[];
   zeitung: Zeitung | null;
+  /** In diesem Quartal neu erreichte Erfolge */
+  neueErfolge: string[];
 }
 
 export interface PreviewResult {

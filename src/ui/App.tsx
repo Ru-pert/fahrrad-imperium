@@ -14,6 +14,7 @@ import { Markt } from './pages/Markt';
 import { Finanzen } from './pages/Finanzen';
 import { Werke } from './pages/Werke';
 import { Firmensitz } from './pages/Firmensitz';
+import { Erfolge } from './pages/Erfolge';
 import { Einstellungen, NeuesSpielForm } from './pages/Einstellungen';
 
 const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
@@ -25,6 +26,7 @@ const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
   { id: 'finanzen', label: 'Finanzen', kurz: 'Finanzen', icon: 'finanzen' },
   { id: 'werke', label: 'Werke', kurz: 'Werke', icon: 'werke' },
   { id: 'firmensitz', label: 'Firmensitz', kurz: 'Firmensitz', icon: 'firmensitz' },
+  { id: 'erfolge', label: 'Erfolge', kurz: 'Erfolge', icon: 'erfolge' },
   { id: 'einstellungen', label: 'Einstellungen & Speichern', kurz: 'Einstellungen', icon: 'einstellungen' },
 ];
 const MOBIL_HAUPT: Seite[] = ['cockpit', 'zeitung', 'entscheidungen', 'markt'];
@@ -39,6 +41,7 @@ function Seiteninhalt({ seite }: { seite: Seite }) {
     case 'finanzen': return <Finanzen />;
     case 'werke': return <Werke />;
     case 'firmensitz': return <Firmensitz />;
+    case 'erfolge': return <Erfolge />;
     case 'einstellungen': return <Einstellungen />;
   }
 }
@@ -95,10 +98,10 @@ function Seitenleiste() {
           key={n.id}
           onClick={() => gehe(n.id)}
           aria-current={seite === n.id ? 'page' : undefined}
-          className={`flex min-h-[44px] items-center gap-3 rounded-xl px-3 text-left text-sm font-medium ${seite === n.id ? 'bg-brand-600 text-white' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
+          className={`relative flex min-h-[44px] items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors ${seite === n.id ? 'text-white' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
         >
-          <Icon name={n.icon} />
-          {n.label}
+          {seite === n.id && <motion.span layoutId="nav-aktiv" className="absolute inset-0 rounded-xl bg-brand-600" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+          <span className="relative flex items-center gap-3"><Icon name={n.icon} />{n.label}</span>
         </button>
       ))}
     </nav>

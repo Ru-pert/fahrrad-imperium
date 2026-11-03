@@ -62,6 +62,7 @@ import { clamp, stk, sum } from './util';
 import { SPIELER_ID } from './util';
 import { ereignisEffekte, naechsteEreignisse, ereignisDef } from './events';
 import { erzeugeZeitung } from './zeitung';
+import { pruefeErfolge } from './achievements';
 import { VORFAELLE } from './config/events';
 import type { Vorfall } from './types';
 
@@ -853,7 +854,9 @@ export function simulateQuarter(
     meldungen,
     vorfaelle,
     zeitung: null,
+    neueErfolge: [],
   };
+  if (zufall) report.neueErfolge = pruefeErfolge(s, report);
   if (zufall) {
     report.zeitung = erzeugeZeitung(s, report, opts.vorherBericht ?? null);
     s.zeitung = report.zeitung;

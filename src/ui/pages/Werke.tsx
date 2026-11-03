@@ -35,7 +35,7 @@ export function Werke() {
         const vw = vorschau?.werke.find((x) => x.id === w.id);
         const aus = vw?.auslastung ?? wr?.auslastung ?? 0;
         return (
-          <Card key={w.id} titel={`Werk ${w.name}`} aktion={<Badge>{w.region}</Badge>}>
+          <Card icon="werke" key={w.id} titel={`Werk ${w.name}`} aktion={<Badge>{w.region}</Badge>}>
             <div className="mb-4">
               <Werksgelaende state={state} werk={w} vorher={historie[historie.length - 1]?.stateVor} produktion={bericht?.produkte.reduce((s, p) => s + p.produziert, 0) ?? 0} />
             </div>
@@ -91,7 +91,7 @@ export function Werke() {
         );
       })}
 
-      <Card titel="Stückkosten und Erfahrungskurve">
+      <Card icon="produktion" titel="Stückkosten und Erfahrungskurve">
         {verlauf.length >= 2 ? (
           <>
             <LinienDiagramm daten={verlauf} serien={produkte.map((p, i) => ({ key: p, name: PRODUKTE[p].name, farbe: FARBEN[i % FARBEN.length] }))} format={(x) => eur(x)} />

@@ -42,7 +42,7 @@ export function Markt() {
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-2">
-            <Card titel={`Marktanteil ${PRODUKTE[p].name}`}>
+            <Card icon="marktanteil" titel={`Marktanteil ${PRODUKTE[p].name}`}>
               <Donut
                 mitte={pct(anteil, 2)}
                 teile={[
@@ -53,7 +53,7 @@ export function Markt() {
               />
               <p className="muted mt-1 text-xs">Anteile der einzelnen Konkurrenten bekommst du später über Marktforschung.</p>
             </Card>
-            <Card titel="Marktkennzahlen">
+            <Card icon="markt" titel="Marktkennzahlen">
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                 <dt className="muted">Marktvolumen im Quartal</dt>
                 <dd className="tnum text-right font-semibold">{fmt0(seg.volumen)} Stück</dd>
@@ -73,10 +73,10 @@ export function Markt() {
             </Card>
           </div>
 
-          <Card titel="Marktvolumen im Verlauf">
+          <Card icon="markt" titel="Marktvolumen im Verlauf">
             <LinienDiagramm daten={verlauf} serien={[{ key: 'volumen', name: 'Stück je Quartal', farbe }]} format={(x) => fmt0(x)} />
           </Card>
-          <Card titel="Preisentwicklung">
+          <Card icon="preis" titel="Preisentwicklung">
             <LinienDiagramm
               daten={verlauf}
               serien={[
@@ -87,7 +87,7 @@ export function Markt() {
             />
           </Card>
 
-          <Card titel="Rangliste nach Quartalsumsatz">
+          <Card icon="stern" titel="Rangliste nach Quartalsumsatz">
             <Tabelle>
               <tbody>
                 {rangliste.map((r, i) => (

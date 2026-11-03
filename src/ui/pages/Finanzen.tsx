@@ -109,7 +109,7 @@ export function Finanzen() {
       )}
       {reiter === 'cashflow' && (
         <>
-          <Card titel="Kapitalflussrechnung (Wasserfall)">
+          <Card icon="geld" titel="Kapitalflussrechnung (Wasserfall)">
             <Wasserfall
               posten={[
                 { name: 'Kasse Anfang', wert: cf.kasseAnfang, summe: true },
@@ -120,7 +120,7 @@ export function Finanzen() {
               ]}
             />
           </Card>
-          <Card titel="Details">
+          <Card icon="info" titel="Details">
             <Zeilen
               spalten={[quartalLabel(letzter.quartal)]}
               zeilen={[
@@ -147,7 +147,7 @@ export function Finanzen() {
       )}
       {reiter === 'kredit' && (
         <>
-          <Card titel="Rating und Kreditlimit">
+          <Card icon="zins" titel="Rating und Kreditlimit">
             <div className="flex flex-wrap items-center gap-3">
               <Badge farbe="green">{state.finanzen.rating}</Badge>
               <span className="tnum text-sm">Score {fmt1(state.finanzen.ratingScore)} / 100</span>
@@ -158,7 +158,7 @@ export function Finanzen() {
               <LinienDiagramm daten={ratingVerlauf} serien={[{ key: 'score', name: 'Rating-Score', farbe: state.unternehmen.farbe }]} format={(x) => fmt1(x)} hoehe={180} />
             </div>
           </Card>
-          <Card titel="Darlehen">
+          <Card icon="finanzen" titel="Darlehen">
             {state.finanzen.kredite.length === 0 ? (
               <p className="muted text-sm">Keine laufenden Darlehen.</p>
             ) : (
