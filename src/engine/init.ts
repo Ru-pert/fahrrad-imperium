@@ -9,6 +9,7 @@ import { baueBilanz } from './finance';
 import { kalibriereSegment, referenzPreis, technikAusStock } from './market';
 import { herstellkosten, lernkurve } from './production';
 import { saison } from './util';
+import { erzeugeStartZeitung } from './zeitung';
 
 export interface NeuesSpielOptionen {
   firmenname: string;
@@ -18,7 +19,8 @@ export interface NeuesSpielOptionen {
   seed: number;
 }
 
-export const SPIELER_ID = 'spieler';
+export { SPIELER_ID } from './util';
+import { SPIELER_ID } from './util';
 export const STAND_VERSION = 1;
 
 export function neuesSpiel(opt: NeuesSpielOptionen): GameState {
@@ -123,6 +125,9 @@ export function neuesSpiel(opt: NeuesSpielOptionen): GameState {
     kpiHistorie: [],
     zinsen: { basiszins: BALANCE.finanzen.basiszins },
     spielende: null,
+    ereignisse: [],
+    euGesetz: false,
+    zeitung: null,
   };
 
   // Eröffnungsbilanz: Kapitalrücklage als Ausgleichsposten
@@ -183,5 +188,6 @@ export function neuesSpiel(opt: NeuesSpielOptionen): GameState {
   state.konkurrenzPlaene = planKonkurrenten(state, rng);
   state.konkurrenzVorquartal = structuredClone(state.konkurrenzPlaene);
   state.rngState = rng.getState();
+  state.zeitung = erzeugeStartZeitung(state);
   return state;
 }

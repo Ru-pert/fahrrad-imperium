@@ -6,6 +6,7 @@ import type { Decisions, GameState, LinienTyp, ProductId, RegionId, Wartung, Wer
 import { clamp, quartalLabel } from './util';
 import { kreditlimit, sachanlagen, schuldenGesamt } from './finance';
 import { referenzPreis } from './market';
+import { ereignisEffekte } from './events';
 
 import { KOMPONENTEN } from './production';
 export { KOMPONENTEN };
@@ -113,10 +114,10 @@ export function normalisiere(state: GameState, eingabe: Decisions): Normalisiert
   for (const w of state.werke) {
     const e = (dec.werke[w.id] ??= leereWerkEntscheidung(w, START.entscheidungen.schulung));
     e.schulungProKopf = clamp(e.schulungProKopf ?? 0, 0, BALANCE.personal.schulungMax);
-    const maxPlus = Math.floor(w.mitarbeitende * BALANCE.personal.maxEinstellung);
+    const maxPlus = Math.floor(w.mitarbeitende * BALANCE.personal.maxEinstellung * ereignisEffekte(state).einstellung);
     const maxMinus = Math.floor(w.mitarbeitende * BALANCE.personal.maxEntlassung);
     const aend = Math.round(e.personalAenderung ?? 0);
-    if (aend > maxPlus) warn.push(`Personal ${w.name}: Einstellung von ${aend} übersteigt das Limit von +${maxPlus} (50 %).`);
+    if (aend > maxPlus) warn.push(`Personal ${w.name}: Einstellung von ${aend} übersteigt das Limit von +${maxPlus}.`);
     if (-aend > maxMinus) warn.push(`Personal ${w.name}: Entlassung von ${-aend} übersteigt das Limit von −${maxMinus} (20 %).`);
     e.personalAenderung = clamp(aend, -maxMinus, maxPlus);
     if (stufe < 2) e.wartung = w.wartung;

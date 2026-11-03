@@ -178,6 +178,44 @@ export interface Unternehmen {
   firmensitz: Firmensitz;
 }
 
+export interface AktivesEreignis {
+  id: string;
+  /** Verbleibende Quartale inkl. des aktuellen */
+  rest: number;
+  /** Erst für das kommende Quartal angekündigt (für die Zeitung) */
+  neu: boolean;
+  werkId?: string;
+}
+
+export interface Vorfall {
+  art: 'rueckruf' | 'testsieg' | 'influencer' | 'lieferantenausfall' | 'stoerung' | 'pleite';
+  firma: string;
+  produkt?: ProductId;
+  text: string;
+}
+
+export interface ZeitungsArtikel {
+  rubrik: string;
+  titel: string;
+  text: string;
+  wirkung?: string;
+}
+
+export interface Zeitung {
+  quartal: number;
+  ausgabe: string;
+  schlagzeile: string;
+  unterzeile: string;
+  sonderausgabe?: string;
+  artikel: ZeitungsArtikel[];
+  kurzmeldungen: string[];
+  leserbrief: string;
+  glosse: { titel: string; text: string };
+  testmagazin: { produkt: ProductId; eintraege: { name: string; ti: number; farbe: string; eigen: boolean }[] }[];
+  konditionen: { basiszins: number; darlehen: number; kontokorrent: number; rating: string };
+  branchenbericht: { name: string; umsatz: number; ebit: number; bilanzsumme: number; farbe: string; eigen: boolean }[];
+}
+
 export interface GameState {
   version: number;
   /** Index des Quartals, für das gerade entschieden wird (0 = Q1 2027) */
@@ -205,6 +243,11 @@ export interface GameState {
   /** Zum Quartalsbeginn bekannte Kreditkonditionen */
   zinsen: { basiszins: number };
   spielende: null | { grund: string; quartal: number };
+  ereignisse: AktivesEreignis[];
+  /** EU-Nachhaltigkeitsgesetz in Kraft (Umweltabgabe +10 Punkte) */
+  euGesetz: boolean;
+  /** Aktuelle Ausgabe des Kettenblatt-Kuriers */
+  zeitung: Zeitung | null;
 }
 
 // ------------------------------------------------------------ Entscheidungen
@@ -324,6 +367,10 @@ export interface SegmentBericht {
   absatz: Record<string, number>;
   preise: Record<string, number>;
   marketing: Record<string, number>;
+  /** Technikindex laut Testmagazin „Rad & Tat“ je Anbieter */
+  technikIndex: Record<string, number>;
+  /** Qualität je Anbieter */
+  qualitaet: Record<string, number>;
 }
 
 export interface WerkBericht {
@@ -396,9 +443,14 @@ export interface QuarterReport {
     umsatz: number;
     ebit: number;
     bilanzsumme: number;
+    image: number;
+    qualitaet: number;
+    bekanntheit: number;
   }[];
   warnungen: string[];
   meldungen: string[];
+  vorfaelle: Vorfall[];
+  zeitung: Zeitung | null;
 }
 
 export interface PreviewResult {

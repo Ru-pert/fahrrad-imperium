@@ -5,8 +5,10 @@ import { useGame, type Seite } from '../store/gameStore';
 import { eur, eurKompakt } from './format';
 import { usePreview, useLetzterBericht } from './hooks';
 import { Badge, Icon, Toasts } from './components/ui';
+import { Auswertung } from './components/Auswertung';
 import { Cockpit } from './pages/Cockpit';
 import { Bericht } from './pages/Bericht';
+import { Zeitung } from './pages/Zeitung';
 import { Entscheidungen } from './pages/Entscheidungen';
 import { Markt } from './pages/Markt';
 import { Finanzen } from './pages/Finanzen';
@@ -15,18 +17,20 @@ import { Einstellungen, NeuesSpielForm } from './pages/Einstellungen';
 
 const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
   { id: 'cockpit', label: 'Cockpit', kurz: 'Cockpit', icon: 'cockpit' },
-  { id: 'bericht', label: 'Quartalsbericht', kurz: 'Bericht', icon: 'bericht' },
+  { id: 'zeitung', label: 'Zeitung', kurz: 'Zeitung', icon: 'bericht' },
+  { id: 'bericht', label: 'Quartalsbericht', kurz: 'Bericht', icon: 'cockpit' },
   { id: 'entscheidungen', label: 'Entscheidungen', kurz: 'Entscheiden', icon: 'entscheidungen' },
   { id: 'markt', label: 'Markt', kurz: 'Markt', icon: 'markt' },
   { id: 'finanzen', label: 'Finanzen', kurz: 'Finanzen', icon: 'finanzen' },
   { id: 'werke', label: 'Werke', kurz: 'Werke', icon: 'werke' },
   { id: 'einstellungen', label: 'Einstellungen & Speichern', kurz: 'Einstellungen', icon: 'einstellungen' },
 ];
-const MOBIL_HAUPT: Seite[] = ['cockpit', 'bericht', 'entscheidungen', 'markt'];
+const MOBIL_HAUPT: Seite[] = ['cockpit', 'zeitung', 'entscheidungen', 'markt'];
 
 function Seiteninhalt({ seite }: { seite: Seite }) {
   switch (seite) {
     case 'cockpit': return <Cockpit />;
+    case 'zeitung': return <Zeitung />;
     case 'bericht': return <Bericht />;
     case 'entscheidungen': return <Entscheidungen />;
     case 'markt': return <Markt />;
@@ -150,46 +154,6 @@ function MobilNav() {
   );
 }
 
-function BerichtOverlay() {
-  const bericht = useGame((s) => s.frischerBericht);
-  const schliessen = useGame((s) => s.frischerBerichtSchliessen);
-  const gehe = useGame((s) => s.gehe);
-  const state = useGame((s) => s.state);
-  if (!bericht || !state) return null;
-  const g = bericht.guv;
-  const zeile = (l: string, v: string) => (
-    <div className="flex justify-between border-b border-[var(--line)] py-1.5 text-sm">
-      <span className="muted">{l}</span>
-      <strong className="tnum">{v}</strong>
-    </div>
-  );
-  return (
-    <motion.div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      <motion.div className="card max-h-[90vh] w-full max-w-md overflow-y-auto rounded-b-none p-5 sm:rounded-b-2xl" initial={{ y: 60 }} animate={{ y: 0 }}>
-        <h2 className="text-lg font-bold">{quartalLabel(bericht.quartal)} abgeschlossen</h2>
-        <div className="mt-3">
-          {zeile('Umsatz', eurKompakt(g.umsatz))}
-          {zeile('EBIT', eurKompakt(g.ebit))}
-          {zeile('Überschuss', eurKompakt(g.ueberschuss))}
-          {zeile('Kasse', eurKompakt(bericht.bilanz.kasse))}
-          {zeile('Absatz', `${bericht.kennzahlen.absatz.toLocaleString('de-DE')} Räder`)}
-        </div>
-        {bericht.meldungen.length > 0 && (
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
-            {bericht.meldungen.map((m) => <li key={m}>{m}</li>)}
-          </ul>
-        )}
-        {state.spielende && <p className="mt-3 rounded-xl bg-rose-100 p-3 text-sm font-semibold text-rose-900">{state.spielende.grund} Lade einen früheren Spielstand unter „Einstellungen“.</p>}
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button className="btn-ghost" onClick={() => { schliessen(); gehe('bericht'); }}>Bericht</button>
-          <button className="btn-primary" onClick={() => { schliessen(); gehe('entscheidungen'); }}>Nächste Runde</button>
-        </div>
-        <button className="btn-ghost mt-2 w-full" onClick={schliessen}>Zum Cockpit</button>
-      </motion.div>
-    </motion.div>
-  );
-}
-
 export function App() {
   const bereit = useGame((s) => s.bereit);
   const start = useGame((s) => s.start);
@@ -228,7 +192,7 @@ export function App() {
         </main>
       </div>
       <MobilNav />
-      <BerichtOverlay />
+      <Auswertung />
       <Toasts />
     </div>
   );

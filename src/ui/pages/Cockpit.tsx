@@ -1,4 +1,6 @@
 import { PRODUKTE, quartalLabel, umsatz4Q } from '../../engine';
+import { ereignisDef } from '../../engine/events';
+import { BikeIcon } from '../components/BikeIcon';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
 import { LinienDiagramm } from '../components/charts';
@@ -29,6 +31,26 @@ export function Cockpit() {
           {state.unternehmen.name} · Entscheidung für {quartalLabel(state.quartal)}
         </p>
       </div>
+
+      {(state.ereignisse ?? []).length > 0 && (
+        <Card titel={`Ereignisse für ${quartalLabel(state.quartal)}`} aktion={<button className="btn-ghost" onClick={() => gehe('zeitung')}>Zur Zeitung</button>}>
+          <ul className="space-y-2">
+            {state.ereignisse.map((e) => {
+              const d = ereignisDef(e.id);
+              if (!d) return null;
+              return (
+                <li key={e.id} className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700 dark:bg-amber-950/40">
+                  <span className="text-lg">⚡</span>
+                  <div>
+                    <div className="font-semibold">{d.name}{e.neu ? ' – neu' : ''}</div>
+                    <div>{d.wirkung}{d.dauer > 1 ? ` · noch ${e.rest} Quartal${e.rest > 1 ? 'e' : ''}` : ''}</div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
 
       {state.spielende && <Warnung>{state.spielende.grund} Lade unter „Einstellungen“ einen früheren Spielstand.</Warnung>}
 
@@ -92,7 +114,7 @@ export function Cockpit() {
           <div className="grid gap-3 sm:grid-cols-2">
             {bericht.produkte.map((p) => (
               <div key={p.produkt} className="rounded-xl border border-[var(--line)] p-3">
-                <div className="font-semibold">{PRODUKTE[p.produkt].name}</div>
+                <div className="flex items-center gap-2 font-semibold"><BikeIcon produkt={p.produkt} className="h-8 w-12" />{PRODUKTE[p.produkt].name}</div>
                 <div className="muted tnum text-sm">
                   {fmt0(p.absatz)} verkauft · Umsatz {eurKompakt(p.umsatz)} · Technikindex {fmt0(p.technikIndex)}
                 </div>

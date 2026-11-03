@@ -59,13 +59,19 @@ import {
   wartungsKosten,
 } from './production';
 import { clamp, stk, sum } from './util';
-import { SPIELER_ID } from './init';
+import { SPIELER_ID } from './util';
+import { ereignisEffekte, naechsteEreignisse, ereignisDef } from './events';
+import { erzeugeZeitung } from './zeitung';
+import { VORFAELLE } from './config/events';
+import type { Vorfall } from './types';
 
 export interface SimOptionen {
   /** 'plan': echte Konkurrenzpläne, 'wiederholung': Konkurrenz wiederholt das Vorquartal (Vorschau, Planungsrechner) */
   konkurrenzModus?: 'plan' | 'wiederholung';
   /** Zufallsereignisse (Lieferantenausfall, Störungen, Fluktuation) und neue Konkurrenzpläne */
   zufall?: boolean;
+  /** Bericht des Vorquartals (für Vergleiche in der Zeitung) */
+  vorherBericht?: QuarterReport | null;
 }
 
 export interface SimulationErgebnis {
@@ -133,6 +139,12 @@ export function simulateQuarter(
   const plaene = opts.konkurrenzModus === 'wiederholung' ? structuredClone(s.konkurrenzVorquartal) : structuredClone(s.konkurrenzPlaene);
   const fin = s.finanzen;
   const B = BALANCE;
+  s.ereignisse ??= [];
+  s.euGesetz ??= false;
+  const eff = ereignisEffekte(s);
+  const vorfaelle: Vorfall[] = [];
+  let rueckrufKosten = 0;
+  let bekanntheitBonus = 0;
 
   const kasseAnfang = fin.kasse;
   const forderungenAnfang = fin.forderungen;
@@ -172,7 +184,7 @@ export function simulateQuarter(
       id: `K${t + 1}`,
       restbetrag: darlehenNeu,
       tilgung: darlehenNeu / B.finanzen.darlehenLaufzeit,
-      zins: B.finanzen.basiszins + ratingAufschlag(rating),
+      zins: (s.zinsen?.basiszins ?? B.finanzen.basiszins) + ratingAufschlag(rating),
     };
     fin.kredite.push(neu);
   }
@@ -254,9 +266,14 @@ export function simulateQuarter(
       }
       maschStd += LINIENTYPEN[l.typ].kapazitaet * v;
     }
+    const streik = eff.streik(w.id);
+    if (streik < 1) {
+      maschStd *= streik;
+      meldungen.push(`Streik im Werk ${w.name}: Kapazität nur ${Math.round(streik * 100)} %.`);
+    }
     const einarbeitung = ma > 0 ? 1 - B.personal.einarbeitungsAbschlag * (hired / ma) : 1;
     const prodI = einarbeitung * w.kompetenz * w.motivation;
-    const regStd = B.personal.stundenProMitarbeiter * ma * prodI;
+    const regStd = B.personal.stundenProMitarbeiter * ma * prodI * streik;
     const maxStd = Math.min(maschStd, regStd * (1 + B.personal.ueberstundenMax));
 
     // Produktionsmengen
@@ -266,6 +283,7 @@ export function simulateQuarter(
       let q = dec.produktion[p]?.[w.id] ?? 0;
       prodGeplant[p] = (prodGeplant[p] ?? 0) + q;
       if (q > 0 && betroffen(p)) q = stk(q * B.produktion.lieferantenAusfallProduktion);
+      if (q > 0 && PRODUKTE[p].istEBike && eff.akku < 1) q = stk(q * eff.akku);
       qty[p] = q;
       noetig += q * PRODUKTE[p].montageStunden * lk[p];
     }
@@ -293,13 +311,13 @@ export function simulateQuarter(
     const linienFix = sum(aktiv.map((l) => LINIENTYPEN[l.typ].fixkosten));
     const wartung = aktiv.length * wartungsKosten(w.wartung);
     const schicht = ueberstd > 0 ? B.personal.schichtkosten : 0;
-    const energie = noetig * B.produktion.energieProStunde;
+    const energie = noetig * B.produktion.energieProStunde * eff.energie;
 
     // Kosten je Produkt
     for (const p of produkte) {
       const q = qty[p] ?? 0;
       if (q <= 0) continue;
-      const hk = herstellkosten(p, w, lf[p], lk[p]);
+      const hk = herstellkosten(p, w, lf[p], lk[p], eff.material(p));
       prodMenge[p] = (prodMenge[p] ?? 0) + q;
       prodKostenMat[p] = (prodKostenMat[p] ?? 0) + q * hk.material;
       prodKostenLohn[p] = (prodKostenLohn[p] ?? 0) + q * hk.lohn;
@@ -397,7 +415,7 @@ export function simulateQuarter(
         const a = konkurrentAnbieter(k, plan, p, r);
         if (a && a.preis > 0) anbieter.push(a);
       }
-      const out = berechneSegment({ region: r, produkt: p, t, anbieter, zustand });
+      const out = berechneSegment({ region: r, produkt: p, t, anbieter, zustand, eventFaktor: eff.nachfrage(p) });
       outs[r]![p] = out;
       const absatz = out.absatz[SPIELER_ID] ?? 0;
       restSupply[p] = (restSupply[p] ?? 0) - absatz;
@@ -428,13 +446,16 @@ export function simulateQuarter(
 
       const preise: Record<string, number> = {};
       const mark: Record<string, number> = {};
+      const qual: Record<string, number> = {};
       for (const a of anbieter) {
         preise[a.id] = a.preis;
         mark[a.id] = a.marketing;
+        qual[a.id] = a.qualitaet;
       }
       segmente.push({
         region: r, produkt: p, volumen: out.volumen, durchschnittspreis: out.pBar, tBar: out.tBar,
         anteile: out.anteile, absatz: { ...out.absatz, rest: out.restAbsatz }, preise, marketing: mark,
+        technikIndex: { ...out.technikIndex }, qualitaet: qual,
       });
       angebote.push({
         produkt: p, region: r, preis, marketing, nachfrage: out.nachfrage[SPIELER_ID] ?? 0, absatz,
@@ -444,6 +465,42 @@ export function simulateQuarter(
       if (absatz < (out.nachfrage[SPIELER_ID] ?? 0) - 1) {
         warn.push(`${PRODUKTE[p].name} (${r}): Nachfrage ${Math.round(out.nachfrage[SPIELER_ID]).toLocaleString('de-DE')} Stück, aber nur ${absatz.toLocaleString('de-DE')} lieferbar.`);
       }
+    }
+  }
+
+  // ------------------------------------------------------------ Vorfälle (Rückruf, Testsieg, Influencer)
+  if (zufall) {
+    for (const k of KOMPONENTEN) {
+      if (dec.lieferanten[k] !== 'billig') continue;
+      if (!rng.chance(VORFAELLE.rueckruf.wahrscheinlichkeitJeBilligKomponente)) continue;
+      const kandidaten = produkte.filter((p) => k !== 'akku' || PRODUKTE[p].istEBike);
+      if (!kandidaten.length) continue;
+      const p = kandidaten[Math.floor(rng.next() * kandidaten.length)];
+      const kosten = VORFAELLE.rueckruf.kostenAnteilUmsatz * (umsatzP[p] ?? 0);
+      rueckrufKosten += kosten;
+      imageSchock += VORFAELLE.rueckruf.image;
+      vorfaelle.push({ art: 'rueckruf', firma: s.unternehmen.name, produkt: p, text: `Rückruf: ${s.unternehmen.name} muss ${PRODUKTE[p].name}s wegen mangelhafter Billig-Teile (${k}) zurückrufen. Kosten ${Math.round(kosten).toLocaleString('de-DE')} €, Image −10.` });
+    }
+    for (const p of produkte) {
+      const out = outs[regionen[0]]?.[p];
+      if (!out) continue;
+      const ti = out.technikIndex;
+      const ich = ti[SPIELER_ID] ?? 0;
+      const spitze = Object.entries(ti).every(([id, v]) => id === SPIELER_ID || v < ich);
+      if (spitze && rng.chance(VORFAELLE.testsieg.wahrscheinlichkeit)) {
+        bekanntheitBonus += VORFAELLE.testsieg.bekanntheit;
+        imageSchock += VORFAELLE.testsieg.image;
+        vorfaelle.push({ art: 'testsieg', firma: s.unternehmen.name, produkt: p, text: `Testsieg: „Rad & Tat“ kürt das ${PRODUKTE[p].name} von ${s.unternehmen.name} zum technisch besten Rad (${Math.round(ich)} Punkte). Bekanntheit +5 Punkte, Image +5.` });
+      }
+    }
+    if (rng.chance(VORFAELLE.influencer.wahrscheinlichkeit)) {
+      const kandidaten = [SPIELER_ID, ...KONKURRENTEN.map((k) => k.id).filter((id) => s.konkurrenten[id]?.status === 'aktiv')];
+      const id = kandidaten[Math.floor(rng.next() * kandidaten.length)];
+      const p = produkte[Math.floor(rng.next() * produkte.length)];
+      const name = id === SPIELER_ID ? s.unternehmen.name : s.konkurrenten[id].name;
+      if (id === SPIELER_ID) bekanntheitBonus += VORFAELLE.influencer.bekanntheit;
+      else s.konkurrenten[id].bekanntheit.DE = Math.min(0.95, (s.konkurrenten[id].bekanntheit.DE ?? 0) + VORFAELLE.influencer.bekanntheit);
+      vorfaelle.push({ art: 'influencer', firma: name, produkt: p, text: `Influencer-Hype: Eine Fitness-Influencerin fährt das ${PRODUKTE[p].name} von ${name} – die Bekanntheit steigt um 8 Punkte.` });
     }
   }
 
@@ -502,7 +559,7 @@ export function simulateQuarter(
       .map((r) => {
         const aktiv = r.werk.linien.filter((l) => l.status === 'aktiv');
         if (!aktiv.length) return 0;
-        return umweltabgabe(sum(aktiv.map((l) => l.umweltindex)) / aktiv.length, aktiv.length);
+        return umweltabgabe(sum(aktiv.map((l) => l.umweltindex)) / aktiv.length - (s.euGesetz ? 10 : 0), aktiv.length);
       }),
   );
   const hqUnterhalt = s.unternehmen.firmensitz.buchwert * B.finanzen.hqUnterhaltSatz;
@@ -519,7 +576,7 @@ export function simulateQuarter(
 
   const deckungsbeitrag = umsatz - herstellkostenUmsatz - logistik;
   const ebit =
-    deckungsbeitrag - marketingSumme - feSumme - nbBudget - personalKosten - fgk - vertriebKosten - verwaltung - afa + sonstErtrag - sonstAufwand;
+    deckungsbeitrag - marketingSumme - feSumme - nbBudget - personalKosten - fgk - vertriebKosten - verwaltung - afa + sonstErtrag - sonstAufwand - rueckrufKosten;
   const zinsen = zinsDarlehen + zinsKontokorrent;
   const ebt = ebit - zinsen;
   let steuern = 0;
@@ -534,7 +591,7 @@ export function simulateQuarter(
   const guv: GuV = {
     umsatz, herstellkosten: herstellkostenUmsatz, logistik, deckungsbeitrag, marketing: marketingSumme, fe: feSumme,
     nachhaltigkeit: nbBudget, marktforschung: 0, fertigungsgemeinkosten: fgk, personal: personalKosten, vertrieb: vertriebKosten,
-    verwaltung, sonstigeErtraege: sonstErtrag, sonstigerAufwand: sonstAufwand, abschreibungen: afa, ebit, ebitda: ebit + afa,
+    verwaltung, sonstigeErtraege: sonstErtrag, sonstigerAufwand: sonstAufwand + rueckrufKosten, abschreibungen: afa, ebit, ebitda: ebit + afa,
     zinsen, ebt, steuern, ueberschuss,
   };
 
@@ -548,7 +605,7 @@ export function simulateQuarter(
   const hireFireTrain = sum(werkRes.map((r) => r.hireFireTrain));
   const periodenKosten =
     sum(werkRes.map((r) => r.energie + r.linienFix + r.wartung + r.schicht)) + nacharbeitGesamt + lagerKosten + logistik +
-    marketingSumme + feSumme + nbBudget + vertriebKosten + verwaltung;
+    marketingSumme + feSumme + nbBudget + vertriebKosten + verwaltung + rueckrufKosten;
   const operativAuszahlung = auszahlungMaterial + laborCash + hireFireTrain + periodenKosten + zinsen + steuern;
   const regTilgung = sum(fin.kredite.map((k) => Math.min(k.tilgung, k.restbetrag)));
   const dividende = dec.finanzen.dividende;
@@ -637,6 +694,7 @@ export function simulateQuarter(
       0.95,
     );
     reg.marktanteil = rs.gesamt > 0 ? rs.eigen / rs.gesamt : 0;
+    if (r === reihenfolge[0] && bekanntheitBonus > 0) reg.bekanntheit = clamp(reg.bekanntheit + bekanntheitBonus, 0.001, 0.95);
     for (const p of produkte) {
       const out = outs[r]?.[p];
       const z = s.markt[r]?.[p];
@@ -681,6 +739,7 @@ export function simulateQuarter(
     }
     konkurrenzBericht.push({
       id: k.id, name: k.name, farbe: k.farbe, status: k.status, umsatz: k.letzterUmsatz, ebit: k.letztesEbit, bilanzsumme: k.bilanzsumme,
+      image: k.image, qualitaet: k.qualitaet, bekanntheit: k.bekanntheit.DE ?? 0,
     });
   }
 
@@ -740,6 +799,14 @@ export function simulateQuarter(
   s.quartal = t + 1;
   s.konkurrenzVorquartal = plaene;
   if (zufall) {
+    const schulungNiedrig = schulungMittel < 300 ? 0.03 : 0;
+    const vieleUeberstunden = werkRes.some((r) => r.regStd > 0 && r.ueberstd / r.regStd > 0.08) ? 0.03 : 0;
+    s.ereignisse = naechsteEreignisse(s, rng, { produkte, regionen, zusatzStreik: schulungNiedrig + vieleUeberstunden, naechstesQuartal: t + 1 });
+    for (const e of s.ereignisse.filter((x) => x.neu)) {
+      const d = ereignisDef(e.id);
+      if (d?.effekt.art === 'zins') s.zinsen.basiszins += d.effekt.plus;
+      if (d?.effekt.art === 'gesetz') s.euGesetz = true;
+    }
     s.konkurrenzPlaene = planKonkurrenten(s, rng);
   }
   s.rngState = rng.getState();
@@ -761,7 +828,13 @@ export function simulateQuarter(
     konkurrenz: konkurrenzBericht,
     warnungen: warn,
     meldungen,
+    vorfaelle,
+    zeitung: null,
   };
+  if (zufall) {
+    report.zeitung = erzeugeZeitung(s, report, opts.vorherBericht ?? null);
+    s.zeitung = report.zeitung;
+  }
   void KONKURRENZ_PRODUKTE;
   void sachanlagen;
   void uUndMengen;

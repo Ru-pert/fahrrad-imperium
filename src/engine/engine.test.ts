@@ -348,3 +348,37 @@ describe('Vorschau', () => {
     expect(technikAusStock(100_000)).toBeCloseTo(Math.log(1.5), 9);
   });
 });
+
+describe('Ereignisse und Zeitung', () => {
+  it('Ereignisse treten auf, Bilanz bleibt ausgeglichen, jede Runde gibt es eine Zeitung', () => {
+    const ids = new Set<string>();
+    let s = neu(77);
+    expect(s.zeitung?.schlagzeile).toBeTruthy();
+    let r: QuarterReport | null = null;
+    for (let i = 0; i < 60 && !s.spielende; i++) {
+      const res = simulateQuarter(s, botEntscheidungen(s, r), undefined, { vorherBericht: r });
+      for (const e of res.nextState.ereignisse) ids.add(e.id);
+      expect(Math.abs(res.report.bilanz.aktiva - res.report.bilanz.passiva)).toBeLessThan(0.01);
+      expect(res.report.zeitung?.artikel.length).toBeGreaterThan(1);
+      s = res.nextState;
+      r = res.report;
+    }
+    expect(ids.size).toBeGreaterThanOrEqual(4);
+  });
+  it('Akku-Engpass begrenzt die E-Bike-Produktion auf 70 %', () => {
+    const s = neu();
+    s.ereignisse = [{ id: 'akkuengpass', rest: 2, neu: true }];
+    const d = standardEntscheidungen(s);
+    const r = simulateQuarter(s, d, new Rng(1), { zufall: false }).report;
+    const e = r.produkte.find((p) => p.produkt === 'ebike')!;
+    expect(e.produziert).toBe(Math.round(800 * 0.7));
+  });
+  it('Kaufprämie erhöht die E-Bike-Nachfrage', () => {
+    const s = neu();
+    const d = standardEntscheidungen(s);
+    const ohne = previewQuarter(s, d).angebote.find((a) => a.produkt === 'ebike')!.nachfrage;
+    s.ereignisse = [{ id: 'kaufpraemie', rest: 4, neu: true }];
+    const mit = previewQuarter(s, d).angebote.find((a) => a.produkt === 'ebike')!.nachfrage;
+    expect(mit / ohne).toBeGreaterThan(1.15);
+  });
+});
