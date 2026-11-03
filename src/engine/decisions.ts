@@ -1,7 +1,7 @@
 import { BALANCE, START } from './config/balance';
 import { LINIENTYPEN, PRODUKTE } from './config/products';
 import { REGION_IDS } from './config/markets';
-import { HQ_STUFEN } from './config/hq';
+import { HQ_EXTRAS, HQ_STUFEN } from './config/hq';
 import type { Decisions, GameState, LinienTyp, ProductId, RegionId, Wartung, WerkEntscheidung } from './types';
 import { clamp, quartalLabel } from './util';
 import { kreditlimit, sachanlagen, schuldenGesamt } from './finance';
@@ -182,6 +182,10 @@ export function normalisiere(state: GameState, eingabe: Decisions): Normalisiert
       stufeHq = idx;
     } else if (idx >= 0) {
       warn.push(`Firmensitz „${HQ_STUFEN[idx].name}“ setzt die vorherige Stufe voraus.`);
+    } else {
+      // Extras: beliebig kombinierbar, jedes nur einmal
+      const extra = HQ_EXTRAS.find((x) => x.id === id);
+      if (extra && !state.unternehmen.firmensitz.extras.includes(id) && !gekauft.includes(id)) gekauft.push(id);
     }
   }
   dec.firmensitz = { kaufen: gekauft };

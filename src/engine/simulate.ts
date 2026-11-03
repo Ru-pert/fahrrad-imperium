@@ -161,6 +161,15 @@ export function simulateQuarter(
 
   // ------------------------------------------------------------ Firmensitz
   for (const id of dec.firmensitz.kaufen) {
+    const extra = HQ_EXTRAS.find((x) => x.id === id);
+    if (extra) {
+      capex += extra.kosten;
+      s.unternehmen.firmensitz.extras.push(id);
+      s.unternehmen.firmensitz.buchwert += extra.kosten;
+      s.unternehmen.firmensitz.anschaffung += extra.kosten;
+      meldungen.push(`Firmensitz-Extra gekauft: ${extra.name}`);
+      continue;
+    }
     const idx = HQ_STUFEN.findIndex((x) => x.id === id);
     const kosten = HQ_STUFEN[idx].kosten;
     capex += kosten;

@@ -4,7 +4,8 @@ import { eur, eurKompakt, fmt0, fmt2, pct } from '../format';
 import { LinienDiagramm } from '../components/charts';
 import { Badge, Card, Tabelle } from '../components/ui';
 import { useLetzterBericht, usePreview } from '../hooks';
-import { WerksAnsicht } from '../components/Werk';
+import { Werksgelaende } from '../iso/Werksgelaende';
+import { linienName } from '../components/Werk';
 
 const FARBEN = ['#0d9488', '#6366f1', '#d97706', '#db2777'];
 
@@ -35,7 +36,9 @@ export function Werke() {
         const aus = vw?.auslastung ?? wr?.auslastung ?? 0;
         return (
           <Card key={w.id} titel={`Werk ${w.name}`} aktion={<Badge>{w.region}</Badge>}>
-            <div className="mb-4"><WerksAnsicht state={state} werk={w} wr={vw ?? wr} produktion={bericht?.produkte.reduce((s, p) => s + p.produziert, 0) ?? 0} /></div>
+            <div className="mb-4">
+              <Werksgelaende state={state} werk={w} vorher={historie[historie.length - 1]?.stateVor} produktion={bericht?.produkte.reduce((s, p) => s + p.produziert, 0) ?? 0} />
+            </div>
             <div className="mb-1 flex justify-between text-sm">
               <span>Auslastung (Vorschau für dieses Quartal)</span>
               <strong className="tnum">{pct(aus, 0)}</strong>
@@ -74,7 +77,7 @@ export function Werke() {
               <tbody>
                 {w.linien.map((l) => (
                   <tr key={l.id} className="border-t border-[var(--line)]">
-                    <td className="py-1.5">{l.id}{l.status === 'bau' && <Badge farbe="amber">im Bau</Badge>}</td>
+                    <td className="py-1.5">{linienName(l)}{l.status === 'bau' && <Badge farbe="amber">im Bau</Badge>}</td>
                     <td className="px-2">{l.typ} · {LINIENTYPEN[l.typ].name}</td>
                     <td className="px-2 text-right">{LINIENTYPEN[l.typ].lebensdauer - l.restlaufzeit} Q</td>
                     <td className="px-2 text-right">{pct(l.verfuegbarkeit, 0)}</td>
