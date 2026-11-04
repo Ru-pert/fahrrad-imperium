@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Konfetti, RechenAnimation } from './Effekte';
 import { klang } from '../klang';
+import { Quartalswechsel } from './Quartalswechsel';
 import { Abzeichen } from './Abzeichen';
 import { Weltkarte } from './Weltkarte';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -180,7 +181,7 @@ export function Auswertung() {
   if (phase === 'rechnen') {
     return (
       <motion.div className="fixed inset-0 z-[70] bg-[var(--bg)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} role="status" aria-live="polite">
-        <RechenAnimation dauer={reduziert ? 300 : 2400} fertig={rechnenFertig} />
+        {reduziert ? <RechenAnimation dauer={300} fertig={rechnenFertig} /> : <Quartalswechsel state={state} bericht={bericht} fertig={rechnenFertig} />}
       </motion.div>
     );
   }

@@ -29,6 +29,8 @@ export const KONKURRENZ_ORTE: Record<string, [number, number]> = {
   fietsfabriek: [4.9, 52.37], freedom: [-122.68, 45.52], goldenspoke: [114.06, 22.54],
 };
 
+export const REGION_MITTE: Record<RegionId, [number, number]> = { DE: [10.4, 51.2], EU: [2, 46], NA: [-98, 40], AS: [108, 30], RW: [-55, -12] };
+
 const BREITE = 960;
 const HOEHE = 500;
 
@@ -46,12 +48,20 @@ export function Weltkarte({
   onAuswahl,
   leuchten = [],
   kompakt = false,
+  routen = false,
+  fahnen = false,
+  hoehe,
 }: {
   state: GameState;
   auswahl?: RegionId | null;
   onAuswahl?: (r: RegionId) => void;
   leuchten?: RegionId[];
   kompakt?: boolean;
+  /** animierte Lieferrouten von den Werken in die aktiven Märkte */
+  routen?: boolean;
+  /** Konkurrenz-Hauptsitze als farbige Fähnchen mit Namen */
+  fahnen?: boolean;
+  hoehe?: number;
 }) {
   const reduziert = useGame((s) => s.reduziert);
   const farbe = state.unternehmen.farbe;
@@ -71,7 +81,7 @@ export function Weltkarte({
   const punkt = (ll: [number, number]) => projektion(ll) ?? [0, 0];
 
   return (
-    <svg viewBox={`0 0 ${BREITE} ${HOEHE}`} className="w-full rounded-xl bg-sky-50 dark:bg-slate-800" role="img" aria-label="Weltkarte der Regionen">
+    <svg viewBox={`0 ${hoehe ? Math.min(30, HOEHE - hoehe) : 0} ${BREITE} ${hoehe ?? HOEHE}`} className="w-full rounded-xl bg-gradient-to-b from-sky-50 to-sky-100 dark:from-slate-800 dark:to-slate-900" role="img" aria-label="Weltkarte der Regionen">
       <defs>
         <pattern id="schraffur" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="6" stroke={farbe} strokeWidth="2" opacity="0.6" />
@@ -101,8 +111,55 @@ export function Weltkarte({
           </g>
         );
       })}
+      {/* Lieferrouten */}
+      {routen &&
+        state.werke
+          .filter((w) => (w.status ?? 'aktiv') === 'aktiv')
+          .flatMap((w, i) => {
+            const ort = w.standort && w.standort !== 'DE' ? WERK_ORTE[w.standort] : i === 0 ? WERK_ORTE.DE : ZWEITES_DE;
+            const [x1, y1] = punkt(ort);
+            return (Object.keys(REGION_MITTE) as RegionId[])
+              .filter((r) => state.regionen[r]?.aktiv)
+              .map((r, j) => {
+                const [x2, y2] = punkt(REGION_MITTE[r]);
+                if (Math.hypot(x2 - x1, y2 - y1) < 20) return null;
+                const mx = (x1 + x2) / 2;
+                const my = Math.min(y1, y2) - Math.abs(x2 - x1) * 0.18 - 20;
+                const d = `M${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`;
+                return (
+                  <g key={`${w.id}-${r}`}>
+                    <path d={d} fill="none" stroke={farbe} strokeWidth="1.6" strokeDasharray="5 5" opacity="0.65">
+                      {!reduziert && <animate attributeName="stroke-dashoffset" from="20" to="0" dur="1s" repeatCount="indefinite" />}
+                    </path>
+                    {!reduziert && (
+                      <circle r="3.5" fill="#fff" stroke={farbe} strokeWidth="2">
+                        <animateMotion dur={`${3 + ((i + j) % 3)}s`} repeatCount="indefinite" path={d} begin={`${(i * 0.7 + j * 0.45) % 3}s`} />
+                      </circle>
+                    )}
+                  </g>
+                );
+              });
+          })}
+      {/* Konkurrenz-Hauptsitze als Fähnchen */}
+      {fahnen &&
+        KONKURRENTEN.map((k) => {
+          const [x, y] = punkt(KONKURRENZ_ORTE[k.id]);
+          const kz = state.konkurrenten[k.id];
+          const farbeK = kz?.farbe ?? '#64748b';
+          const pleite = kz?.status === 'pleite';
+          return (
+            <g key={k.id} transform={`translate(${x} ${y})`} opacity={pleite ? 0.35 : 1}>
+              <path d="M0 0 V -20" stroke="#334155" strokeWidth="1.6" />
+              <path d="M0 -20 L 14 -16 L 0 -12 Z" fill={farbeK}>
+                {!reduziert && <animateTransform attributeName="transform" type="skewY" values="0;6;0" dur="1.6s" repeatCount="indefinite" />}
+              </path>
+              <circle r="2" fill="#334155" />
+              <title>{`${kz?.name ?? k.name}${pleite ? ' (insolvent)' : ''}`}</title>
+            </g>
+          );
+        })}
       {/* Konkurrenz-Hauptsitze */}
-      {!kompakt &&
+      {!kompakt && !fahnen &&
         KONKURRENTEN.map((k) => {
           const [x, y] = punkt(KONKURRENZ_ORTE[k.id]);
           return (

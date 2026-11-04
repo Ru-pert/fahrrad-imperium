@@ -8,7 +8,7 @@ import { Leer } from '../components/Leer';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
 import { LinienDiagramm } from '../components/charts';
-import { Card, Fortschritt, IconBadge, KpiTile, Warnung } from '../components/ui';
+import { Card, Fortschritt, IconBadge, KpiTile, RegionMarke, Warnung } from '../components/ui';
 import { EREIGNIS_FARBE, EREIGNIS_ICON } from '../ereignisIcons';
 import { useLetzterBericht, usePreview } from '../hooks';
 
@@ -30,6 +30,8 @@ export function Cockpit() {
     <div className="space-y-4">
       <h1 className="sr-only">Cockpit</h1>
       <CockpitBanner state={state} bericht={bericht} />
+
+      <Weltbuehne />
 
       {(state.ereignisse ?? []).length > 0 && (
         <Card icon="ereignis" farbe="#f59e0b" titel={`Ereignisse für ${quartalLabel(state.quartal)}`} aktion={<button className="btn-ghost" onClick={() => gehe('zeitung')}>Zur Zeitung</button>}>
@@ -62,6 +64,8 @@ export function Cockpit() {
         <KpiTile icon="image" label="Image" wert={state.unternehmen.image} format={(x) => fmt0(x)} vorher={vorletzter?.image} verlauf={reihe((p) => p.image)} farbe={farbe} hinweis="Skala 0–100" />
       </div>
 
+
+      <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
       <Card titel="Umsatz und EBIT je Quartal" icon="umsatz" farbe={farbe}>
         {daten.length >= 2 ? (
           <LinienDiagramm
@@ -75,31 +79,6 @@ export function Cockpit() {
           <Leer titel="Gleich geht's los">Das Diagramm erscheint, sobald zwei Quartale abgeschlossen sind.</Leer>
         )}
       </Card>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {(() => {
-          const naechste = (['EU', 'NA', 'AS', 'RW'] as RegionId[]).find((r) => !state.regionen[r]?.freigeschaltet);
-          const offen = (['EU', 'NA', 'AS', 'RW'] as RegionId[]).filter((r) => state.regionen[r]?.freigeschaltet && !state.regionen[r]?.aktiv);
-          return (
-            <Card titel={naechste ? `Nächster Meilenstein: ${REGIONEN[naechste].name}` : 'Alle Regionen freigeschaltet'} icon="ziel" farbe="#2563eb" aktion={<button className="btn-ghost" onClick={() => gehe('expansion')}>Weltkarte</button>}>
-              <div className="mb-3"><Weltkarte state={state} kompakt /></div>
-              {naechste && (
-                <div className="space-y-3">
-                  {regionBedingungen(state, naechste).map((b) =>
-                    b.einheit === 'ja' ? (
-                      <div key={b.text} className="text-sm">{b.erfuellt ? '✓' : '○'} {b.text}</div>
-                    ) : (
-                      <Fortschritt key={b.text} label={b.text} wert={Math.max(0, b.ist)} ziel={b.ziel} format={b.einheit === 'eur' ? eurKompakt : b.einheit === 'prozent' ? (x) => pct(x, 2) : (x) => fmt0(x)} />
-                    ),
-                  )}
-                  <p className="muted text-xs">Danach Markteintritt für {eurKompakt(REGIONEN[naechste].eintritt)} unter „Expansion“.</p>
-                </div>
-              )}
-              {offen.length > 0 && <p className="mt-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-900">Freigeschaltet und bereit: {offen.map((r) => REGIONEN[r].name).join(', ')} – jetzt unter „Expansion“ betreten!</p>}
-            </Card>
-          );
-        })()}
-
         <Card titel="Ausblick aktuelles Quartal" icon="kalender" farbe="#7c3aed" aktion={<button className="btn-ghost" onClick={() => gehe('entscheidungen')}>Entscheiden</button>}>
           {vorschau ? (
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -138,5 +117,69 @@ export function Cockpit() {
         </Card>
       )}
     </div>
+  );
+}
+
+/** Die Weltkarte als Bühne: Werke, Lieferrouten, Konkurrenz und der nächste Meilenstein */
+function Weltbuehne() {
+  const state = useGame((s) => s.state)!;
+  const gehe = useGame((s) => s.gehe);
+  const zeigeMarkt = useGame((s) => s.zeigeMarkt);
+  const bericht = useLetzterBericht();
+  const naechste = (['EU', 'NA', 'AS', 'RW'] as RegionId[]).find((r) => !state.regionen[r]?.freigeschaltet);
+  const offen = (['EU', 'NA', 'AS', 'RW'] as RegionId[]).filter((r) => state.regionen[r]?.freigeschaltet && !state.regionen[r]?.aktiv);
+  const aktive = (Object.keys(REGIONEN) as RegionId[]).filter((r) => state.regionen[r]?.aktiv);
+  const proRegion = (r: RegionId) => {
+    const a = bericht?.angebote.filter((x) => x.region === r) ?? [];
+    return { absatz: a.reduce((s, x) => s + x.absatz, 0), umsatz: a.reduce((s, x) => s + x.umsatz, 0) };
+  };
+  const waehle = (r: RegionId) => (state.regionen[r]?.aktiv ? zeigeMarkt(r) : gehe('expansion'));
+  return (
+    <section className="card relative overflow-hidden p-0">
+      <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
+        <h2 className="flex items-center gap-2 text-base font-semibold"><IconBadge name="expansion" farbe="#2563eb" groesse="sm" />Dein Imperium</h2>
+        <div className="muted flex items-center gap-3 text-xs">
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: state.unternehmen.farbe }} /> deine Märkte</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-0 w-4 border-t-2 border-dashed" style={{ borderColor: state.unternehmen.farbe }} /> Lieferrouten</span>
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5" style={{ background: '#d97706', clipPath: 'polygon(0 0, 100% 50%, 0 100%)' }} /> Konkurrenz</span>
+          <button className="btn-ghost min-h-[32px] px-3 text-xs" onClick={() => gehe('expansion')}>Expansion</button>
+        </div>
+      </div>
+      <div className="relative">
+        <Weltkarte state={state} routen fahnen hoehe={400} onAuswahl={waehle} />
+        <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-2">
+          {aktive.map((r) => {
+            const d = proRegion(r);
+            return (
+              <button key={r} onClick={() => zeigeMarkt(r)} className="pointer-events-auto rounded-xl bg-white/90 px-3 py-1.5 text-left shadow-md ring-1 ring-black/5 backdrop-blur transition hover:-translate-y-0.5 dark:bg-slate-900/85">
+                <div className="flex items-center text-xs font-semibold"><RegionMarke r={r} />{REGIONEN[r].name}</div>
+                {bericht && <div className="muted tnum text-[11px]">{fmt0(d.absatz)} Räder · {eurKompakt(d.umsatz)}</div>}
+              </button>
+            );
+          })}
+        </div>
+        {(naechste || offen.length > 0) && (
+          <div className="absolute bottom-3 right-3 w-72 rounded-xl bg-white/90 p-3 shadow-md ring-1 ring-black/5 backdrop-blur dark:bg-slate-900/85">
+            {offen.length > 0 ? (
+              <div className="text-sm">
+                <div className="font-semibold text-amber-700 dark:text-amber-400">Bereit zum Markteintritt</div>
+                <div>{offen.map((r) => REGIONEN[r].name).join(', ')} – jetzt unter „Expansion“ betreten!</div>
+              </div>
+            ) : naechste ? (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Nächster Meilenstein: {REGIONEN[naechste].name}</div>
+                {regionBedingungen(state, naechste).map((b) =>
+                  b.einheit === 'ja' ? (
+                    <div key={b.text} className="text-xs">{b.erfuellt ? '✓' : '○'} {b.text}</div>
+                  ) : (
+                    <Fortschritt key={b.text} label={b.text} wert={Math.max(0, b.ist)} ziel={b.ziel} format={b.einheit === 'eur' ? eurKompakt : b.einheit === 'prozent' ? (x) => pct(x, 2) : (x) => fmt0(x)} />
+                  ),
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

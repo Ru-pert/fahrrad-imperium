@@ -16,7 +16,8 @@ export function Markt() {
   const produkte = aktiveProdukte(state);
   const [p, setP] = useState<ProductId>(produkte[0]);
   const regionen = aktiveRegionen(state);
-  const [r, setR] = useState<RegionId>('DE');
+  const start = useGame((s) => s.marktRegion);
+  const [r, setR] = useState<RegionId>(() => (start && regionen.includes(start) ? start : 'DE'));
   const farbe = state.unternehmen.farbe;
   const seg = bericht?.segmente.find((s) => s.produkt === p && s.region === r);
   const ang = bericht?.angebote.find((a) => a.produkt === p && a.region === r);

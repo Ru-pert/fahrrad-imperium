@@ -8,6 +8,7 @@ import {
   type GameState,
   type NeuesSpielOptionen,
   type QuarterReport,
+  type RegionId,
 } from '../engine';
 import { istSpielstand, laden, speichern, type HistorieEintrag, type Spielstand } from './saveSlots';
 
@@ -28,6 +29,9 @@ interface Store {
   hinweise: Hinweis[];
   dunkel: boolean;
   reduziert: boolean;
+  /** Region, die die Markt-Seite beim Öffnen zeigt */
+  marktRegion: RegionId | null;
+  zeigeMarkt: (r: RegionId) => void;
   /** Bericht, der nach Quartalsabschluss gerade präsentiert wird */
   frischerBericht: QuarterReport | null;
   /** true direkt nach dem Abschluss (mit Rechen-Animation) */
@@ -82,6 +86,11 @@ export const useGame = create<Store>((set, get) => ({
   hinweise: [],
   dunkel: document.documentElement.classList.contains('dark'),
   reduziert: lsGet('fi-reduced') === '1',
+  marktRegion: null,
+  zeigeMarkt(r) {
+    set({ marktRegion: r });
+    get().gehe('markt');
+  },
   frischerBericht: null,
   auswertungFrisch: false,
 
