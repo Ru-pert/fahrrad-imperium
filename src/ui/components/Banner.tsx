@@ -95,6 +95,7 @@ function Partikel({ art, breite, animiert }: { art: string; breite: number; anim
  */
 export function CockpitBanner({ state, bericht }: { state: GameState; bericht: QuarterReport | null }) {
   const reduziert = useGame((s) => s.reduziert);
+  const nacht = useGame((s) => s.dunkel);
   const animiert = !reduziert;
   const s = SAISON[state.quartal % 4];
   const breite = 1100;
@@ -113,12 +114,29 @@ export function CockpitBanner({ state, bericht }: { state: GameState; bericht: Q
       <svg viewBox={`0 0 ${breite} ${hoehe}`} className="block w-full" role="img" aria-label={`${s.name}: ${s.text}`}>
         <defs>
           <linearGradient id="bannerHimmel" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={s.himmel[0]} />
-            <stop offset="1" stopColor={s.himmel[1]} />
+            <stop offset="0" stopColor={nacht ? '#0b1026' : s.himmel[0]} />
+            <stop offset="1" stopColor={nacht ? '#27306b' : s.himmel[1]} />
           </linearGradient>
         </defs>
         <rect width={breite} height={hoehe} fill="url(#bannerHimmel)" />
-        <Partikel art={s.partikel} breite={breite} animiert={animiert} />
+        {nacht ? (
+          <g>
+            {Array.from({ length: 46 }, (_, i) => {
+              const x = (i * 241) % breite;
+              const y = 8 + ((i * 53) % 90);
+              return (
+                <circle key={i} cx={x} cy={y} r={i % 5 === 0 ? 1.6 : 1} fill="#fef9c3">
+                  {animiert && <animate attributeName="opacity" values="0.2;1;0.2" dur={`${2 + (i % 4)}s`} begin={`${(i % 7) * 0.4}s`} repeatCount="indefinite" />}
+                </circle>
+              );
+            })}
+            <circle cx="930" cy="48" r="24" fill="#fef3c7" />
+            <circle cx="942" cy="40" r="22" fill="#0f1535" />
+            {s.partikel === 'schnee' && <Partikel art="schnee" breite={breite} animiert={animiert} />}
+          </g>
+        ) : (
+          <Partikel art={s.partikel} breite={breite} animiert={animiert} />
+        )}
         {/* Hügel (Parallaxe) */}
         <g>
           <path d={`M0 120 Q 120 70 260 110 T 560 105 T 860 100 T ${breite * 2} 110 V ${hoehe} H 0 Z`} fill={s.huegel[0]} />
@@ -130,8 +148,20 @@ export function CockpitBanner({ state, bericht }: { state: GameState; bericht: Q
           <path d={`M${breite} 140 Q ${breite + 150} 110 ${breite + 300} 135 T ${breite + 600} 130 T ${breite + 900} 138 T ${breite * 2} 132 V ${hoehe} H ${breite} Z`} fill={s.huegel[1]} opacity="0.8" />
           {animiert && <animateTransform attributeName="transform" type="translate" from="0 0" to={`${-breite} 0`} dur="30s" repeatCount="indefinite" />}
         </g>
+        {nacht && <rect width={breite} height={hoehe} fill="#0b1026" opacity="0.45" />}
         {/* Straße */}
-        <rect x="0" y="152" width={breite} height="38" fill="#57534e" />
+        <rect x="0" y="152" width={breite} height="38" fill={nacht ? '#292524' : '#57534e'} />
+        {nacht && (
+          <g>
+            {[120, 420, 720, 1020].map((x) => (
+              <g key={x}>
+                <path d={`M${x} 152 V 96 h 14`} stroke="#57534e" strokeWidth="3" fill="none" />
+                <path d={`M${x + 14} 98 L ${x - 18} 190 L ${x + 50} 190 Z`} fill="#fde68a" opacity="0.12" />
+                <circle cx={x + 14} cy="98" r="4" fill="#fde68a" />
+              </g>
+            ))}
+          </g>
+        )}
         <g>
           {Array.from({ length: 30 }, (_, i) => <rect key={i} x={i * 80} y="170" width="40" height="3" fill="#fafaf9" />)}
           {animiert && <animateTransform attributeName="transform" type="translate" from="0 0" to="-80 0" dur="0.8s" repeatCount="indefinite" />}
@@ -142,7 +172,12 @@ export function CockpitBanner({ state, bericht }: { state: GameState; bericht: Q
           const abstand = Math.min(140, 620 / Math.max(1, teilnehmer.length - 1));
           const x = 1040 - rang * abstand - (bericht ? (1 - t.umsatz / max) * 20 : 0);
           const y = 160 - (rang % 2) * 6;
-          return <Fahrer key={t.id} farbe={t.farbe} x={x} y={y} skala={t.id === 'du' ? 1.15 : 0.95} animiert={animiert} name={t.id === 'du' ? 'Du' : t.name} />;
+          return (
+            <g key={t.id}>
+              {nacht && <path d={`M${x + 26} ${y - 22} L ${x + 120} ${y - 34} L ${x + 120} ${y + 4} Z`} fill="#fef08a" opacity="0.18" />}
+              <Fahrer farbe={t.farbe} x={x} y={y} skala={t.id === 'du' ? 1.15 : 0.95} animiert={animiert} name={t.id === 'du' ? 'Du' : t.name} />
+            </g>
+          );
         })}
       </svg>
       <div className="absolute left-5 top-4 max-w-[45%] rounded-xl bg-white/80 px-4 py-3 shadow-sm backdrop-blur dark:bg-slate-900/80">

@@ -7,7 +7,7 @@ import { useGame } from '../../store/gameStore';
 import { eurKompakt, fmt0, pct } from '../format';
 import { BikeBild, BikeIcon } from './BikeIcon';
 import { FeatureBild } from './FeatureBild';
-import { Info, NumberField } from './ui';
+import { Icon, Info, NumberField } from './ui';
 
 const SP = 200;
 const ZE = 128;
@@ -62,12 +62,12 @@ function Knoten({ st, budget, gewaehlt, onClick }: { st: ProjektStatus<FeaturePr
 const kurz = (n: string) => (n.length > 24 ? n.replace(' mit Autopilot-Schaltung', '').replace('Hydraulische ', '').replace(' & Nabendynamo', ' + Dynamo') : n);
 
 const WIRKUNG_TEXT: { key: keyof FeatureWirkung; label: string; icon: string; fmt: (v: number) => string; gut: (v: number) => boolean }[] = [
-  { key: 'nachfrage', label: 'Nachfrage', icon: '🛒', fmt: (v) => `${v > 0 ? '+' : ''}${pct(v, 0)}`, gut: (v) => v > 0 },
-  { key: 'technik', label: 'Technik', icon: '⚙️', fmt: (v) => `${v > 0 ? '+' : ''}${v.toLocaleString('de-DE', { maximumFractionDigits: 2 })}`, gut: (v) => v > 0 },
-  { key: 'qualitaet', label: 'Qualität', icon: '⭐', fmt: (v) => `${v > 0 ? '+' : ''}${fmt0(v * 100)} Pkt.`, gut: (v) => v > 0 },
-  { key: 'image', label: 'Image', icon: '💎', fmt: (v) => `${v > 0 ? '+' : ''}${v.toLocaleString('de-DE')} Pkt.`, gut: (v) => v > 0 },
-  { key: 'nachhaltigkeit', label: 'Nachhaltigkeit', icon: '🌱', fmt: (v) => `${v > 0 ? '+' : ''}${v.toLocaleString('de-DE')} Pkt.`, gut: (v) => v > 0 },
-  { key: 'material', label: 'Materialkosten', icon: '📦', fmt: (v) => `${v > 0 ? '+' : ''}${pct(v, 0)}`, gut: (v) => v < 0 },
+  { key: 'nachfrage', label: 'Nachfrage', icon: 'nachfrage', fmt: (v) => `${v > 0 ? '+' : ''}${pct(v, 0)}`, gut: (v) => v > 0 },
+  { key: 'technik', label: 'Technik', icon: 'technik', fmt: (v) => `${v > 0 ? '+' : ''}${v.toLocaleString('de-DE', { maximumFractionDigits: 2 })}`, gut: (v) => v > 0 },
+  { key: 'qualitaet', label: 'Qualität', icon: 'qualitaet', fmt: (v) => `${v > 0 ? '+' : ''}${fmt0(v * 100)} Pkt.`, gut: (v) => v > 0 },
+  { key: 'image', label: 'Image', icon: 'image', fmt: (v) => `${v > 0 ? '+' : ''}${v.toLocaleString('de-DE')} Pkt.`, gut: (v) => v > 0 },
+  { key: 'nachhaltigkeit', label: 'Nachhaltigkeit', icon: 'nachhaltigkeit', fmt: (v) => `${v > 0 ? '+' : ''}${v.toLocaleString('de-DE')} Pkt.`, gut: (v) => v > 0 },
+  { key: 'material', label: 'Materialkosten', icon: 'lager', fmt: (v) => `${v > 0 ? '+' : ''}${pct(v, 0)}`, gut: (v) => v < 0 },
 ];
 
 export function Wirkungen({ w }: { w: FeatureWirkung }) {
@@ -76,8 +76,8 @@ export function Wirkungen({ w }: { w: FeatureWirkung }) {
       {WIRKUNG_TEXT.filter((x) => w[x.key]).map((x) => {
         const v = w[x.key]!;
         return (
-          <span key={x.key} className={`rounded-full px-2 py-0.5 text-xs font-semibold ${x.gut(v) ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-200'}`}>
-            {x.icon} {x.label} {x.fmt(v)}
+          <span key={x.key} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${x.gut(v) ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-200'}`}>
+            <Icon name={x.icon} className="h-3.5 w-3.5" /> {x.label} {x.fmt(v)}
           </span>
         );
       })}

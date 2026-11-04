@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { quartalLabel, type GuV, type Bilanz } from '../../engine';
+import { Leer } from '../components/Leer';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, fmt1, pct } from '../format';
 import { LinienDiagramm, Wasserfall } from '../components/charts';
@@ -161,7 +162,7 @@ export function Finanzen() {
     return (
       <div className="space-y-4">
         <h1 className="h-page">Finanzen</h1>
-        <Card><p className="muted text-sm">GuV, Bilanz und Cashflow erscheinen nach dem ersten abgeschlossenen Quartal.</p></Card>
+        <Card><Leer titel="Die Bücher sind noch leer">GuV, Bilanz und Cashflow erscheinen nach dem ersten abgeschlossenen Quartal.</Leer></Card>
       </div>
     );
   }

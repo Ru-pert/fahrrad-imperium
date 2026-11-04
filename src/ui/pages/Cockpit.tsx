@@ -4,6 +4,7 @@ import { Weltkarte } from '../components/Weltkarte';
 import { ereignisDef } from '../../engine/events';
 import { BikeIcon } from '../components/BikeIcon';
 import { CockpitBanner } from '../components/Banner';
+import { Leer } from '../components/Leer';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
 import { LinienDiagramm } from '../components/charts';
@@ -71,7 +72,7 @@ export function Cockpit() {
             ]}
           />
         ) : (
-          <p className="muted text-sm">Das Diagramm erscheint, sobald zwei Quartale abgeschlossen sind.</p>
+          <Leer titel="Gleich geht's los">Das Diagramm erscheint, sobald zwei Quartale abgeschlossen sind.</Leer>
         )}
       </Card>
 

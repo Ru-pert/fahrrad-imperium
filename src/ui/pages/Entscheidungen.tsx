@@ -22,9 +22,9 @@ import {
 } from '../../engine';
 import { lernkurve } from '../../engine/production';
 import { useGame } from '../../store/gameStore';
-import { eur, eurKompakt, fmt0, gruppiereWarnungen, pct, REGION_SYMBOL } from '../format';
+import { eur, eurKompakt, fmt0, gruppiereWarnungen, pct } from '../format';
 import { usePreview } from '../hooks';
-import { Card, Icon, IconBadge, Info, KompaktFeld, NumberField, Warnung } from '../components/ui';
+import { Card, Icon, IconBadge, Info, KompaktFeld, NumberField, RegionMarke, Warnung } from '../components/ui';
 import { BikeIcon } from '../components/BikeIcon';
 import { HebelPanel, HebelZeile } from '../components/Hebel';
 import { useHebel, type HebelWirkung } from '../hebel';
@@ -101,7 +101,7 @@ function Preise({ state, d, aendere, vorschau, hebel }: Ctx) {
           <thead>
             <tr className="muted text-left text-xs">
               <th className="pb-1 pr-3 font-medium">Produkt</th>
-              {regionen.map((r) => <th key={r} className="px-2 pb-1 font-medium">{REGION_SYMBOL[r]} {REGIONEN[r].name}</th>)}
+              {regionen.map((r) => <th key={r} className="px-2 pb-1 font-medium"><RegionMarke r={r} />{REGIONEN[r].name}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -230,7 +230,7 @@ function Marketing({ state, d, aendere, vorschau, hebel }: Ctx) {
           <thead>
             <tr className="muted text-left text-xs">
               <th className="pb-1 pr-3 font-medium">Produkt</th>
-              {regionen.map((r) => <th key={r} className="px-2 pb-1 font-medium">{REGION_SYMBOL[r]} {REGIONEN[r].name}</th>)}
+              {regionen.map((r) => <th key={r} className="px-2 pb-1 font-medium"><RegionMarke r={r} />{REGIONEN[r].name}</th>)}
             </tr>
           </thead>
           <tbody>

@@ -1,3 +1,4 @@
+import { klang } from '../ui/klang';
 import { create } from 'zustand';
 import {
   neuesSpiel,
@@ -130,6 +131,7 @@ export const useGame = create<Store>((set, get) => ({
     if (!state || !entwurf || state.spielende) return null;
     const vorher = historie.length ? historie[historie.length - 1].report : null;
     const { nextState, report } = simulateQuarter(state, entwurf, undefined, { vorherBericht: vorher });
+    klang.klingel();
     const eintrag: HistorieEintrag = { stateVor: state, decisions: entwurf, report };
     const neueHistorie = [...historie, eintrag];
     set({

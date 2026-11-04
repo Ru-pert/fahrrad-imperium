@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 import { Fragment } from 'react';
 import { PRODUKTE, REGIONEN, quartalLabel, type AngebotBericht, type ProductId } from '../../engine';
+import { Leer } from '../components/Leer';
 import { useGame } from '../../store/gameStore';
-import { eur, eurKompakt, fmt0, gruppiereWarnungen, pct, REGION_SYMBOL } from '../format';
-import { Aufklapper, Card, Icon, Info, KpiTile, Warnung } from '../components/ui';
+import { eur, eurKompakt, fmt0, gruppiereWarnungen, pct } from '../format';
+import { Aufklapper, Card, Icon, Info, KpiTile, RegionMarke, Warnung } from '../components/ui';
 import { BikeIcon, PRODUKT_FARBE } from '../components/BikeIcon';
 import { useLetzterBericht } from '../hooks';
 
@@ -31,8 +32,9 @@ export function Bericht() {
       <div className="space-y-4">
         <h1 className="h-page">Quartalsbericht</h1>
         <Card>
-          <p className="muted">Noch kein Quartal abgeschlossen. Treffe deine ersten Entscheidungen und schließe das Quartal ab – danach erscheint hier der Bericht.</p>
-          <button className="btn-primary mt-3" onClick={() => gehe('entscheidungen')}>Zu den Entscheidungen</button>
+          <Leer titel="Noch kein Bericht" aktion={<button className="btn-primary" onClick={() => gehe('entscheidungen')}>Zu den Entscheidungen</button>}>
+            Treffe deine ersten Entscheidungen und schließe das Quartal ab – danach erscheint hier der Bericht.
+          </Leer>
         </Card>
       </div>
     );
@@ -112,7 +114,7 @@ export function Bericht() {
                 </tr>
                 {(mehrereRegionen ? zeilen : []).map((a) => (
                   <tr key={a.region} className="border-t border-[var(--line)] text-[13px]">
-                    <td className="py-1.5 pl-11 pr-2"><span className="mr-1.5">{REGION_SYMBOL[a.region]}</span>{REGIONEN[a.region].name}</td>
+                    <td className="py-1.5 pl-11 pr-2"><RegionMarke r={a.region} />{REGIONEN[a.region].name}</td>
                     <td className="px-2 text-right">{eur(a.preis)}</td>
                     <td className="muted px-2 text-right">{fmt0(a.nachfrage)}</td>
                     <td className="px-2 text-right">{fmt0(a.absatz)}</td>

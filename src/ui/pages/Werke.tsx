@@ -1,4 +1,5 @@
 import { LINIENTYPEN, PRODUKTE, quartalLabel } from '../../engine';
+import { Leer } from '../components/Leer';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, fmt2, pct } from '../format';
 import { LinienDiagramm } from '../components/charts';
@@ -103,7 +104,7 @@ export function Werke() {
             <p className="muted mt-2 text-xs">Jede Verdopplung der kumulierten Menge spart rund 10 % der Herstellkosten (Untergrenze 60 %).</p>
           </>
         ) : (
-          <p className="muted text-sm">Der Verlauf erscheint nach zwei abgeschlossenen Quartalen.</p>
+          <Leer titel="Noch kein Verlauf">Der Verlauf erscheint nach zwei abgeschlossenen Quartalen.</Leer>
         )}
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {produkte.map((p) => (

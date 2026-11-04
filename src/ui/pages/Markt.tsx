@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PRODUKTE, PRODUKT_IDS, REGIONEN, SPIELER_ID, aktiveProdukte, aktiveRegionen, quartalLabel, referenzPreis, type ProductId, type RegionId } from '../../engine';
+import { Leer } from '../components/Leer';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
 import { Donut, LinienDiagramm } from '../components/charts';
@@ -53,7 +54,7 @@ export function Markt() {
 
       {!bericht || !seg ? (
         <Card>
-          <p className="muted text-sm">Marktdaten erscheinen nach dem ersten abgeschlossenen Quartal.</p>
+          <Leer titel="Noch keine Marktdaten">Marktdaten erscheinen nach dem ersten abgeschlossenen Quartal.</Leer>
         </Card>
       ) : (
         <>

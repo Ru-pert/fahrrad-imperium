@@ -42,6 +42,14 @@ body {
   .h-page { @apply text-xl font-extrabold tracking-tight sm:text-[1.65rem]; }
 }
 
+h1, h2, h3, .font-display {
+  font-family: 'Bricolage Grotesque Variable', Inter, system-ui, sans-serif;
+  font-optical-sizing: auto;
+  letter-spacing: -0.01em;
+}
+h1 { font-weight: 800; }
+h2, h3 { font-weight: 700; }
+
 input[type='range'] { accent-color: #0d9488; height: 44px; width: 100%; touch-action: pan-y; }
 input[type='range'].kompakt-regler { height: 14px; }
 input, select { font-size: 16px; }

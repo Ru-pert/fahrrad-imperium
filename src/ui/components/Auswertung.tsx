@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Konfetti, RechenAnimation } from './Effekte';
+import { klang } from '../klang';
 import { Abzeichen } from './Abzeichen';
 import { Weltkarte } from './Weltkarte';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -91,7 +92,12 @@ export function Auswertung() {
   const reduziert = useGame((s) => s.reduziert);
   const [fertigFuer, setFertigFuer] = useState<number | null>(null);
   const phase: 'rechnen' | 'fertig' = bericht && frisch && fertigFuer !== bericht.quartal ? 'rechnen' : 'fertig';
-  const rechnenFertig = useCallback(() => setFertigFuer(bericht?.quartal ?? null), [bericht]);
+  const rechnenFertig = useCallback(() => {
+    setFertigFuer(bericht?.quartal ?? null);
+    if (!bericht) return;
+    if (bericht.guv.ebit > 0) klang.kasse();
+    if ((bericht.neueErfolge?.length ?? 0) > 0 || (bericht.freischaltungen?.length ?? 0) > 0) setTimeout(() => klang.erfolg(), 450);
+  }, [bericht]);
 
   useEffect(() => {
     setZeitraum('quartal');

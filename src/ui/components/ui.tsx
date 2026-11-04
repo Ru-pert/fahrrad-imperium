@@ -1,9 +1,10 @@
 import { AnimatePresence, animate, motion, useMotionValue } from 'framer-motion';
 import { createPortal } from 'react-dom';
+import { Illu, hatIllu } from './Illus';
 import * as L from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { fmt0, parseZahl } from '../format';
+import { fmt0, parseZahl, REGION_FARBE } from '../format';
 import { useGame } from '../../store/gameStore';
 
 // ---------------------------------------------------------------- Icons
@@ -22,6 +23,7 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 export function Icon({ name, className = 'h-5 w-5' }: { name: string; className?: string }) {
+  if (hatIllu(name)) return <Illu name={name} className={className} />;
   const C = ICONS[name] ?? L.Circle;
   return <C className={className} strokeWidth={1.8} aria-hidden="true" />;
 }
@@ -31,8 +33,18 @@ export function IconBadge({ name, farbe = '#0d9488', groesse = 'md' }: { name: s
   const g = { sm: 'h-7 w-7', md: 'h-9 w-9', lg: 'h-12 w-12' }[groesse];
   const i = { sm: 'h-4 w-4', md: 'h-5 w-5', lg: 'h-6 w-6' }[groesse];
   return (
-    <span className={`inline-grid ${g} shrink-0 place-items-center rounded-xl`} style={{ background: `${farbe}1f`, color: farbe }}>
+    <span className={`inline-grid ${g} shrink-0 place-items-center rounded-xl`} style={{ background: `linear-gradient(140deg, ${farbe}2e, ${farbe}12)`, color: farbe, boxShadow: `inset 0 0 0 1px ${farbe}26` }}>
       <Icon name={name} className={i} />
+    </span>
+  );
+}
+
+/** Kleines Regionskürzel als farbige Marke (statt Flaggen-Emojis, die nicht überall dargestellt werden) */
+export function RegionMarke({ r }: { r: string }) {
+  const farbe = REGION_FARBE[r] ?? '#64748b';
+  return (
+    <span className="mr-1.5 inline-grid h-[18px] min-w-[26px] place-items-center rounded-md px-1 align-middle text-[10px] font-extrabold tracking-wide text-white" style={{ background: farbe }}>
+      {r}
     </span>
   );
 }
