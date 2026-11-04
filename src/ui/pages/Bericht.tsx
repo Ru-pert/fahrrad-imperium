@@ -8,6 +8,7 @@ import { Aufklapper, Card, Icon, Info, KpiTile, RegionMarke, Warnung } from '../
 import { BikeIcon, PRODUKT_FARBE } from '../components/BikeIcon';
 import { Zufriedenheit } from '../components/Tiefe';
 import { useLetzterBericht } from '../hooks';
+import { KrisenAusgang } from '../components/Krise';
 
 /** Balken: Wie viel der Nachfrage konnte geliefert werden? */
 function Lieferquote({ absatz, nachfrage, farbe }: { absatz: number; nachfrage: number; farbe: string }) {
@@ -59,6 +60,9 @@ export function Bericht() {
   ].sort((a, b) => b.umsatz - a.umsatz);
   const maxUmsatz = Math.max(...firmen.map((f) => f.umsatz), 1);
   const { sonstige, engpaesse } = gruppiereWarnungen(bericht.warnungen);
+  // Krise und Personalien stehen in eigenen Karten
+  const extra = new Set((bericht.fuehrung ?? []).map((x) => x.text));
+  const meldungen = bericht.meldungen.filter((m) => !extra.has(m) && !m.startsWith('Krise „'));
 
   return (
     <div className="space-y-4">
@@ -70,9 +74,31 @@ export function Bericht() {
         <button className="btn-primary" onClick={() => zeige(bericht)}><Icon name="stern" className="h-4 w-4" /> Grafische Auswertung öffnen</button>
       </div>
 
-      {bericht.meldungen.length > 0 && (
+      {(bericht.krise || (bericht.fuehrung?.length ?? 0) > 0) && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {bericht.krise && (
+            <Card titel="Krise" icon="krise" farbe="#e11d48">
+              <KrisenAusgang krise={bericht.krise} />
+            </Card>
+          )}
+          {(bericht.fuehrung?.length ?? 0) > 0 && (
+            <Card titel="Personalien im Führungsteam" icon="team" farbe="#7c3aed" aktion={<button className="btn-ghost" onClick={() => gehe('team')}>Zum Team</button>}>
+              <ul className="space-y-1.5 text-sm">
+                {bericht.fuehrung!.map((x, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <Icon name={x.art === 'abgeworben' || x.art === 'abwerbeversuch' ? 'herzbruch' : x.art === 'befoerdert' ? 'krone' : x.art === 'burnout' ? 'kaffee' : 'personal'} className={`mt-0.5 h-4 w-4 shrink-0 ${x.art === 'abgeworben' || x.art === 'abwerbeversuch' ? 'text-rose-600' : 'text-violet-600'}`} />
+                    {x.text}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {meldungen.length > 0 && (
         <div className="card divide-y divide-[var(--line)] px-4">
-          {bericht.meldungen.map((m) => (
+          {meldungen.map((m) => (
             <div key={m} className="flex items-start gap-2 py-2 text-sm">
               <Icon name="info" className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
               {m}

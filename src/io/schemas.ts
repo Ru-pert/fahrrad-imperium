@@ -54,6 +54,10 @@ export const entscheidungsSchema = z.object({
     .optional(),
   uebernahme: z.string().optional(),
   markeZukaufen: z.array(z.string()).optional(),
+  krise: z.string().optional(),
+  fuehrung: z
+    .object({ einstellen: z.array(z.string()).optional(), entlassen: z.array(z.string()).optional(), befoerdern: z.array(z.string()).optional(), gegenangebot: z.array(z.string()).optional() })
+    .optional(),
   begruendung: z.string().optional(),
 });
 
@@ -61,7 +65,7 @@ export type EntscheidungsEingabe = z.infer<typeof entscheidungsSchema>;
 
 /** Bekannte Schlüssel je Ebene – alles andere wird mit Warnung ignoriert */
 export const BEKANNT = {
-  oben: ['format', 'version', 'quartal', 'produkte', 'werke', 'lieferanten', 'nachhaltigkeitsbudget', 'finanzen', 'firmensitz', 'expansion', 'forschung', 'einkauf', 'grossabnehmer', 'ausschreibungen', 'marktforschung', 'rettung', 'boerse', 'uebernahme', 'markeZukaufen', 'begruendung'],
+  oben: ['format', 'version', 'quartal', 'produkte', 'werke', 'lieferanten', 'nachhaltigkeitsbudget', 'finanzen', 'firmensitz', 'expansion', 'forschung', 'einkauf', 'grossabnehmer', 'ausschreibungen', 'marktforschung', 'rettung', 'boerse', 'uebernahme', 'markeZukaufen', 'krise', 'fuehrung', 'begruendung'],
   produkt: ['produktion', 'fe', 'maerkte'],
   markt: ['preis', 'marketing'],
   werk: ['linienKaufen', 'linienVerkaufen', 'neueLinien', 'wartung', 'personalAenderung', 'schulungProKopf', 'halleErweitern'],

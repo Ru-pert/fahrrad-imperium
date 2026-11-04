@@ -1,3 +1,4 @@
+import { FirmenLogo, ciVon } from '../components/FirmenLogo';
 import { AnimatePresence, motion, useAnimationControls } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { PRODUKTE, PRODUKT_IDS, type ProductId } from '../../engine';
@@ -61,6 +62,7 @@ export function Garage() {
   const angebot = bericht?.produkte.find((x) => x.produkt === p);
   const preise = bericht?.angebote.filter((a) => a.produkt === p) ?? [];
   const aktiv = imProgramm.includes(p);
+  const ci = ciVon(state);
 
   return (
     <div className="space-y-4">
@@ -75,7 +77,7 @@ export function Garage() {
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/40 to-transparent" />
         <div className="relative flex flex-wrap items-center justify-between gap-3 px-4 pt-5 text-white sm:px-6">
           <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-amber-200/80">Modell</div>
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-amber-200/80"><FirmenLogo ci={ci} name={state.unternehmen.name} className="h-5 w-5" /> Modell</div>
             <div className="font-display text-3xl font-extrabold">{PRODUKTE[p].name}</div>
             <div className="text-sm text-slate-300">{aktiv ? `${radFeatures.length} Feature${radFeatures.length === 1 ? '' : 's'} verbaut` : 'Noch nicht erforscht'}</div>
           </div>
@@ -91,7 +93,7 @@ export function Garage() {
         <div className="relative h-72 overflow-hidden">
           <motion.div animate={steuerung} className="absolute inset-0 flex items-end justify-center pb-6">
             <motion.div animate={{ scaleX: gespiegelt ? -1 : 1 }} transition={{ duration: 0.5 }}>
-              <BikeBild produkt={p} features={aktiv ? radFeatures : []} className="h-48 w-80 sm:h-64 sm:w-[26rem]" farbe={aktiv ? undefined : '#475569'} />
+              <BikeBild produkt={p} features={aktiv ? radFeatures : []} className="h-48 w-80 sm:h-64 sm:w-[26rem]" farbe={aktiv ? (ci.rahmenInFirmenfarbe ? ci.farbe : undefined) : '#475569'} logo={aktiv ? ci : undefined} firma={state.unternehmen.name} />
             </motion.div>
           </motion.div>
           {!aktiv && (

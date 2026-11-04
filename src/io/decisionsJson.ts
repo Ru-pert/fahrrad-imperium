@@ -23,6 +23,8 @@ export interface EntscheidungsJson {
   boerse?: Decisions['boerse'];
   uebernahme?: string;
   markeZukaufen?: RegionId[];
+  krise?: string;
+  fuehrung?: Decisions['fuehrung'];
   begruendung?: string;
 }
 
@@ -67,6 +69,8 @@ export function entscheidungenAlsJson(d: Decisions, begruendung?: string): Entsc
     ...(d.boerse && Object.keys(d.boerse).length ? { boerse: structuredClone(d.boerse) } : {}),
     ...(d.uebernahme ? { uebernahme: d.uebernahme } : {}),
     ...(d.markeZukaufen?.length ? { markeZukaufen: [...d.markeZukaufen] } : {}),
+    ...(d.krise ? { krise: d.krise } : {}),
+    ...(d.fuehrung && Object.values(d.fuehrung).some((v) => (v?.length ?? 0) > 0) ? { fuehrung: structuredClone(d.fuehrung) } : {}),
     ...(begruendung ? { begruendung } : {}),
   };
 }

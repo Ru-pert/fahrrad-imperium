@@ -1,3 +1,5 @@
+import { FirmenLogo } from './FirmenLogo';
+import type { CorporateIdentity } from '../../engine';
 import type { ProductId } from '../../engine';
 
 export const PRODUKT_FARBE: Record<ProductId, string> = {
@@ -226,15 +228,20 @@ export function BikeIcon({ produkt, className = 'h-8 w-12', farbe }: { produkt: 
 }
 
 /** Große Darstellung mit Speichen, Akku und allen erforschten Features */
-export function BikeBild({ produkt, features = [], className = 'h-32 w-52', farbe }: { produkt: ProductId; features?: string[]; className?: string; farbe?: string }) {
+export function BikeBild({ produkt, features = [], className = 'h-32 w-52', farbe, logo, firma = '' }: { produkt: ProductId; features?: string[]; className?: string; farbe?: string; logo?: CorporateIdentity; firma?: string }) {
   const c = farbe ?? PRODUKT_FARBE[produkt];
   const schwebt = features.includes('f-antigrav');
+  const g = GEOMETRIE[produkt];
+  // Logo-Aufkleber auf dem Unterrohr (zwischen Tretlager und Lenkkopf)
+  const lx = g.tretlager[0] + (g.lenker[0] - g.tretlager[0]) * 0.45;
+  const ly = g.tretlager[1] + (g.lenker[1] - g.tretlager[1]) * 0.45 + 1.5;
   return (
     <svg viewBox="-8 -10 82 54" className={className} role="img" aria-label="Fahrrad">
       <ellipse cx="32" cy="39.5" rx="28" ry="1.6" fill={schwebt ? '#a855f7' : '#94a3b8'} opacity={schwebt ? 0.35 : 0.3} />
       <g>
         {schwebt && <animateTransform attributeName="transform" type="translate" values="0 -3;0 -5;0 -3" dur="2s" repeatCount="indefinite" />}
         <Rad2D produkt={produkt} c={c} detail features={features} />
+        {logo && <FirmenLogo ci={logo} name={firma} x={lx - 3.2} y={ly - 3.2} groesse={6.4} />}
       </g>
       {schwebt && (
         <g stroke="#c084fc" strokeWidth="0.6" opacity="0.7">

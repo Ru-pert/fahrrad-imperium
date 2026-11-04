@@ -78,6 +78,8 @@ import { normalisiereExpansion, pruefeFreischaltungen, schliesseExpansionAb, sta
 import { pruefeErfolge } from './achievements';
 import { VORFAELLE } from './config/events';
 import type { Vorfall } from './types';
+import { krisenFaktor, loeseKrise, naechsteKrise } from './krisen';
+import { fuehrungQuartalsende, fuehrungsBeschluesse, fuehrungsWirkung, gehaelter } from './fuehrung';
 
 export interface SimOptionen {
   /** 'plan': echte Konkurrenzpläne, 'wiederholung': Konkurrenz wiederholt das Vorquartal (Vorschau, Planungsrechner) */
@@ -232,6 +234,21 @@ export function simulateQuarter(
   let sonstAufwand = 0;
   let imageSchock = spionageBericht.some((x) => x.erwischt) ? MARKTFORSCHUNG.spionage.image * spionageBericht.filter((x) => x.erwischt).length : 0;
 
+  // ------------------------------------------------------------ Krise: Antwort wird wirksam
+  const krise = loeseKrise(s, dec.krise, t, zufall);
+  const krisenKosten = krise?.kosten ?? 0;
+  const krisenErtrag = krise?.ertrag ?? 0;
+  if (krise) {
+    imageSchock += krise.image;
+    meldungen.push(`Krise „${krise.titel}“ – ${krise.label}: ${krise.text}`);
+  }
+
+  // ------------------------------------------------------------ Führungsteam
+  const fuehrungsBericht = fuehrungsBeschluesse(s, dec, t, warn);
+  for (const b of fuehrungsBericht.bericht) meldungen.push(b.text);
+  const fwF = fuehrungsWirkung(s, t);
+  const fuehrungsKosten = gehaelter(s) + fuehrungsBericht.kosten;
+
   // ------------------------------------------------------------ Firmensitz
   for (const id of dec.firmensitz.kaufen) {
     const extra = HQ_EXTRAS.find((x) => x.id === id);
@@ -304,7 +321,7 @@ export function simulateQuarter(
     fin.kredite.push(neu);
   }
   darlehenNeu = Math.max(0, darlehenNeu);
-  const zinsDarlehen = sum(fin.kredite.map((k) => (k.restbetrag * k.zins) / 4));
+  const zinsDarlehen = sum(fin.kredite.map((k) => (k.restbetrag * k.zins) / 4)) * fwF.zins;
   const zinsKontokorrent = (kontokorrentAlt * B.finanzen.kontokorrentZins) / 4;
 
   // ------------------------------------------------------------ Lieferantenausfälle
@@ -390,11 +407,13 @@ export function simulateQuarter(
       }
       maschStd += LINIENTYPEN[l.typ].kapazitaet * v;
     }
-    const streik = eff.streik(w.id);
-    if (streik < 1) {
-      maschStd *= streik;
-      meldungen.push(`Streik im Werk ${w.name}: Kapazität nur ${Math.round(streik * 100)} %.`);
-    }
+    const streikEreignis = eff.streik(w.id);
+    if (streikEreignis < 1) meldungen.push(`Streik im Werk ${w.name}: Kapazität nur ${Math.round(streikEreignis * 100)} %.`);
+    const kriseKap = krisenFaktor(s, t, 'kapazitaet', { werkId: w.id });
+    if (kriseKap < 1) meldungen.push(`Krise: Das Werk ${w.name} schafft nur ${Math.round(kriseKap * 100)} % seiner Kapazität.`);
+    // Kapazitätsfaktor aus Streik, Krise und Werksleitung
+    const streik = streikEreignis * kriseKap * fwF.kapazitaet;
+    maschStd *= streik;
     const einarbeitung = ma > 0 ? 1 - B.personal.einarbeitungsAbschlag * (hired / ma) : 1;
     const prodI = einarbeitung * w.kompetenz * w.motivation;
     const regStd = B.personal.stundenProMitarbeiter * ma * prodI * streik;
@@ -441,7 +460,7 @@ export function simulateQuarter(
     for (const p of produkte) {
       const q = qty[p] ?? 0;
       if (q <= 0) continue;
-      const hk = herstellkosten(p, w, lf[p], lk[p], eff.material(p) * fw[p].material * integrationsFaktor);
+      const hk = herstellkosten(p, w, lf[p], lk[p], eff.material(p) * fw[p].material * integrationsFaktor * krisenFaktor(s, t, 'material'));
       prodMenge[p] = (prodMenge[p] ?? 0) + q;
       prodKostenMat[p] = (prodKostenMat[p] ?? 0) + q * hk.material;
       prodKostenLohn[p] = (prodKostenLohn[p] ?? 0) + q * hk.lohn;
@@ -472,7 +491,7 @@ export function simulateQuarter(
     const menge = prodMenge[p] ?? 0;
     const bestellt = Math.max(0, Math.round(dec.einkauf?.[p] ?? 0));
     const w0 = s.werke.find((w) => (w.status ?? 'aktiv') === 'aktiv') ?? s.werke[0];
-    const einheit = menge > 0 ? (prodKostenMat[p] ?? 0) / menge : w0 ? herstellkosten(p, w0, 1, lernkurve(pz.kumMenge), eff.material(p) * fw[p].material).material : PRODUKTE[p].material;
+    const einheit = menge > 0 ? (prodKostenMat[p] ?? 0) / menge : w0 ? herstellkosten(p, w0, 1, lernkurve(pz.kumMenge), eff.material(p) * fw[p].material * krisenFaktor(s, t, 'material')).material : PRODUKTE[p].material;
     const r = rabattFuer(bestellt);
     const ausLager = Math.min(pz.materialSets, menge);
     const wertJeSet = pz.materialSets > 0 ? pz.materialWert / pz.materialSets : einheit;
@@ -516,7 +535,7 @@ export function simulateQuarter(
     const mengen = werkRes.map((r) => r.qty[p] ?? 0);
     const summeMenge = sum(mengen);
     const standortMalus = summeMenge > 0 ? sum(werkRes.map((r, i) => mengen[i] * (WERK_STANDORTE[r.werk.standort ?? 'DE']?.qualitaet ?? 0))) / summeMenge : 0;
-    qP[p] = clamp(qualitaet(p, dec.lieferanten, schulungMittel, maxUeberstd) + standortMalus + fw[p].qualitaet, B.qualitaet.min, B.qualitaet.max);
+    qP[p] = clamp(qualitaet(p, dec.lieferanten, schulungMittel, maxUeberstd) + standortMalus + fw[p].qualitaet + fwF.qualitaet, B.qualitaet.min, B.qualitaet.max);
     tP[p] = technikAusStock(s.produkte[p]!.fe) + fw[p].technik;
   }
 
@@ -612,7 +631,7 @@ export function simulateQuarter(
     qualitaet: qP[p]!,
     image: s.unternehmen.image,
     kapazitaet,
-    staerke: fw[p].nachfrage * Math.pow(Math.max(1, zufriedenheitVon(s, r, p)) / 50, ZUFRIEDENHEIT.exponent),
+    staerke: fw[p].nachfrage * Math.pow(Math.max(1, zufriedenheitVon(s, r, p)) / 50, ZUFRIEDENHEIT.exponent) * krisenFaktor(s, t, 'nachfrage', { produkt: p }) * fwF.nachfrage,
   });
   // Kontingente: bei Knappheit wird die Ware anteilig zur Nachfrage auf die Märkte verteilt
   const kontingent: Record<string, number> = {};
@@ -829,7 +848,8 @@ export function simulateQuarter(
       }),
   );
   const hqUnterhalt = s.unternehmen.firmensitz.buchwert * B.finanzen.hqUnterhaltSatz;
-  const verwaltung = (maVerw + maEink) * B.personal.verwaltungGehalt + B.finanzen.verwaltungSachkosten + hqUnterhalt + abgabe;
+  // Verwaltung (Finanzleitung senkt die Kosten) plus Gehälter und Einmalkosten des Führungsteams
+  const verwaltung = ((maVerw + maEink) * B.personal.verwaltungGehalt + B.finanzen.verwaltungSachkosten) * fwF.verwaltung + hqUnterhalt + abgabe + fuehrungsKosten;
   // Koordinationskosten: jedes weitere Werk, jede Region und jedes Produkt macht die Organisation träger
   const anzahlWerke = s.werke.filter((w) => (w.status ?? 'aktiv') === 'aktiv').length;
   const komplexAnteil = Math.min(
@@ -849,7 +869,7 @@ export function simulateQuarter(
 
   const deckungsbeitrag = umsatz - herstellkostenUmsatz - logistik;
   const ebit =
-    deckungsbeitrag - marketingSumme - feSumme - nbBudget - personalKosten - fgk - vertriebKosten - verwaltung - koordination - afa + sonstErtrag - sonstAufwand - rueckrufKosten - expansionsAufwand - mfKosten - spionageStrafe;
+    deckungsbeitrag - marketingSumme - feSumme - nbBudget - personalKosten - fgk - vertriebKosten - verwaltung - koordination - afa + sonstErtrag - sonstAufwand - rueckrufKosten - expansionsAufwand - mfKosten - spionageStrafe - krisenKosten + krisenErtrag;
   const zinsen = zinsDarlehen + zinsKontokorrent;
   const ebt = ebit - zinsen;
   let steuern = 0;
@@ -864,7 +884,7 @@ export function simulateQuarter(
   const guv: GuV = {
     umsatz, herstellkosten: herstellkostenUmsatz, logistik, deckungsbeitrag, marketing: marketingSumme, fe: feSumme,
     nachhaltigkeit: nbBudget, marktforschung: mfKosten, fertigungsgemeinkosten: fgk, personal: personalKosten, vertrieb: vertriebKosten,
-    verwaltung, koordination, sonstigeErtraege: sonstErtrag, sonstigerAufwand: sonstAufwand + rueckrufKosten + expansionsAufwand + spionageStrafe, abschreibungen: afa, ebit, ebitda: ebit + afa,
+    verwaltung, koordination, sonstigeErtraege: sonstErtrag + krisenErtrag, sonstigerAufwand: sonstAufwand + rueckrufKosten + expansionsAufwand + spionageStrafe + krisenKosten, abschreibungen: afa, ebit, ebitda: ebit + afa,
     zinsen, ebt, steuern, ueberschuss,
   };
 
@@ -883,7 +903,7 @@ export function simulateQuarter(
   const hireFireTrain = sum(werkRes.map((r) => r.hireFireTrain));
   const periodenKosten =
     sum(werkRes.map((r) => r.energie + r.linienFix + r.wartung + r.schicht)) + nacharbeitGesamt + lagerKosten + logistik +
-    marketingSumme + feSumme + nbBudget + vertriebKosten + verwaltung + koordination + rueckrufKosten + expansionsAufwand + mfKosten + spionageStrafe;
+    marketingSumme + feSumme + nbBudget + vertriebKosten + verwaltung + koordination + rueckrufKosten + expansionsAufwand + mfKosten + spionageStrafe + krisenKosten - krisenErtrag;
   const operativAuszahlung = auszahlungMaterial + laborCash + hireFireTrain + periodenKosten + zinsen + steuern;
   const regTilgung = sum(fin.kredite.map((k) => Math.min(k.tilgung, k.restbetrag)));
   const dividende = dec.finanzen.dividende;
@@ -940,7 +960,7 @@ export function simulateQuarter(
     const M = B.personal.motivation;
     const entlassQuote = r.maOhneFluktuation + r.fired > 0 ? r.fired / (r.maOhneFluktuation + r.fired) : 0;
     const mZiel =
-      1 - 1.5 * Math.pow(U - M.optimaleAuslastung, 2) + 0.1 * (1 - Math.exp(-r.schulungProKopf / M.schulungsEffektBei)) - M.entlassungsEffekt * entlassQuote;
+      1 - 1.5 * Math.pow(U - M.optimaleAuslastung, 2) + 0.1 * (1 - Math.exp(-r.schulungProKopf / M.schulungsEffektBei)) - M.entlassungsEffekt * entlassQuote + fwF.motivation;
     const mNeu = clamp(w.motivation + M.anpassung * (mZiel - w.motivation), M.min, M.max);
     const K = B.personal.kompetenz;
     const kZiel = K.basis + K.bonus * (1 - Math.exp(-r.schulungProKopf / K.schulungBei));
@@ -964,14 +984,14 @@ export function simulateQuarter(
   for (const p of produkte) {
     const pz = s.produkte[p]!;
     pz.kumMenge += prodMenge[p] ?? 0;
-    pz.fe = (1 - B.technik.veralterung) * pz.fe + (dec.fe[p] ?? 0);
+    pz.fe = (1 - B.technik.veralterung) * pz.fe + (dec.fe[p] ?? 0) * fwF.forschung;
   }
 
   // Marke (5.4) und Marktzustand
   for (const r of reihenfolge) {
     const rs = regionSummen[r]!;
     const reg = s.regionen[r]!;
-    const verh = rs.mStar > 0 ? rs.marketing / rs.mStar : 0;
+    const verh = rs.mStar > 0 ? (rs.marketing / rs.mStar) * fwF.werbung : 0;
     const b0 = reg.bekanntheit;
     reg.bekanntheit = clamp(
       b0 * (1 - B.marke.vergessen) +
@@ -981,6 +1001,7 @@ export function simulateQuarter(
     );
     reg.marktanteil = rs.gesamt > 0 ? rs.eigen / rs.gesamt : 0;
     if (r === reihenfolge[0] && bekanntheitBonus > 0) reg.bekanntheit = clamp(reg.bekanntheit + bekanntheitBonus, 0.001, 0.95);
+    if (fwF.bekanntheit) reg.bekanntheit = clamp(reg.bekanntheit + fwF.bekanntheit, 0.001, 0.95);
   }
   for (const r of alleRegionen) {
     for (const p of PRODUKT_IDS) {
@@ -1007,12 +1028,12 @@ export function simulateQuarter(
     : sum(produkte.map((p) => umweltProdukt[p] ?? 0)) / Math.max(1, produkte.length);
   const nbStern = Math.max(B.nachhaltigkeit.nbSternAnteil * umsatz, B.nachhaltigkeit.nbSternMin);
   const deltaWerke = sum(s.werke.filter((w) => (w.status ?? 'aktiv') === 'aktiv').map((w) => WERK_STANDORTE[w.standort ?? 'DE']?.nachhaltigkeit ?? 0));
-  const nZiel = B.nachhaltigkeit.umweltfaktor * uUnt + B.nachhaltigkeit.budgetMax * (1 - Math.exp(-nbBudget / nbStern)) + deltaWerke + fwU.nachhaltigkeit;
+  const nZiel = B.nachhaltigkeit.umweltfaktor * uUnt + B.nachhaltigkeit.budgetMax * (1 - Math.exp(-nbBudget / nbStern)) + deltaWerke + fwU.nachhaltigkeit + fwF.nachhaltigkeit;
   const nNeu = clamp(s.unternehmen.nachhaltigkeit + B.nachhaltigkeit.anpassung * (nZiel - s.unternehmen.nachhaltigkeit), 0, 100);
   const qMittel = gewichtUmsatz > 0
     ? sum(produkte.map((p) => (qP[p] ?? 1) * (verkauft[p] ?? 0))) / gewichtUmsatz
     : sum(produkte.map((p) => qP[p] ?? 1)) / Math.max(1, produkte.length);
-  const iZiel = B.image.basis + B.image.nachhaltigkeitsFaktor * nNeu + (B.image.qualitaetsFaktor * (qMittel - 0.8)) / 0.4 + hqImageBonus(s) + fwU.image;
+  const iZiel = B.image.basis + B.image.nachhaltigkeitsFaktor * nNeu + (B.image.qualitaetsFaktor * (qMittel - 0.8)) / 0.4 + hqImageBonus(s) + fwU.image + fwF.image;
   s.unternehmen.image = clamp(s.unternehmen.image + B.image.anpassung * (iZiel - s.unternehmen.image) + imageSchock, 0, 100);
   s.unternehmen.nachhaltigkeit = nNeu;
   s.unternehmen.umweltindex = uUnt;
@@ -1103,7 +1124,9 @@ export function simulateQuarter(
   });
 
   // ------------------------------------------------------------ Forschung abschließen, Expansion, Freischaltungen
-  const erforscht = forscheQuartal(s, forschungsBudgets, t);
+  // Forschungsleitung: Jeder Euro wirkt stärker
+  const wirksameBudgets = fwF.forschung === 1 ? forschungsBudgets : Object.fromEntries(Object.entries(forschungsBudgets).map(([id, b]) => [id, b * fwF.forschung]));
+  const erforscht = forscheQuartal(s, wirksameBudgets, t);
   meldungen.push(...schliesseExpansionAb(s, t));
   const freischaltungen = zufall ? pruefeFreischaltungen(s) : [];
   for (const f of erforscht.features) freischaltungen.push({ art: 'feature', id: f.id });
@@ -1131,6 +1154,10 @@ export function simulateQuarter(
     }
     s.konkurrenzPlaene = planKonkurrenten(s, rng);
     s.angebote = generiereAngebote(s, rng, segmente, angebote);
+    const personalien = fuehrungQuartalsende(s, t, ebit);
+    fuehrungsBericht.bericht.push(...personalien);
+    for (const x of personalien) meldungen.push(x.text);
+    s.krise = s.endlos || t + 1 < SPIELZIEL.quartale ? naechsteKrise(s, t + 1) : null;
   }
   s.rngState = rng.getState();
 
@@ -1156,6 +1183,8 @@ export function simulateQuarter(
     boerse: { ipo: boerseW.ipo, uebernahmen: boerseW.uebernahmen, kurs: s.boerse?.kurs },
     einkauf: einkaufBericht,
     spionage: spionageBericht,
+    krise: krise ?? undefined,
+    fuehrung: fuehrungsBericht.bericht,
     zeitung: null,
     neueErfolge: [],
     freischaltungen,

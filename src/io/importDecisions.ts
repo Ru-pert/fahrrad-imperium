@@ -28,6 +28,8 @@ import { ereignisEffekte } from '../engine/events';
 import { einstellungsLimit, werkBaubar } from '../engine/expansion';
 import { alleFeatures, alleProjekte } from '../engine/forschung';
 import { REGION_IDS } from '../engine/config/markets';
+import { krisenAnsicht } from '../engine/krisen';
+import { fuehrungVon, kannBefoerdern } from '../engine/fuehrung';
 import { boerseVon, ipoBedingungen, ipoMoeglich, istBoersennotiert, uebernahmeMoeglich } from '../engine/boerse';
 import { BOERSE } from '../engine/config/boerse';
 import { BEKANNT, SPAETERE_FELDER, entscheidungsSchema } from './schemas';
@@ -143,6 +145,8 @@ export function flach(state: GameState, d: Decisions): Map<string, string> {
   for (const k of d.boerse?.aktienKauf ?? []) m.set(`Aktienkauf ${k.konkurrent}`, `${Math.round(k.anteil * 100)} %`);
   if (d.uebernahme) m.set('Übernahme', d.uebernahme);
   if (d.markeZukaufen?.length) m.set('Marke zukaufen', d.markeZukaufen.join(', '));
+  if (state.krise) m.set('Krise', d.krise ?? '(Standard)');
+  if (d.fuehrung && Object.values(d.fuehrung).some((v) => (v?.length ?? 0) > 0)) m.set('Führungsteam', Object.entries(d.fuehrung).filter(([, v]) => v?.length).map(([k, v]) => `${k}: ${v!.join(', ')}`).join('; '));
   if (state.rettungsangebot) m.set('Rettungsangebot', d.rettung === 'ablehnen' ? 'ablehnen' : 'annehmen');
   return m;
 }
@@ -487,6 +491,29 @@ export function importiereEntscheidungen(text: string, state: GameState, basis: 
     if (!ok) fehler.push(`Marke zukaufen: Region „${r}“ ist keine aktive Auslandsregion.`);
     return ok;
   }) as RegionId[];
+
+  // Krise und Führungsteam
+  if (e.krise) {
+    const k = krisenAnsicht(state);
+    if (!k) warn.push('Es liegt keine Krise vor – „krise“ wird ignoriert.');
+    else if (!k.optionen.some((o) => o.id === e.krise)) fehler.push(`Krise: „${e.krise}“ ist keine Option (${k.optionen.map((o) => o.id).join(', ')}).`);
+    else d.krise = e.krise;
+  }
+  if (e.fuehrung) {
+    const z = fuehrungVon(state);
+    const f: NonNullable<Decisions['fuehrung']> = {};
+    const pruefe = (ids: string[] | undefined, erlaubt: string[], was: string) =>
+      (ids ?? []).filter((id) => {
+        const ok = erlaubt.includes(id);
+        if (!ok) fehler.push(`Führungsteam (${was}): „${id}“ ist unbekannt (möglich: ${erlaubt.join(', ') || 'keine'}).`);
+        return ok;
+      });
+    f.einstellen = pruefe(e.fuehrung.einstellen, z.bewerber.map((b) => b.id), 'einstellen');
+    f.entlassen = pruefe(e.fuehrung.entlassen, z.team.map((p) => p.id), 'entlassen');
+    f.befoerdern = pruefe(e.fuehrung.befoerdern, z.team.filter((p) => kannBefoerdern(p, state.quartal)).map((p) => p.id), 'befördern');
+    f.gegenangebot = pruefe(e.fuehrung.gegenangebot, z.abwerbung.map((a) => a.personId), 'gegenangebot');
+    d.fuehrung = f;
+  }
 
   // Kapazität je Werk (nicht still kürzen, sondern melden)
   if (!fehler.length) {

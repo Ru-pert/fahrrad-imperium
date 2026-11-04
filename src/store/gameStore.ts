@@ -13,8 +13,8 @@ import {
 } from '../engine';
 import { istSpielstand, laden, speichern, type HistorieEintrag, type Spielstand } from './saveSlots';
 
-export type Seite = 'cockpit' | 'zeitung' | 'bericht' | 'entscheidungen' | 'markt' | 'expansion' | 'finanzen' | 'werke' | 'garage' | 'marktforschung' | 'boerse' | 'firmensitz' | 'erfolge' | 'austausch' | 'einstellungen';
-export const SEITEN: Seite[] = ['cockpit', 'zeitung', 'bericht', 'entscheidungen', 'markt', 'expansion', 'finanzen', 'werke', 'garage', 'marktforschung', 'boerse', 'firmensitz', 'erfolge', 'austausch', 'einstellungen'];
+export type Seite = 'cockpit' | 'zeitung' | 'bericht' | 'entscheidungen' | 'markt' | 'expansion' | 'finanzen' | 'werke' | 'team' | 'garage' | 'marktforschung' | 'boerse' | 'firmensitz' | 'marke' | 'erfolge' | 'austausch' | 'einstellungen';
+export const SEITEN: Seite[] = ['cockpit', 'zeitung', 'bericht', 'entscheidungen', 'markt', 'expansion', 'finanzen', 'werke', 'team', 'garage', 'marktforschung', 'boerse', 'firmensitz', 'marke', 'erfolge', 'austausch', 'einstellungen'];
 
 interface Hinweis {
   id: number;
@@ -63,6 +63,8 @@ interface Store {
   setDunkel: (d: boolean) => void;
   setReduziert: (r: boolean) => void;
   hinweis: (text: string) => void;
+  /** Corporate Identity ändern (rein optisch, wirkt sofort) */
+  setzeCI: (ci: import('../engine').CorporateIdentity) => void;
 }
 
 let hinweisId = 0;
@@ -257,6 +259,13 @@ export const useGame = create<Store>((set, get) => ({
     document.documentElement.classList.toggle('reduce-motion', r);
     lsSet('fi-reduced', r ? '1' : '0');
     set({ reduziert: r });
+  },
+
+  setzeCI(ci) {
+    const { state } = get();
+    if (!state) return;
+    set({ state: { ...state, unternehmen: { ...state.unternehmen, ci, farbe: ci.farbe } } });
+    void get().speichereSlot('auto', 'Autosave');
   },
 
   hinweis(text) {
