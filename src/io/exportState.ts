@@ -29,6 +29,7 @@ import { branchenanalyse, kundenbefragung, marktbericht, spionageAkte, spionageR
 import { EINKAUF, MARKTFORSCHUNG } from '../engine/config/tiefe';
 import { KOMPLEXITAET, SPIELZIEL } from '../engine/config/spielziel';
 import { restQuartaleBisZiel, wertung } from '../engine/spielziel';
+import { aktienKaufPreis, boerseVon, fundamentalJeAktie, gruenderAnteil, ipoBedingungen, ipoFairerPreis, istBoersennotiert, markenPreis, uebernahmeMoeglich, uebernahmePreis } from '../engine/boerse';
 import { EPOCHEN } from '../engine/config/features';
 import { segmentWachstum, volumenFaktor } from '../engine/market';
 import { WERK_STANDORTE } from '../engine/config/markets';
@@ -178,6 +179,26 @@ export function lagebericht(state: GameState, letzter: QuarterReport | null, ent
         endwertung: state.endwertung ? { punkte: state.endwertung.punkte, stufe: state.endwertung.stufe } : null,
       };
     })(),
+    boerse: (() => {
+      const b = boerseVon(state);
+      return {
+        notiert: b.notiert,
+        aktienGesamt: b.aktienGesamt,
+        anteilGruender: r4(gruenderAnteil(state)),
+        kurs: b.notiert ? r2(b.kurs) : null,
+        stimmung: b.notiert ? r2(b.stimmung) : null,
+        fundamentalJeAktie: r2(fundamentalJeAktie(state)),
+        ipoBedingungen: b.notiert ? null : ipoBedingungen(state),
+        ipoFairerPreis: b.notiert ? null : r2(ipoFairerPreis(state)),
+        regeln: 'IPO: 10–40 % neue Aktien, Preis ±15 % um den fundamentalen Wert; zu hoher Preis → Teilplatzierung; 5 % Kosten. Danach: Kapitalerhöhung ≤ 20 %/Q (5 % Abschlag, 3 % Kosten), Rückkauf ≤ 10 %/Q (+2 %).',
+      };
+    })(),
+    beteiligungen: Object.entries(state.beteiligungen ?? {}).map(([id, b]) => ({ konkurrent: id, anteil: r4(b.anteil), buchwert: r0(b.buchwert) })),
+    uebernahmeKandidaten: Object.values(state.konkurrenten).filter((k) => k.status === 'aktiv').map((k) => ({
+      id: k.id, name: k.name, boersennotiert: istBoersennotiert(k.id), moeglich: uebernahmeMoeglich(state, k.id).ok, grund: uebernahmeMoeglich(state, k.id).grund ?? null,
+      kaufpreis: istBoersennotiert(k.id) ? null : r0(uebernahmePreis(state, k.id)), preisFuer10ProzentAktien: istBoersennotiert(k.id) ? r0(aktienKaufPreis(state, k.id, 0.1)) : null,
+    })),
+    markeZukaufen: Object.fromEntries((['EU', 'NA', 'AS', 'RW'] as RegionId[]).filter((r) => state.regionen[r]?.aktiv).map((r) => [r, r0(markenPreis(state, r))])),
     koordinationskosten: { anteilVomUmsatz: letzter && letzter.guv.umsatz > 0 ? r4((letzter.guv.koordination ?? 0) / letzter.guv.umsatz) : 0, regel: `+${KOMPLEXITAET.jeWeiteresWerk * 100} % je weiteres Werk, +${KOMPLEXITAET.jeWeitereRegion * 100} % je weitere Region, +${KOMPLEXITAET.jeWeiteresProdukt * 100} % je weiteres Produkt (max. ${KOMPLEXITAET.max * 100} %)` },
     konkurrenzVerhalten: 'Konkurrenten, deren Umsatz du zur Hälfte erreichst, senken in deinen Märkten dauerhaft die Preise (−5 %) und werben mehr. Deine Features werden nach 4 Quartalen zu 60 % nachgebaut. Golden Spoke altert ab 2029: weniger Zugkraft und Kapazität.',
     kundenzufriedenheit: Object.fromEntries(regionen.map((r) => [r, Object.fromEntries(produkte.map((p) => [p, r2(zufriedenheitVon(state, r, p))]))])),

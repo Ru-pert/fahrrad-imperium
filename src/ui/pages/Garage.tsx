@@ -73,7 +73,7 @@ export function Garage() {
       <div className="relative overflow-hidden rounded-3xl border border-[var(--line)] bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 shadow-xl">
         <div className="pointer-events-none absolute inset-x-0 top-0 mx-auto h-full w-2/3" style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(253,230,138,0.35), transparent 60%)' }} />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/40 to-transparent" />
-        <div className="relative flex items-center justify-between px-6 pt-5 text-white">
+        <div className="relative flex flex-wrap items-center justify-between gap-3 px-4 pt-5 text-white sm:px-6">
           <div>
             <div className="text-xs uppercase tracking-[0.2em] text-amber-200/80">Modell</div>
             <div className="font-display text-3xl font-extrabold">{PRODUKTE[p].name}</div>
@@ -91,7 +91,7 @@ export function Garage() {
         <div className="relative h-72 overflow-hidden">
           <motion.div animate={steuerung} className="absolute inset-0 flex items-end justify-center pb-6">
             <motion.div animate={{ scaleX: gespiegelt ? -1 : 1 }} transition={{ duration: 0.5 }}>
-              <BikeBild produkt={p} features={aktiv ? radFeatures : []} className="h-64 w-[26rem]" farbe={aktiv ? undefined : '#475569'} />
+              <BikeBild produkt={p} features={aktiv ? radFeatures : []} className="h-48 w-80 sm:h-64 sm:w-[26rem]" farbe={aktiv ? undefined : '#475569'} />
             </motion.div>
           </motion.div>
           {!aktiv && (

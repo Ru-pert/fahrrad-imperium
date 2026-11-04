@@ -99,6 +99,8 @@ export interface Finanzen {
   investorAnteil?: number;
   /** Quartal, in dem die Rettung angenommen wurde */
   rettungQuartal?: number;
+  /** Firmenwert aus Übernahmen */
+  geschaeftswert?: number;
 }
 
 export interface Firmensitz {
@@ -135,6 +137,8 @@ export interface KonkurrentProduktZustand {
 }
 
 export interface KonkurrentZustand {
+  /** Quartal einer Übernahme durch den Spieler */
+  uebernommen?: number;
   /** Schwund der Marktstärke (nur alternde Riesen), 1 = voll */
   alterung?: number;
   id: string;
@@ -288,6 +292,17 @@ export interface GameState {
   angebote?: { grossabnehmer: Grossabnehmer[]; ausschreibungen: Ausschreibung[] };
   /** Rettungsangebot eines Investors (statt sofortiger Insolvenz) */
   rettungsangebot?: { quartal: number; kapital: number; anteil: number } | null;
+  /** Gewähltes Szenario und Quartal, in dem dessen Etappenziel erreicht wurde */
+  szenario?: string;
+  szenarioErreicht?: number;
+  /** Börse (ab dem IPO bzw. für die Aktionärsstruktur) */
+  boerse?: import('./boerse').BoerseZustand;
+  /** Beteiligungen an börsennotierten Konkurrenten (zu Anschaffungskosten) */
+  beteiligungen?: Record<string, { anteil: number; buchwert: number }>;
+  /** Effizienzabschlag nach einer Übernahme bis einschließlich Quartal */
+  integrationBis?: number;
+  /** Integrationskosten, die im nächsten Quartal anfallen */
+  integrationKosten?: number;
   /** Endabrechnung (nach 15 Jahren oder bei Insolvenz) */
   endwertung?: import('./spielziel').Wertung | null;
   /** Nach der Endabrechnung weiterspielen (ohne Wertung) */
@@ -363,6 +378,12 @@ export interface Decisions {
   marktforschung?: MarktforschungKauf;
   /** Antwort auf ein Rettungsangebot */
   rettung?: 'annehmen' | 'ablehnen';
+  /** Börse: IPO, Kapitalerhöhung/Rückkauf (Anteil neuer bzw. zurückgekaufter Aktien), Aktienkäufe */
+  boerse?: { ipo?: { anteil: number; preis: number }; kapitalerhoehung?: number; rueckkauf?: number; aktienKauf?: { konkurrent: string; anteil: number }[] };
+  /** Nicht börsennotierten Konkurrenten übernehmen */
+  uebernahme?: string;
+  /** Regionale Marke zukaufen */
+  markeZukaufen?: RegionId[];
 }
 
 // ---------------------------------------------------------------- Bericht
@@ -395,6 +416,10 @@ export interface GuV {
 
 export interface Bilanz {
   sachanlagen: number;
+  /** Beteiligungen an Konkurrenten */
+  finanzanlagen?: number;
+  /** Firmenwert aus Übernahmen */
+  geschaeftswert?: number;
   vorraeteFertig: number;
   vorraeteMaterial: number;
   forderungen: number;
@@ -572,6 +597,10 @@ export interface QuarterReport {
   /** Spionage-Ergebnisse */
   spionage?: { konkurrent: string; erwischt: boolean; strafe: number }[];
   zeitung: Zeitung | null;
+  /** Etappenziel des Szenarios in diesem Quartal erreicht */
+  szenarioErreicht?: boolean;
+  /** Börse: IPO in diesem Quartal, Übernahmen */
+  boerse?: { ipo?: { aktien: number; preis: number; quote: number }; uebernahmen: string[]; kurs?: number };
   /** In diesem Quartal neu erreichte Erfolge */
   neueErfolge: string[];
   /** Neu freigeschaltete Regionen und Produkte */

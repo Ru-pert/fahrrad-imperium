@@ -55,7 +55,7 @@ export function Bericht() {
 
   const firmen = [
     { id: 'du', name: state.unternehmen.name, umsatz: g.umsatz, ebit: g.ebit, bilanz: bericht.bilanz.aktiva, farbe: state.unternehmen.farbe, eigen: true, pleite: false },
-    ...bericht.konkurrenz.map((k) => ({ id: k.id, name: k.name, umsatz: k.umsatz, ebit: k.ebit, bilanz: k.bilanzsumme, farbe: k.farbe, eigen: false, pleite: k.status === 'pleite' })),
+    ...bericht.konkurrenz.map((k) => ({ id: k.id, name: k.name, umsatz: k.umsatz, ebit: k.ebit, bilanz: k.bilanzsumme, farbe: k.farbe, eigen: false, pleite: k.status === 'pleite', uebernommen: !!state.konkurrenten[k.id]?.uebernommen })),
   ].sort((a, b) => b.umsatz - a.umsatz);
   const maxUmsatz = Math.max(...firmen.map((f) => f.umsatz), 1);
   const { sonstige, engpaesse } = gruppiereWarnungen(bericht.warnungen);
@@ -89,7 +89,8 @@ export function Bericht() {
       </div>
 
       <Card icon="rad" titel={<span className="flex items-center gap-1">Absatz je Produkt{mehrereRegionen ? ' und Markt' : ''} <Info titel="Lieferquote">Der Balken zeigt, welchen Teil der Nachfrage du bedienen konntest. Unbediente Nachfrage wandert zur Konkurrenz ab – unter 80 % wird er rot: Mehr Produktion oder Kapazität würde sich lohnen. Fehlmengen und Preiserhöhungen drücken außerdem die Kundenzufriedenheit.</Info></span>}>
-        <table className="tnum w-full text-sm">
+        <div className="-mx-4 overflow-x-auto px-4">
+        <table className="tnum w-full min-w-[640px] text-sm">
           <thead>
             <tr className="muted text-left text-xs">
               <th className="py-1 pr-2 font-medium">Produkt / Markt</th>
@@ -136,6 +137,7 @@ export function Bericht() {
             ))}
           </tbody>
         </table>
+        </div>
       </Card>
 
       {((bericht.sonderabsatz?.length ?? 0) > 0 || (bericht.einkauf?.some((e) => e.bestellt > 0) ?? false) || (bericht.spionage?.length ?? 0) > 0) && (
@@ -165,20 +167,20 @@ export function Bericht() {
 
       <Card icon="bericht" titel={<span className="flex items-center gap-1">Branchenbericht <Info titel="Branchenbericht">Umsatz und EBIT aller Hersteller im letzten Quartal. Preise, Budgets und Marktanteile der Konkurrenz gibt es nur über Marktforschung (spätere Ausbaustufe).</Info></span>}>
         <div className="space-y-1.5">
-          <div className="muted grid grid-cols-[200px_1fr_110px_110px] gap-3 text-xs">
-            <span>Unternehmen</span><span>Umsatz im Quartal</span><span className="text-right">EBIT</span><span className="text-right">Bilanzsumme</span>
+          <div className="muted grid grid-cols-[minmax(0,1fr)_96px] gap-3 text-xs sm:grid-cols-[200px_1fr_110px_110px]">
+            <span>Unternehmen</span><span className="text-right sm:text-left">Umsatz im Quartal</span><span className="hidden text-right sm:block">EBIT</span><span className="hidden text-right sm:block">Bilanzsumme</span>
           </div>
           {firmen.map((f, i) => (
-            <div key={f.id} className={`grid grid-cols-[200px_1fr_110px_110px] items-center gap-3 rounded-lg px-1 py-1 text-sm ${f.eigen ? 'bg-brand-50 font-semibold dark:bg-brand-900/30' : ''}`}>
-              <span className="flex items-center gap-2 truncate"><span className="muted tnum w-4 text-xs">{i + 1}.</span><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: f.farbe }} />{f.name}{f.pleite ? ' (insolvent)' : ''}</span>
+            <div key={f.id} className={`grid grid-cols-[minmax(0,1fr)_96px] items-center gap-3 rounded-lg sm:grid-cols-[200px_1fr_110px_110px] px-1 py-1 text-sm ${f.eigen ? 'bg-brand-50 font-semibold dark:bg-brand-900/30' : ''}`}>
+              <span className="flex items-center gap-2 truncate"><span className="muted tnum w-4 text-xs">{i + 1}.</span><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: f.farbe }} />{f.name}{'uebernommen' in f && f.uebernommen ? ' (übernommen)' : f.pleite ? ' (insolvent)' : ''}</span>
               <div className="flex items-center gap-2">
-                <div className="h-3 flex-1 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+                <div className="hidden h-3 flex-1 overflow-hidden rounded-full bg-black/5 sm:block dark:bg-white/10">
                   <motion.div className="h-full rounded-full" style={{ background: f.farbe }} initial={{ width: 0 }} animate={{ width: `${Math.max(1, (f.umsatz / maxUmsatz) * 100)}%` }} transition={{ duration: 0.7, delay: i * 0.04 }} />
                 </div>
                 <span className="tnum w-24 text-right">{eurKompakt(f.umsatz)}</span>
               </div>
-              <span className={`tnum text-right ${f.ebit < 0 ? 'text-rose-600' : ''}`}>{eurKompakt(f.ebit)}</span>
-              <span className="tnum muted text-right">{eurKompakt(f.bilanz)}</span>
+              <span className={`tnum hidden text-right sm:block ${f.ebit < 0 ? 'text-rose-600' : ''}`}>{eurKompakt(f.ebit)}</span>
+              <span className="tnum muted hidden text-right sm:block">{eurKompakt(f.bilanz)}</span>
             </div>
           ))}
         </div>

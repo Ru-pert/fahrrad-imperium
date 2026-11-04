@@ -3,7 +3,8 @@ import { hashSeed, quartalLabel, type Schwierigkeit } from '../../engine';
 import { Leer } from '../components/Leer';
 import { useGame } from '../../store/gameStore';
 import { SLOT_ANZAHL, loeschen, slotListe, type SlotInfo } from '../../store/saveSlots';
-import { Card, Icon } from '../components/ui';
+import { Card, Icon, IconBadge } from '../components/ui';
+import { SZENARIEN } from '../../engine/szenarien';
 import { klang, tonAn } from '../klang';
 
 const FARBEN = ['#0d9488', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0891b2', '#ca8a04'];
@@ -17,9 +18,20 @@ export function NeuesSpielForm({ abbrechen, onVorschau }: { abbrechen?: () => vo
   const [schwierigkeit, setSchwierigkeit] = useState<Schwierigkeit>('normal');
   const [profi, setProfi] = useState(false);
   const [seedText, setSeedText] = useState('');
+  const [szenario, setSzenario] = useState('frei');
+  const [tutorial, setTutorial] = useState(() => {
+    try {
+      return !localStorage.getItem('fi-tutorial-fertig');
+    } catch {
+      return true;
+    }
+  });
+  const starteTutorial = useGame((s) => s.starteTutorial);
   const start = () => {
     const seed = seedText.trim() === '' ? Math.floor(Math.random() * 2 ** 31) : /^\d+$/.test(seedText.trim()) ? Number(seedText.trim()) : hashSeed(seedText.trim());
-    neu({ firmenname: name.trim() || 'Fahrrad GmbH', farbe, schwierigkeit, profi, seed });
+    const sz = SZENARIEN.find((x) => x.id === szenario);
+    neu({ firmenname: name.trim() || 'Fahrrad GmbH', farbe, schwierigkeit, profi, seed, szenario, startProdukte: sz?.startProdukte });
+    if (tutorial) starteTutorial();
   };
   return (
     <Card titel="Neues Spiel" icon="rad">
@@ -37,6 +49,29 @@ export function NeuesSpielForm({ abbrechen, onVorschau }: { abbrechen?: () => vo
           </div>
         </div>
         <div>
+          <div className="mb-1 text-sm font-medium">Szenario</div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {SZENARIEN.map((sz) => (
+              <button key={sz.id} type="button" onClick={() => setSzenario(sz.id)} aria-pressed={szenario === sz.id} className={`flex items-start gap-2 rounded-xl border p-2.5 text-left transition ${szenario === sz.id ? 'border-2 shadow-sm' : 'border-[var(--line)] hover:bg-black/[0.03] dark:hover:bg-white/5'}`} style={szenario === sz.id ? { borderColor: sz.farbe, background: `${sz.farbe}10` } : undefined}>
+                <IconBadge name={sz.icon} farbe={sz.farbe} groesse="sm" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold leading-tight">{sz.name}</span>
+                  <span className="muted block text-[11px] leading-tight">{sz.untertitel}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+          {(() => {
+            const sz = SZENARIEN.find((x) => x.id === szenario)!;
+            return (
+              <p className="mt-2 rounded-lg bg-black/[0.03] p-2 text-xs dark:bg-white/5">
+                {sz.geschichte}
+                {sz.ziel && <><br /><strong>Etappenziel (+{sz.ziel.bonus} Punkte):</strong> {sz.ziel.text}</>}
+              </p>
+            );
+          })()}
+        </div>
+        <div>
           <div className="mb-1 text-sm font-medium">Schwierigkeitsgrad</div>
           <div className="grid grid-cols-3 gap-2">
             {(['leicht', 'normal', 'schwer'] as Schwierigkeit[]).map((s) => (
@@ -44,6 +79,10 @@ export function NeuesSpielForm({ abbrechen, onVorschau }: { abbrechen?: () => vo
             ))}
           </div>
         </div>
+        <label className="flex min-h-[44px] items-center gap-3 text-sm">
+          <input type="checkbox" className="h-5 w-5" checked={tutorial} onChange={(e) => setTutorial(e.target.checked)} />
+          <span><strong>Einführung</strong> – Prof. Speiche zeigt dir das Wichtigste</span>
+        </label>
         <label className="flex min-h-[44px] items-center gap-3 text-sm">
           <input type="checkbox" className="h-5 w-5" checked={profi} onChange={(e) => setProfi(e.target.checked)} />
           <span><strong>Profimodus</strong> – alle Entscheidungen ab Q1 offen</span>
@@ -177,6 +216,9 @@ export function Einstellungen() {
         )}
       </Card>
 
+      <button className="btn-ghost w-full" onClick={() => { useGame.getState().gehe('cockpit'); useGame.getState().starteTutorial(); }}>
+        <Icon name="austausch" className="h-4 w-4" /> Einführung mit Prof. Speiche erneut starten
+      </button>
       {neuesSpiel ? (
         <NeuesSpielForm abbrechen={() => setNeuesSpiel(false)} />
       ) : (

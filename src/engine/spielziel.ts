@@ -2,9 +2,11 @@
 import { SPIELZIEL } from './config/spielziel';
 import { REGION_IDS } from './config/markets';
 import type { GameState } from './types';
+import { gruenderAnteil } from './boerse';
+import { szenarioVon } from './szenarien';
 
 export interface WertungBaustein {
-  id: 'wert' | 'rang' | 'maerkte' | 'erfolge' | 'image';
+  id: 'wert' | 'rang' | 'maerkte' | 'erfolge' | 'image' | 'szenario';
   name: string;
   punkte: number;
   max: number;
@@ -27,7 +29,7 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 export function wertung(s: GameState): Wertung {
   const P = SPIELZIEL.punkte;
   const k = s.kpiHistorie[s.kpiHistorie.length - 1];
-  const eigenerWert = Math.max(0, (k?.unternehmenswert ?? 0) * (1 - (s.finanzen.investorAnteil ?? 0)));
+  const eigenerWert = Math.max(0, (k?.unternehmenswert ?? 0) * gruenderAnteil(s));
   const wertPunkte = eigenerWert > P.wertVon ? P.wertMax * clamp01(Math.log10(eigenerWert / P.wertVon) / Math.log10(P.wertBis / P.wertVon)) : 0;
   const rang = k?.weltrang ?? 8;
   const rangPunkte = P.rang[Math.min(P.rang.length - 1, Math.max(0, rang - 1))];
@@ -42,6 +44,8 @@ export function wertung(s: GameState): Wertung {
     { id: 'erfolge', name: 'Erfolge', punkte: Math.min(100, erfolge * P.erfolg), max: 100, text: `${erfolge} Abzeichen` },
     { id: 'image', name: 'Image & Nachhaltigkeit', punkte: P.imageMax * clamp01(imageWert / 100), max: P.imageMax, text: `Ø ${Math.round(imageWert)} von 100` },
   ];
+  const sz = szenarioVon(s);
+  if (sz.ziel) bausteine.push({ id: 'szenario', name: `Szenario: ${sz.name}`, punkte: s.szenarioErreicht !== undefined ? sz.ziel.bonus : 0, max: sz.ziel.bonus, text: s.szenarioErreicht !== undefined ? 'Etappenziel erreicht' : `Ziel verfehlt: ${sz.ziel.text}` });
   const pleite = !!s.spielende;
   let punkte = bausteine.reduce((a, b) => a + b.punkte, 0);
   if (pleite) punkte *= P.pleiteFaktor;

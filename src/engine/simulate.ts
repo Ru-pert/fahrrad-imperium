@@ -68,7 +68,10 @@ import { generiereAngebote, marktforschungKosten, zufriedenheitVon } from './tie
 import { technikIndex as tiAusTechnik } from './market';
 import type { SonderabsatzBericht, QuarterReport as QR } from './types';
 import { KOMPLEXITAET, KONKURRENZ_DRUCK, SPIELZIEL } from './config/spielziel';
+import { aktualisiereKurs, fuehreUebernahmenAus, kapitalmassnahmen } from './boerse';
+import { UEBERNAHME } from './config/boerse';
 import { wertung } from './spielziel';
+import { pruefeSzenario, szenarioVon } from './szenarien';
 import { nachbauWirkung } from './forschung';
 import { featureUnternehmen, featureWirkung, forscheQuartal, normalisiereForschung } from './forschung';
 import { normalisiereExpansion, pruefeFreischaltungen, schliesseExpansionAb, starteExpansion } from './expansion';
@@ -168,6 +171,12 @@ export function simulateQuarter(
       kapitalerhoehung = s.rettungsangebot.kapital;
       fin.kapitalruecklage += kapitalerhoehung;
       fin.investorAnteil = s.rettungsangebot.anteil;
+      if (s.boerse) {
+        const b = s.boerse;
+        const neu = Math.max(0, Math.round((s.rettungsangebot.anteil * b.aktienGesamt - b.aktienInvestor) / (1 - s.rettungsangebot.anteil)));
+        b.aktienGesamt += neu;
+        b.aktienInvestor += neu;
+      }
       fin.rettungGenutzt = true;
       fin.rettungQuartal = t;
       fin.kritischZaehler = 0;
@@ -265,8 +274,16 @@ export function simulateQuarter(
   dec.expansion = expansion;
   const expWirkung = starteExpansion(s, expansion, t);
   capex += expWirkung.capex;
-  const expansionsAufwand = expWirkung.aufwand;
+  let expansionsAufwand = expWirkung.aufwand;
   meldungen.push(...expWirkung.meldungen);
+
+  // ------------------------------------------------------------ Börse: IPO, Kapitalerhöhung, Rückkauf, Marke
+  const boerseW = kapitalmassnahmen(s, dec, warn);
+  kapitalerhoehung += boerseW.kapital;
+  expansionsAufwand += boerseW.aufwand;
+  meldungen.push(...boerseW.meldungen);
+  boerseW.meldungen = [];
+  const integrationsFaktor = s.integrationBis !== undefined && t <= s.integrationBis ? 1 + UEBERNAHME.effizienzAbschlag : 1;
 
   // ------------------------------------------------------------ Kredite
   let tilgungExtra = dec.finanzen.tilgungExtra;
@@ -424,7 +441,7 @@ export function simulateQuarter(
     for (const p of produkte) {
       const q = qty[p] ?? 0;
       if (q <= 0) continue;
-      const hk = herstellkosten(p, w, lf[p], lk[p], eff.material(p) * fw[p].material);
+      const hk = herstellkosten(p, w, lf[p], lk[p], eff.material(p) * fw[p].material * integrationsFaktor);
       prodMenge[p] = (prodMenge[p] ?? 0) + q;
       prodKostenMat[p] = (prodKostenMat[p] ?? 0) + q * hk.material;
       prodKostenLohn[p] = (prodKostenLohn[p] ?? 0) + q * hk.lohn;
@@ -851,6 +868,11 @@ export function simulateQuarter(
     zinsen, ebt, steuern, ueberschuss,
   };
 
+  // ------------------------------------------------------------ Aktienkäufe und Übernahmen
+  const lagerZugang = fuehreUebernahmenAus(s, dec, t, warn, boerseW);
+  capex += boerseW.investition;
+  meldungen.push(...boerseW.meldungen);
+
   // ------------------------------------------------------------ Zahlungen
   const forderungenEnde = (umsatz - umsatzSofort - umsatzSpaeter) * B.finanzen.forderungenAnteil + umsatzSpaeter;
   const einzahlungKunden = umsatz - forderungenEnde + forderungenAnfang;
@@ -900,6 +922,8 @@ export function simulateQuarter(
       }
     }
   }
+  // Übernommene Werke erst nach den Abschreibungen eingliedern
+  s.werke.push(...boerseW.neueWerke);
   s.unternehmen.firmensitz.buchwert -= hqAfa;
   for (const w of s.werke) {
     if ((w.halleImBau ?? 0) > 0) {
@@ -1032,14 +1056,16 @@ export function simulateQuarter(
   fin.ratingScore = rt.score;
   const limit = kreditlimit(s);
   const uw = unternehmenswert(s, nettoschulden);
+  const kursMeldung = aktualisiereKurs(s, rng, ueberschuss, uw.eigenkapitalwert, zufall);
+  if (kursMeldung) meldungen.push(kursMeldung);
 
   const vorraeteEnde = bilanz.vorraeteFertig + bilanz.vorraeteMaterial;
-  const operativ = ueberschuss + afa + (sonstAufwand - sonstErtrag) - (forderungenEnde - forderungenAnfang) - (vorraeteEnde - vorraeteAnfang) + (verbindlichkeitenEnde - verbindlichkeitenAnfang);
+  const operativ = ueberschuss + afa + (sonstAufwand - sonstErtrag) - (forderungenEnde - forderungenAnfang) - (vorraeteEnde - vorraeteAnfang) + lagerZugang + (verbindlichkeitenEnde - verbindlichkeitenAnfang);
   const investition = -capex + desinv;
   const finanzierung = kapitalerhoehung + darlehenNeu - tilgungExtraGezahlt - regTilgung + (kontokorrentNeu - kontokorrentAlt) - dividende;
   const kapitalfluss: Kapitalfluss = {
     ueberschuss, abschreibungen: afa, ergebnisAnlagenabgang: sonstAufwand - sonstErtrag,
-    veraenderungForderungen: -(forderungenEnde - forderungenAnfang), veraenderungVorraete: -(vorraeteEnde - vorraeteAnfang),
+    veraenderungForderungen: -(forderungenEnde - forderungenAnfang), veraenderungVorraete: -(vorraeteEnde - vorraeteAnfang) + lagerZugang,
     veraenderungVerbindlichkeiten: verbindlichkeitenEnde - verbindlichkeitenAnfang, operativ,
     investitionen: -capex, desinvestitionen: desinv, investition, darlehenNeu, tilgung: -(tilgungExtraGezahlt + regTilgung),
     kontokorrent: kontokorrentNeu - kontokorrentAlt, dividende: -dividende, kapitalerhoehung, finanzierung,
@@ -1127,6 +1153,7 @@ export function simulateQuarter(
     meldungen,
     vorfaelle,
     sonderabsatz,
+    boerse: { ipo: boerseW.ipo, uebernahmen: boerseW.uebernahmen, kurs: s.boerse?.kurs },
     einkauf: einkaufBericht,
     spionage: spionageBericht,
     zeitung: null,
@@ -1134,6 +1161,10 @@ export function simulateQuarter(
     freischaltungen,
   };
   if (zufall) report.neueErfolge = pruefeErfolge(s, report);
+  if (zufall && pruefeSzenario(s, t)) {
+    report.szenarioErreicht = true;
+    meldungen.push(`Etappenziel erreicht: „${szenarioVon(s).ziel!.text}“ – ${szenarioVon(s).ziel!.bonus} Bonuspunkte für die Endabrechnung!`);
+  }
   // Spielziel: Endabrechnung nach 15 Jahren (oder bei Insolvenz)
   if (zufall && !s.endwertung && ((!s.endlos && t === SPIELZIEL.quartale - 1) || s.spielende)) {
     s.endwertung = wertung(s);

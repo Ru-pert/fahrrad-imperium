@@ -7,13 +7,13 @@ Diese Datei hält fest, was umgesetzt ist, wo das Spiel bewusst von der [Spezifi
 | Stufe | Inhalt | Stand |
 | --- | --- | --- |
 | 1 | Engine-Kern: Datenmodell, RNG, Markt, Produktion, GuV/Bilanz/Cashflow, Konkurrenz, Tests | fertig |
-| 2 | Basis-UI, Speichern, GitHub Pages, PWA | fertig (Fokus PC; Handy-Grundlayout vorhanden) |
+| 2 | Basis-UI, Speichern, GitHub Pages, PWA | fertig (PC und Handy, alle Seiten bei 390 px ohne Querscrollen geprüft) |
 | 3 | Austausch mit Claude: Lagebericht, Entscheidungs-Import mit Prüfung, Anleitung | fertig |
 | 4 | Zeitung mit Ereigniskatalog, Text-Export, Vorlesen | fertig |
 | 5 | Tiefe (Vertrieb, CI, Kundenzufriedenheit, Großabnehmer, Planungsrechner …) | **größtenteils** – zusätzlich Kundenzufriedenheit, Großabnehmer, Ausschreibungen, Einkauf mit Mengenstaffeln, Rettungsangebot; offen: Vertrieb (Wirkung), Corporate Identity, Planungsrechner/-qualität, Kostenrechnung |
 | 6 | Expansion: Regionen, Meilensteine, Werke, weitere Konkurrenten, Weltkarte, Weltrangliste | fertig |
 | 7 | Isometrisches Werksgelände, Firmensitz mit Shop | fertig |
-| 8 | Börse, Übernahmen, Marktforschung, Spionage | teilweise – Marktforschung (4 Produkte) und Spionage fertig; Börse und Übernahmen offen |
+| 8 | Börse, Übernahmen, Marktforschung, Spionage | fertig – IPO, Kurs mit Stimmung, Kapitalerhöhung, Rückkauf, Konkurrenzaktien, Übernahmen, regionale Marken |
 | 9 | Erfolge, Animationen, Feinschliff, Balancing | größtenteils – Erfolge, Animationen, Symbolsprache, Klänge, Beraterin, Garage; Balancing-Runde 3 mit Spielziel und Endabrechnung |
 
 ## Bewusste Abweichungen von der Spezifikation
@@ -39,6 +39,15 @@ Diese Datei hält fest, was umgesetzt ist, wo das Spiel bewusst von der [Spezifi
 - **Rettungsangebot** statt sofortiger Insolvenz (einmalig); ohne Antwort gilt „annehmen“.
 - **Marktforschung** wird sofort angezeigt (Daten des Vorquartals mit Rauschen, geseedet je Quartal), gebucht beim Abschluss; Spionage zeigt `konkurrenzPlaene` exakt, 10 % Planänderung, Entdeckung mit Strafe, Image −15 und Rache-Preisen.
 
+## Börse, Übernahmen, Szenarien (`src/engine/boerse.ts`, `szenarien.ts`, Parameter `config/boerse.ts`)
+
+- **Aktien:** 10 Mio. Aktien beim Start (Gründer 100 %, nach einer Rettung Investor 40 %). IPO nach Spec 12; Anlegerpreis = fundamental × (1 + 0,5 × Umsatzwachstum, 0,8–1,4), Teilplatzierung bei > 5 % Überbewertung.
+- **Kurs** = Eigenkapitalwert je Aktie × Stimmung; Stimmung^0,7 × e^(0,8 × EPS-Überraschung + Rauschen), Crash 2 %/Q. 12 Zwischenpunkte je Quartal (Brownsche Brücke).
+- **Abweichung:** Beteiligungen werden zu Anschaffungskosten bilanziert (nicht zum Kurs). Konkurrenzwert = max(0,5 × Jahresumsatz, 8 × Jahres-EBIT) + 50 % der Kasse.
+- **Übernahmen:** Werk (max. 24 Linien Typ B, halbe Restlaufzeit), Personal, Lager, F&E, Marke; Firmenwert = Preis − Substanz (neue Bilanzzeilen `finanzanlagen`, `geschaeftswert`). Integrationskosten im Folgequartal, 2 Quartale +5 % Materialkosten. Das übernommene Werk kommt erst nach den Abschreibungen des Quartals hinzu.
+- **Szenarien:** Freies Spiel, Traditionshaus retten, E-Bike-Fieber, Start-up mit Wagniskapital, Grüner Pionier – jeweils mit Etappenziel und Bonuspunkten in der Endabrechnung.
+- **Einführung:** 9 Schritte mit Prof. Speiche (Spotlight über `data-tour`-Attribute), abschaltbar, in den Einstellungen erneut startbar.
+
 ## Balancing-Stand (Runde 3, `src/engine/config/spielziel.ts`)
 
 - **Koordinationskosten** (GuV-Zeile „Koordination“): +1,2 % vom Umsatz je weiteres Werk, +1,4 % je weitere Region, +0,7 % je weiteres Produkt, max. 14 %.
@@ -61,4 +70,3 @@ Diese Datei hält fest, was umgesetzt ist, wo das Spiel bewusst von der [Spezifi
 
 - Stufe 5 vervollständigen (siehe oben), Stufe 8 (Börse, Übernahmen, Marktforschung).
 - Balancing-Durchläufe (Stufe 9).
-- Handy-Ansicht für die neuen Grafiken optimieren (bisher bewusst nur PC).

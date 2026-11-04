@@ -44,6 +44,16 @@ export const entscheidungsSchema = z.object({
     .object({ marktbericht: z.array(z.string()).optional(), branchenanalyse: z.array(z.string()).optional(), kundenbefragung: z.boolean().optional(), spionage: z.array(z.string()).optional() })
     .optional(),
   rettung: z.enum(['annehmen', 'ablehnen']).optional(),
+  boerse: z
+    .object({
+      ipo: z.object({ anteil: zahl, preis: zahl }).optional(),
+      kapitalerhoehung: zahl.optional(),
+      rueckkauf: zahl.optional(),
+      aktienKauf: z.array(z.object({ konkurrent: z.string(), anteil: zahl })).optional(),
+    })
+    .optional(),
+  uebernahme: z.string().optional(),
+  markeZukaufen: z.array(z.string()).optional(),
   begruendung: z.string().optional(),
 });
 
@@ -51,7 +61,7 @@ export type EntscheidungsEingabe = z.infer<typeof entscheidungsSchema>;
 
 /** Bekannte Schlüssel je Ebene – alles andere wird mit Warnung ignoriert */
 export const BEKANNT = {
-  oben: ['format', 'version', 'quartal', 'produkte', 'werke', 'lieferanten', 'nachhaltigkeitsbudget', 'finanzen', 'firmensitz', 'expansion', 'forschung', 'einkauf', 'grossabnehmer', 'ausschreibungen', 'marktforschung', 'rettung', 'begruendung'],
+  oben: ['format', 'version', 'quartal', 'produkte', 'werke', 'lieferanten', 'nachhaltigkeitsbudget', 'finanzen', 'firmensitz', 'expansion', 'forschung', 'einkauf', 'grossabnehmer', 'ausschreibungen', 'marktforschung', 'rettung', 'boerse', 'uebernahme', 'markeZukaufen', 'begruendung'],
   produkt: ['produktion', 'fe', 'maerkte'],
   markt: ['preis', 'marketing'],
   werk: ['linienKaufen', 'linienVerkaufen', 'neueLinien', 'wartung', 'personalAenderung', 'schulungProKopf', 'halleErweitern'],
@@ -65,5 +75,4 @@ export const SPAETERE_FELDER: Record<string, string> = {
   vertrieb: 'Vertrieb',
   corporateIdentity: 'Corporate Identity',
   prognose: 'Absatzprognose',
-  boerse: 'Börse',
 };

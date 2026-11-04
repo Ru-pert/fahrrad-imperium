@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react';
 import { quartalLabel, type GameState } from '../../engine';
 import { SPIELZIEL } from '../../engine/config/spielziel';
 import { restQuartaleBisZiel, wertung, type Wertung } from '../../engine/spielziel';
+import { szenarioVon } from '../../engine/szenarien';
 import { ladeBestenliste } from '../../store/bestenliste';
 import { useGame } from '../../store/gameStore';
 import { eurKompakt, fmt0 } from '../format';
@@ -99,7 +100,7 @@ export function Endabrechnung() {
             <div className="mb-3 flex items-center gap-2 font-semibold">Wie sich deine Punkte zusammensetzen <Info titel="Wertung">Unternehmenswert (dein Anteil, logarithmisch bis 100 Mrd. €), Platz in der Weltrangliste nach Quartalsumsatz, erschlossene Regionen, Erfolge sowie Image und Nachhaltigkeit.{w.pleite ? ' Bei Insolvenz zählen nur 40 % der Punkte.' : ''}</Info></div>
             <div className="space-y-3">
               {w.bausteine.map((b, i) => (
-                <div key={b.id} className="grid grid-cols-[170px_1fr_70px] items-center gap-3 text-sm">
+                <div key={b.id} className="grid grid-cols-[120px_1fr_64px] items-center gap-2 text-sm sm:grid-cols-[170px_1fr_70px] sm:gap-3">
                   <div>
                     <div className="font-semibold">{b.name}</div>
                     <div className="muted text-xs">{b.text}</div>
@@ -121,10 +122,10 @@ export function Endabrechnung() {
                 {liste.slice(0, 8).map((e, i) => {
                   const ich = e.firma === state.unternehmen.name && e.punkte === w.punkte && e.seed === state.einstellungen.seed;
                   return (
-                    <li key={`${e.datum}-${i}`} className={`grid grid-cols-[28px_1fr_150px_70px] items-center gap-2 rounded-lg px-2 py-1 ${ich ? 'bg-amber-100 font-semibold dark:bg-amber-900/30' : ''}`}>
+                    <li key={`${e.datum}-${i}`} className={`grid grid-cols-[28px_1fr_70px] items-center gap-2 rounded-lg px-2 py-1 sm:grid-cols-[28px_1fr_150px_70px] ${ich ? 'bg-amber-100 font-semibold dark:bg-amber-900/30' : ''}`}>
                       <span className="muted tnum">{i + 1}.</span>
                       <span className="flex items-center gap-2 truncate"><span className="h-2.5 w-2.5 rounded-full" style={{ background: e.farbe }} />{e.firma}</span>
-                      <span className="muted text-xs">{e.stufe} · {e.schwierigkeit}</span>
+                      <span className="muted hidden text-xs sm:block">{e.stufe} · {e.schwierigkeit}</span>
                       <span className="tnum text-right">{fmt0(e.punkte)}</span>
                     </li>
                   );
@@ -159,7 +160,7 @@ export function ZielKarte({ state }: { state: GameState }) {
   const abstand = gs && gs.letzterUmsatz > 0 ? eigen / gs.letzterUmsatz : 0;
   const fertig = !!state.endwertung;
   return (
-    <section className="card grid items-center gap-4 p-4 md:grid-cols-[auto_1fr_220px]">
+    <section data-tour="ziel" className="card grid items-center gap-4 p-4 md:grid-cols-[auto_1fr_220px]">
       <Rangmedaille index={idx} className="h-20 w-20" />
       <div className="min-w-0">
         <div className="flex flex-wrap items-baseline gap-x-3">
@@ -171,6 +172,20 @@ export function ZielKarte({ state }: { state: GameState }) {
           {w.naechsteStufe && !fertig ? <span className="muted"> · noch {fmt0(w.naechsteStufe.ab - w.punkte)} bis „{w.naechsteStufe.name}“</span> : null}
         </div>
         <div className="mt-2"><StufenLeiter punkte={w.punkte} kompakt /></div>
+        {(() => {
+          const sz = szenarioVon(state);
+          if (!sz.ziel) return null;
+          const erreicht = state.szenarioErreicht !== undefined;
+          const verpasst = !erreicht && state.quartal >= sz.ziel.frist;
+          return (
+            <div className="mt-2 flex items-center gap-2 text-xs">
+              <span className={`rounded-full px-2 py-0.5 font-semibold text-white`} style={{ background: erreicht ? '#16a34a' : verpasst ? '#94a3b8' : sz.farbe }}>{sz.name}</span>
+              <span className={erreicht ? 'font-semibold text-emerald-600' : verpasst ? 'muted line-through' : ''}>{sz.ziel.text}</span>
+              {!erreicht && !verpasst && <span className="muted tnum">({Math.round(sz.ziel.fortschritt(state) * 100)} %)</span>}
+              <span className="muted">· {erreicht ? `+${sz.ziel.bonus} Punkte` : verpasst ? 'verpasst' : `+${sz.ziel.bonus} Punkte möglich`}</span>
+            </div>
+          );
+        })()}
         {!fertig && (
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/5 dark:bg-white/10" title="Spielzeit">
             <div className="h-full rounded-full bg-slate-400" style={{ width: `${Math.min(100, (state.quartal / SPIELZIEL.quartale) * 100)}%` }} />
