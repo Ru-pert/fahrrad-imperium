@@ -7,6 +7,8 @@ import { berechneSegment, preisFunktion, technikAusStock } from './market';
 import { lernkurve } from './production';
 import { PRODUKTE } from './config/products';
 import { sachanlagen } from './finance';
+import { KRISEN } from './config/krisen';
+import { fuehrungVon, kannBefoerdern } from './fuehrung';
 
 const neu = (seed = 42): GameState =>
   neuesSpiel({ firmenname: 'Test GmbH', farbe: '#0d9488', schwierigkeit: 'normal', profi: false, seed, startProdukte: ['stadtrad', 'ebike'] });
@@ -856,5 +858,92 @@ describe('Szenarien', () => {
       }
       expect(s.szenario ?? 'frei').toBe(sz.id);
     }
+  });
+});
+
+describe('Krisen und Führungsteam', () => {
+  const bilanzOk = (r: QuarterReport) => {
+    expect(Math.abs(r.bilanz.aktiva - r.bilanz.passiva)).toBeLessThan(1e-4);
+    expect(Math.abs(r.kapitalfluss.gesamt - (r.kapitalfluss.kasseEnde - r.kapitalfluss.kasseAnfang))).toBeLessThan(1e-4);
+  };
+
+  it('Krisen tauchen auf, jede Antwort wird gebucht, Bilanz bleibt ausgeglichen', () => {
+    let krisen = 0;
+    let gewaehlt = 0;
+    spiele(neu(5), 40, (s, r) => {
+      const d = botEntscheidungen(s, r);
+      if (s.krise) {
+        const def = KRISEN.find((k) => k.id === s.krise!.id)!;
+        d.krise = def.optionen[gewaehlt++ % def.optionen.length].id;
+      }
+      return d;
+    }, (_n, r) => {
+      if (r.krise) krisen++;
+      bilanzOk(r);
+    });
+    expect(krisen).toBeGreaterThan(4);
+  });
+
+  it('Krisenkosten erscheinen im sonstigen Aufwand, Kapazitätskrise senkt die Kapazität', () => {
+    let s = spiele(neu(9), 6, bot).state;
+    s = structuredClone(s);
+    s.krise = { id: 'hacker', quartal: s.quartal };
+    const d = standardEntscheidungen(s);
+    const ohne = previewQuarter({ ...s, krise: null }, d);
+    const backup = previewQuarter(s, { ...d, krise: 'backup' });
+    const experten = previewQuarter(s, { ...d, krise: 'experten' });
+    expect(backup.werke[0].maschinenStunden).toBeLessThan(ohne.werke[0].maschinenStunden * 0.8);
+    expect(experten.guv.sonstigerAufwand).toBeGreaterThan(ohne.guv.sonstigerAufwand + 50_000 - 1);
+    bilanzOk(experten);
+  });
+
+  it('Kartell-Ertrag wird als Einzahlung gebucht', () => {
+    let s = structuredClone(spiele(neu(3), 8, bot).state);
+    const k = Object.keys(s.konkurrenten)[0];
+    s.krise = { id: 'kartell', quartal: s.quartal, konkurrent: k };
+    const d = standardEntscheidungen(s);
+    const r = previewQuarter(s, { ...d, krise: 'mitmachen' });
+    expect(r.guv.sonstigeErtraege).toBeGreaterThan(0);
+    bilanzOk(r);
+  });
+
+  it('Führungskräfte einstellen kostet Prämie und Gehalt, die Werksleitung erhöht die Kapazität', () => {
+    let s = structuredClone(spiele(neu(11), 4, bot).state);
+    const bewerber = fuehrungVon(s).bewerber;
+    s.fuehrung = { team: [], bewerber: bewerber.map((b) => ({ ...b, ressort: 'produktion' as const, macke: 'treu', stufe: 5 })), abwerbung: [] };
+    const d = standardEntscheidungen(s);
+    const ohne = previewQuarter(s, d);
+    const mit = previewQuarter(s, { ...d, fuehrung: { einstellen: [s.fuehrung.bewerber[0].id] } });
+    const b = s.fuehrung.bewerber[0];
+    expect(mit.guv.verwaltung - ohne.guv.verwaltung).toBeCloseTo(2 * b.gehalt + (b.abloese ?? 0), 0);
+    expect(mit.werke[0].maschinenStunden).toBeGreaterThan(ohne.werke[0].maschinenStunden * 1.08);
+    bilanzOk(mit);
+  });
+
+  it('Führungsteam: Einstellen, Abwerbung und Beförderung laufen über viele Quartale stabil', () => {
+    let eingestellt = 0;
+    let abwerbung = 0;
+    const r = spiele(neu(21), 40, (s, rep) => {
+      const d = botEntscheidungen(s, rep);
+      const z = fuehrungVon(s);
+      const frei = z.bewerber.find((b) => !z.team.some((p) => p.ressort === b.ressort));
+      d.fuehrung = { einstellen: frei ? [frei.id] : [], befoerdern: z.team.filter((p) => kannBefoerdern(p, s.quartal)).map((p) => p.id) };
+      return d;
+    }, (_n, rep) => {
+      bilanzOk(rep);
+      eingestellt += (rep.fuehrung ?? []).filter((x) => x.art === 'eingestellt').length;
+      abwerbung += (rep.fuehrung ?? []).filter((x) => x.art === 'abgeworben').length;
+    });
+    expect(eingestellt).toBeGreaterThanOrEqual(5);
+    expect(r.state.fuehrung!.team.length).toBeGreaterThan(0);
+    expect(r.state.fuehrung!.team.length).toBeLessThanOrEqual(5);
+    void abwerbung;
+  });
+
+  it('Krisen und Bewerbungen sind deterministisch und verändern den Hauptzufall nicht', () => {
+    const a = spiele(neu(7), 12, bot).state;
+    const b = spiele(neu(7), 12, bot).state;
+    expect(a.krisenVerlauf).toEqual(b.krisenVerlauf);
+    expect(a.fuehrung?.bewerber).toEqual(b.fuehrung?.bewerber);
   });
 });

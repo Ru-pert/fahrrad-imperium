@@ -37,6 +37,8 @@ ENTSCHEIDUNGS-JSON (format "fahrrad-imperium/entscheidungen", version 1):
   "boerse": { "ipo": { "anteil": 0.25, "preis": <€ je Aktie> }, "kapitalerhoehung": 0.1, "rueckkauf": 0.05, "aktienKauf": [ { "konkurrent": "<id>", "anteil": 0.1 } ] },
   "uebernahme": "<id eines nicht börsennotierten Konkurrenten>",
   "markeZukaufen": ["EU"],
+  "krise": "<options-id, nur wenn krise ≠ null>",
+  "fuehrung": { "einstellen": ["<bewerber-id>"], "entlassen": [], "befoerdern": [], "gegenangebot": ["<person-id>"] },
   "expansion": { "maerkteBetreten": [ "EU" | "NA" | "AS" | "RW" ], "produkteEinfuehren": [ "<produkt-id>" ], "werkeBauen": [ "DE" | "PL" | "US" | "MX" | "VN" | "BR" ] },
   "begruendung": "<1–3 Sätze>"
 }
@@ -56,6 +58,8 @@ WERTEBEREICHE UND REGELN
 - Einkauf: "einkauf": { "<produkt>": <Sets> } – Vorausbestellung mit Mengenrabatt (optionen.einkaufStaffeln); Überschuss geht ins Materiallager.
 - Marktforschung: "marktforschung": { "marktbericht": ["DE"], "branchenanalyse": [], "kundenbefragung": false, "spionage": ["<konkurrent-id>"] } – Kosten siehe optionen.marktforschung. Bereits gekaufte Berichte stehen in marktforschungGekauft.
 - Börse (boerse im Lagebericht): IPO ab 50 Mio. € Umsatz/4Q, 2 Quartale positives EBIT, Rating ≥ BB. Kurs = Eigenkapitalwert je Aktie × Stimmung (Gewinnüberraschungen bewegen die Stimmung). Übernahmen (uebernahmeKandidaten): nur Konkurrenten mit höchstens halb so viel Umsatz; Kaufpreis = Wert × 1,3, Integrationskosten 10 % im Folgequartal, 2 Quartale +5 % Materialkosten. Börsennotierte nur über Aktienkäufe > 50 %. Regionale Marke zukaufen: Bekanntheit +2 Punkte, Restmarkt −3 % (Preis siehe markeZukaufen).
+- Krisen (krise im Lagebericht, sonst null): "krise": "<id>" wählt eine Antwort. Kosten in € stehen dabei, risikoProzent = Wahrscheinlichkeit des schlechten Ausgangs. Ohne Antwort gilt die Standard-Option.
+- Führungsteam (fuehrungsteam): je Ressort eine Person. "fuehrung": { "einstellen": [Bewerber-IDs], "entlassen": [...], "befoerdern": [...], "gegenangebot": [IDs aus abwerbeversuche] }. Regeln siehe fuehrungsteam.regeln.
 - Rettungsangebot (nur wenn rettungsangebot ≠ null): "rettung": "annehmen" | "ablehnen". Ablehnen = Spielende.
 - Expansion: nur freigeschaltete Regionen (siehe optionen). Markteintritt kostet einmalig (EU 2 Mio., NA 15 Mio., AS 40 Mio., RW 100 Mio. €), Verkauf ab Folgequartal. Produkteinführung 500.000 €, 1 Quartal Vorlauf. Werke: 2–3 Quartale Bauzeit, starten leer (Linien kaufen, Personal einstellen).
 - Darlehen: 8 Quartale lineare Tilgung, Zins = konditionen.darlehenszinsNeu. Kontokorrent (12 %) springt automatisch ein.

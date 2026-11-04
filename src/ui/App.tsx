@@ -18,6 +18,10 @@ import { Markt } from './pages/Markt';
 import { Expansion } from './pages/Expansion';
 import { Finanzen } from './pages/Finanzen';
 import { Werke } from './pages/Werke';
+import { Team } from './pages/Team';
+import { Marke } from './pages/Marke';
+import { FirmenLogo, ciVon } from './components/FirmenLogo';
+import { MusikSteuerung } from './components/Musik';
 import { Garage } from './pages/Garage';
 import { Marktforschung } from './pages/Marktforschung';
 import { Boerse, IpoFeier } from './pages/Boerse';
@@ -35,10 +39,12 @@ const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
   { id: 'expansion', label: 'Expansion & Weltkarte', kurz: 'Welt', icon: 'expansion' },
   { id: 'finanzen', label: 'Finanzen', kurz: 'Finanzen', icon: 'finanzen' },
   { id: 'werke', label: 'Werke', kurz: 'Werke', icon: 'werke' },
+  { id: 'team', label: 'Führungsteam', kurz: 'Team', icon: 'team' },
   { id: 'garage', label: 'Garage', kurz: 'Garage', icon: 'rad' },
   { id: 'marktforschung', label: 'Marktforschung', kurz: 'Forschung', icon: 'ziel' },
   { id: 'boerse', label: 'Börse & Übernahmen', kurz: 'Börse', icon: 'wert' },
   { id: 'firmensitz', label: 'Firmensitz', kurz: 'Firmensitz', icon: 'firmensitz' },
+  { id: 'marke', label: 'Marke & Logo', kurz: 'Marke', icon: 'logo' },
   { id: 'erfolge', label: 'Erfolge', kurz: 'Erfolge', icon: 'erfolge' },
   { id: 'austausch', label: 'Mit Claude planen', kurz: 'Claude', icon: 'austausch' },
   { id: 'einstellungen', label: 'Einstellungen & Speichern', kurz: 'Einstellungen', icon: 'einstellungen' },
@@ -46,7 +52,7 @@ const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
 const GRUPPEN: { titel: string; seiten: Seite[] }[] = [
   { titel: 'Überblick', seiten: ['cockpit', 'zeitung', 'bericht'] },
   { titel: 'Steuern', seiten: ['entscheidungen', 'austausch'] },
-  { titel: 'Unternehmen', seiten: ['markt', 'marktforschung', 'expansion', 'boerse', 'finanzen', 'werke', 'garage', 'firmensitz'] },
+  { titel: 'Unternehmen', seiten: ['markt', 'marktforschung', 'expansion', 'boerse', 'finanzen', 'werke', 'team', 'garage', 'firmensitz', 'marke'] },
   { titel: 'Spiel', seiten: ['erfolge', 'einstellungen'] },
 ];
 const JAHRESZEIT = [
@@ -67,6 +73,8 @@ function Seiteninhalt({ seite }: { seite: Seite }) {
     case 'expansion': return <Expansion />;
     case 'finanzen': return <Finanzen />;
     case 'werke': return <Werke />;
+    case 'team': return <Team />;
+    case 'marke': return <Marke />;
     case 'garage': return <Garage />;
     case 'marktforschung': return <Marktforschung />;
     case 'boerse': return <Boerse />;
@@ -128,7 +136,8 @@ function Kopfzeile() {
             </div>
           ))}
         </div>
-        <button data-tour="abschliessen" className="btn-primary ml-auto shadow-md shadow-brand-600/25" onClick={klick} disabled={!!state.spielende}>
+        <MusikSteuerung />
+        <button data-tour="abschliessen" className="btn-primary shadow-md shadow-brand-600/25" onClick={klick} disabled={!!state.spielende}>
           <span className="hidden sm:inline">Quartal abschließen</span>
           <span className="sm:hidden">Abschließen</span>
           <Icon name="chevron" className="h-4 w-4" />
@@ -149,12 +158,16 @@ function Seitenleiste() {
         <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="h-10 w-10 rounded-xl shadow-lg shadow-black/30 ring-1 ring-white/10" />
         <div className="leading-tight">
           <div className="font-bold tracking-tight text-white">Fahrrad-Imperium</div>
-          <div className="flex items-center gap-1.5 text-xs text-teal-200/80">
-            <span className="h-2 w-2 rounded-full" style={{ background: state.unternehmen.farbe }} />
-            {state.unternehmen.name}
-          </div>
+          <div className="text-xs text-teal-200/80">Wirtschaftssimulation</div>
         </div>
       </div>
+      <button onClick={() => gehe('marke')} className="mb-1 flex items-center gap-2.5 rounded-2xl bg-white/[0.06] p-2 text-left ring-1 ring-white/10 transition hover:bg-white/[0.1]" title="Marke & Logo bearbeiten">
+        <FirmenLogo ci={ciVon(state)} name={state.unternehmen.name} className="h-10 w-10 shrink-0 drop-shadow" />
+        <span className="min-w-0 leading-tight">
+          <span className="block truncate text-sm font-semibold text-white">{state.unternehmen.name}</span>
+          <span className="block truncate text-[11px] italic text-teal-200/80">{ciVon(state).slogan}</span>
+        </span>
+      </button>
       {GRUPPEN.map((g) => (
         <div key={g.titel} className="mt-3">
           <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-teal-300/60">{g.titel}</div>

@@ -1,3 +1,4 @@
+import { FirmenLogo, ciVon } from '../components/FirmenLogo';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { REGIONEN, quartalLabel, type RegionId } from '../../engine';
@@ -63,7 +64,10 @@ export function IpoFeier() {
       <motion.div className="fixed inset-0 z-[85] grid place-items-center bg-gradient-to-b from-indigo-950 via-slate-900 to-black p-6 text-white" initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={zu} role="dialog" aria-label="Börsengang">
         {!reduziert && <Konfetti />}
         <div className="flex flex-col items-center text-center">
-          <Glocke className="h-40 w-40" schwingt />
+          <div className="relative">
+            <Glocke className="h-40 w-40" schwingt />
+            <FirmenLogo ci={ciVon(state)} name={state.unternehmen.name} className="absolute -bottom-2 -right-4 h-16 w-16 drop-shadow-xl" />
+          </div>
           <div className="mt-4 text-sm font-bold uppercase tracking-[0.3em] text-amber-300">Ding Dong!</div>
           <h1 className="font-display mt-1 text-4xl font-black">{state.unternehmen.name} ist an der Börse</h1>
           <div className="mt-6 grid grid-cols-2 gap-6">
@@ -136,9 +140,12 @@ export function Boerse() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="h-page">Börse & Übernahmen</h1>
-        <p className="muted text-sm">Unternehmenswert, Börsengang, Aktien – und die Konkurrenz einfach aufkaufen.</p>
+      <div className="flex items-center gap-3">
+        <FirmenLogo ci={ciVon(state)} name={state.unternehmen.name} className="h-12 w-12 shrink-0 drop-shadow" />
+        <div className="min-w-0">
+          <h1 className="h-page">Börse & Übernahmen</h1>
+          <p className="muted text-sm">{b.notiert ? `${state.unternehmen.name} · Börsenkürzel ${kuerzel(state.unternehmen.name)}` : 'Unternehmenswert, Börsengang, Aktien – und die Konkurrenz einfach aufkaufen.'}</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -267,4 +274,11 @@ export function Boerse() {
       </Card>
     </div>
   );
+}
+
+/** Börsenkürzel aus dem Firmennamen, z. B. „Rupert Rad AG“ → RRAD */
+function kuerzel(name: string): string {
+  const w = name.replace(/ (GmbH|AG)$/, '').split(/\s+/).filter(Boolean);
+  const k = w.length > 1 ? w.map((x) => x[0]).join('') + w[w.length - 1].slice(1, 3) : w[0]?.slice(0, 4) ?? 'FIRM';
+  return k.toUpperCase().slice(0, 4);
 }

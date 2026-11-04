@@ -29,6 +29,9 @@ import { branchenanalyse, kundenbefragung, marktbericht, spionageAkte, spionageR
 import { EINKAUF, MARKTFORSCHUNG } from '../engine/config/tiefe';
 import { KOMPLEXITAET, SPIELZIEL } from '../engine/config/spielziel';
 import { restQuartaleBisZiel, wertung } from '../engine/spielziel';
+import { krisenAnsicht } from '../engine/krisen';
+import { fuehrungVon, hauptwirkung, kannBefoerdern } from '../engine/fuehrung';
+import { FUEHRUNG, mackeVon } from '../engine/config/fuehrung';
 import { aktienKaufPreis, boerseVon, fundamentalJeAktie, gruenderAnteil, ipoBedingungen, ipoFairerPreis, istBoersennotiert, markenPreis, uebernahmeMoeglich, uebernahmePreis } from '../engine/boerse';
 import { EPOCHEN } from '../engine/config/features';
 import { segmentWachstum, volumenFaktor } from '../engine/market';
@@ -211,6 +214,23 @@ export function lagebericht(state: GameState, letzter: QuarterReport | null, ent
     materiallager: Object.fromEntries(produkte.map((p) => [p, state.produkte[p]?.materialSets ?? 0])),
     rettungsangebot: state.rettungsangebot ? { kapital: state.rettungsangebot.kapital, anteilInvestor: state.rettungsangebot.anteil, hinweis: 'Ablehnen beendet das Spiel (Insolvenz).' } : null,
     investorAnteil: state.finanzen.investorAnteil ?? 0,
+    krise: (() => {
+      const k = krisenAnsicht(state);
+      return k ? { titel: k.titel, text: k.text, optionen: k.optionen.map((o) => ({ id: o.id, label: o.label, hinweis: o.hinweis, kosten: r0(o.kosten), ertrag: r0(o.ertrag), risikoProzent: o.risiko, standard: o.standard })), hinweis: 'Antwort mit "krise": "<id>". Ohne Antwort gilt die Standard-Option. Die Wirkung tritt in diesem Quartal ein.' } : null;
+    })(),
+    fuehrungsteam: (() => {
+      const z = fuehrungVon(state);
+      const person = (p: (typeof z.team)[number]) => ({
+        id: p.id, name: p.name, ressort: p.ressort, stufe: p.stufe, macke: mackeVon(p.macke).id, mackeText: mackeVon(p.macke).text, gehaltJeQuartal: p.gehalt,
+        wirkung: r4(hauptwirkung(state, p, state.quartal)), loyalitaet: Math.round(p.loyalitaet), befoerdert: p.befoerdert, kannBefoerdern: kannBefoerdern(p, state.quartal), faelltAus: p.ausfallBis !== undefined && p.ausfallBis >= state.quartal,
+      });
+      return {
+        team: z.team.map(person),
+        bewerber: z.bewerber.map((b) => ({ ...person(b), antrittskosten: r0(FUEHRUNG.anwerbePraemie * b.gehalt + (b.abloese ?? 0)), vonKonkurrent: b.herkunft ?? null })),
+        abwerbeversuche: z.abwerbung.map((a) => ({ personId: a.personId, konkurrent: a.konkurrent, gehaltsforderung: a.forderung })),
+        regeln: 'Je Ressort eine Person. Wirkung = 2 % × Stufe × (1 + 0,15 × Beförderungen) × Macke; Forschung/Marketing ×3, Finanzen ×2. Produktion: Kapazität, Vertrieb: Nachfrage, Forschung: F&E-Wirkung, Marketing: Werbewirkung, Finanzen: Verwaltung und Kreditzinsen. Einstellen: 1 Quartalsgehalt Prämie (+ Ablöse bei Konkurrenz-Leuten), Entlassen: 2 Gehälter Abfindung, Befördern: +25 % Gehalt, +25 Loyalität (alle 4 Quartale, max. 2×). Abwerbeversuch: ohne Gegenangebot geht die Person.',
+      };
+    })(),
     marktforschungGekauft: (() => {
       const mf = entwurf.marktforschung ?? {};
       return {

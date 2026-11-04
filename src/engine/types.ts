@@ -208,6 +208,92 @@ export interface Unternehmen {
   zufriedenheit: Record<string, number>;
   vertrieb: PerRegion<number>;
   firmensitz: Firmensitz;
+  /** Corporate Identity: Logo, Firmenfarben, Slogan (rein optisch) */
+  ci?: CorporateIdentity;
+}
+
+export interface CorporateIdentity {
+  /** Symbol im Logo */
+  symbol: string;
+  /** Grundform des Logos */
+  form: 'kreis' | 'schild' | 'raute' | 'quadrat' | 'sechseck';
+  farbe: string;
+  farbe2: string;
+  slogan: string;
+  /** Räder in der Firmenfarbe lackieren */
+  rahmenInFirmenfarbe?: boolean;
+}
+
+// ---------------------------------------------------------------- Krisen
+
+export interface OffeneKrise {
+  id: string;
+  /** Quartal, in dem die Antwort wirkt */
+  quartal: number;
+  produkt?: ProductId;
+  werkId?: string;
+  konkurrent?: string;
+}
+
+export interface KrisenEffekt {
+  art: 'nachfrage' | 'kapazitaet' | 'material';
+  faktor: number;
+  /** Gilt bis einschließlich Quartal */
+  bis: number;
+  produkt?: ProductId;
+  werkId?: string;
+}
+
+export interface KrisenEintrag {
+  id: string;
+  quartal: number;
+  wahl: string;
+  /** Risiko eingetreten (schlechter Ausgang) */
+  pech: boolean;
+  text: string;
+}
+
+// ---------------------------------------------------------------- Führungskräfte
+
+export type Ressort = 'produktion' | 'vertrieb' | 'forschung' | 'marketing' | 'finanzen';
+
+export interface Fuehrungskraft {
+  id: string;
+  name: string;
+  weiblich: boolean;
+  alter: number;
+  ressort: Ressort;
+  /** Können 1–5 */
+  stufe: number;
+  /** Gehalt je Quartal */
+  gehalt: number;
+  macke: string;
+  /** Seed für das Gesicht */
+  gesicht: number;
+  loyalitaet: number;
+  befoerdert: number;
+  seit?: number;
+  letzteBefoerderung?: number;
+  /** Kommt von einem Konkurrenten (Ablöse fällig) */
+  herkunft?: string;
+  abloese?: number;
+  /** Fällt bis einschließlich Quartal aus (Burn-out) */
+  ausfallBis?: number;
+}
+
+export interface Abwerbeversuch {
+  personId: string;
+  konkurrent: string;
+  /** Gehalt, das nötig ist, um zu bleiben */
+  forderung: number;
+}
+
+export interface FuehrungZustand {
+  team: Fuehrungskraft[];
+  bewerber: Fuehrungskraft[];
+  abwerbung: Abwerbeversuch[];
+  /** Ehemalige (für Chronik und Zeitung) */
+  ehemalige?: { name: string; ressort: Ressort; grund: 'abgeworben' | 'entlassen'; quartal: number; zu?: string }[];
 }
 
 export interface AktivesEreignis {
@@ -311,6 +397,12 @@ export interface GameState {
   spionageQuartale?: number[];
   /** Konkurrenten, die nach einer entdeckten Spionage Preise senken: id → bis einschließlich Quartal */
   rache?: Record<string, number>;
+  /** Krise, auf die im aktuellen Quartal geantwortet werden muss */
+  krise?: OffeneKrise | null;
+  krisenVerlauf?: KrisenEintrag[];
+  krisenEffekte?: KrisenEffekt[];
+  /** Führungsteam, Bewerber, Abwerbeversuche */
+  fuehrung?: FuehrungZustand;
 }
 
 export interface Grossabnehmer {
@@ -384,6 +476,10 @@ export interface Decisions {
   uebernahme?: string;
   /** Regionale Marke zukaufen */
   markeZukaufen?: RegionId[];
+  /** Antwort auf die offene Krise (Options-ID) */
+  krise?: string;
+  /** Führungsteam: Bewerber einstellen, entlassen, befördern, Gegenangebot bei Abwerbung */
+  fuehrung?: { einstellen?: string[]; entlassen?: string[]; befoerdern?: string[]; gegenangebot?: string[] };
 }
 
 // ---------------------------------------------------------------- Bericht
@@ -601,6 +697,10 @@ export interface QuarterReport {
   szenarioErreicht?: boolean;
   /** Börse: IPO in diesem Quartal, Übernahmen */
   boerse?: { ipo?: { aktien: number; preis: number; quote: number }; uebernahmen: string[]; kurs?: number };
+  /** Ausgang der Krise in diesem Quartal */
+  krise?: { id: string; titel: string; wahl: string; label: string; pech: boolean; text: string; kosten: number; ertrag: number };
+  /** Personalien im Führungsteam */
+  fuehrung?: { art: 'eingestellt' | 'entlassen' | 'befoerdert' | 'abgeworben' | 'geblieben' | 'burnout' | 'abwerbeversuch'; name: string; ressort: Ressort; text: string }[];
   /** In diesem Quartal neu erreichte Erfolge */
   neueErfolge: string[];
   /** Neu freigeschaltete Regionen und Produkte */

@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { quartalLabel, type GameState, type QuarterReport } from '../../engine';
+import { FirmenLogo, ciVon } from './FirmenLogo';
 import { useGame } from '../../store/gameStore';
 import { eurKompakt } from '../format';
 
@@ -8,6 +10,44 @@ const SAISON = [
   { name: 'Sommer', text: 'Saison läuft – rund 15 % mehr Nachfrage', himmel: ['#7dd3fc', '#fefce8'], huegel: ['#a3e635', '#65a30d'], partikel: 'sonne' },
   { name: 'Herbst', text: 'es wird kühler – rund 20 % weniger Nachfrage', himmel: ['#fed7aa', '#fff7ed'], huegel: ['#fdba74', '#ea580c'], partikel: 'laub' },
 ] as const;
+
+type Tageszeit = 'morgen' | 'tag' | 'abend' | 'nacht';
+const TAGESZEIT_NAME: Record<Tageszeit, string> = { morgen: 'Morgen', tag: 'Tag', abend: 'Abend', nacht: 'Nacht' };
+function tageszeitJetzt(): Tageszeit {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 8) return 'morgen';
+  if (h >= 8 && h < 18) return 'tag';
+  if (h >= 18 && h < 21) return 'abend';
+  return 'nacht';
+}
+/** Aktuelle Tageszeit (aktualisiert sich jede Minute) */
+function useTageszeit(): Tageszeit {
+  const [tz, setTz] = useState(tageszeitJetzt);
+  useEffect(() => {
+    const i = window.setInterval(() => setTz(tageszeitJetzt()), 60_000);
+    return () => window.clearInterval(i);
+  }, []);
+  return tz;
+}
+
+/** Eigenes Werk am Straßenrand: Fenster leuchten abends und nachts, Logo auf dem Dach */
+function EigenesWerk({ x, state, licht }: { x: number; state: GameState; licht: boolean }) {
+  const ci = ciVon(state);
+  const fenster = licht ? '#fde68a' : '#bfdbfe';
+  return (
+    <g transform={`translate(${x} 0)`}>
+      <rect x="0" y="104" width="120" height="48" fill="#e2e8f0" stroke="#94a3b8" />
+      <path d="M0 104 L20 90 L20 104 L40 90 L40 104 L60 90 L60 104 L80 90 L80 104 L100 90 L100 104 L120 90 L120 104 Z" fill={ci.farbe} />
+      <rect x="104" y="72" width="9" height="22" fill="#64748b" />
+      {[0, 1, 2, 3, 4].map((i) => <rect key={i} x={8 + i * 22} y="114" width="14" height="10" rx="1.5" fill={fenster} opacity={licht && i % 3 === 1 ? 0.55 : 1} />)}
+      <rect x="48" y="132" width="24" height="20" fill="#475569" />
+      {licht && <rect x="48" y="132" width="24" height="20" fill="#fde68a" opacity="0.35" />}
+      <rect x="14" y="74" width="68" height="16" rx="3" fill="white" stroke={ci.farbe} />
+      <FirmenLogo ci={ci} name={state.unternehmen.name} x={16} y={75} groesse={14} />
+      <text x="33" y="85.5" fontSize="8" fontWeight="800" fill={ci.farbe}>{state.unternehmen.name.replace(/ (GmbH|AG)$/, '').slice(0, 11)}</text>
+    </g>
+  );
+}
 
 /** Radfahrer mit drehenden Laufrädern und tretenden Beinen */
 function Fahrer({ farbe, x, y, skala = 1, animiert, name }: { farbe: string; x: number; y: number; skala?: number; animiert: boolean; name: string }) {
@@ -95,9 +135,14 @@ function Partikel({ art, breite, animiert }: { art: string; breite: number; anim
  */
 export function CockpitBanner({ state, bericht }: { state: GameState; bericht: QuarterReport | null }) {
   const reduziert = useGame((s) => s.reduziert);
-  const nacht = useGame((s) => s.dunkel);
+  const dunkel = useGame((s) => s.dunkel);
+  const tz = useTageszeit();
+  const nacht = dunkel || tz === 'nacht';
+  const daemmerung = !nacht && (tz === 'morgen' || tz === 'abend');
+  const licht = nacht || tz === 'abend';
   const animiert = !reduziert;
   const s = SAISON[state.quartal % 4];
+  const himmel: readonly [string, string] = nacht ? ['#0b1026', '#27306b'] : tz === 'morgen' ? ['#fda4af', '#fde68a'] : tz === 'abend' ? ['#6d28d9', '#fb923c'] : s.himmel;
   const breite = 1100;
   const hoehe = 190;
   const teilnehmer = [
@@ -111,11 +156,11 @@ export function CockpitBanner({ state, bericht }: { state: GameState; bericht: Q
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-[var(--line)] shadow-sm">
-      <svg viewBox={`0 0 ${breite} ${hoehe}`} className="block w-full" role="img" aria-label={`${s.name}: ${s.text}`}>
+      <svg viewBox={`0 0 ${breite} ${hoehe}`} className="block w-full" role="img" aria-label={`${s.name}, ${TAGESZEIT_NAME[tz]}: ${s.text}`}>
         <defs>
           <linearGradient id="bannerHimmel" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={nacht ? '#0b1026' : s.himmel[0]} />
-            <stop offset="1" stopColor={nacht ? '#27306b' : s.himmel[1]} />
+            <stop offset="0" stopColor={himmel[0]} />
+            <stop offset="1" stopColor={himmel[1]} />
           </linearGradient>
         </defs>
         <rect width={breite} height={hoehe} fill="url(#bannerHimmel)" />
@@ -134,6 +179,19 @@ export function CockpitBanner({ state, bericht }: { state: GameState; bericht: Q
             <circle cx="942" cy="40" r="22" fill="#0f1535" />
             {s.partikel === 'schnee' && <Partikel art="schnee" breite={breite} animiert={animiert} />}
           </g>
+        ) : daemmerung ? (
+          <g>
+            {/* Tief stehende Sonne: morgens links, abends rechts */}
+            <circle cx={tz === 'morgen' ? 160 : 900} cy="112" r="34" fill={tz === 'morgen' ? '#fdba74' : '#f97316'} opacity="0.9" />
+            <circle cx={tz === 'morgen' ? 160 : 900} cy="112" r="58" fill={tz === 'morgen' ? '#fed7aa' : '#fb923c'} opacity="0.25" />
+            {tz === 'morgen' &&
+              [0, 1, 2].map((i) => (
+                <path key={i} d="M0 0 q4 -4 8 0 q4 -4 8 0" stroke="#334155" strokeWidth="1.6" fill="none" transform={`translate(${300 + i * 26} ${40 + (i % 2) * 10})`}>
+                  {animiert && <animateTransform attributeName="transform" type="translate" values={`${300 + i * 26} ${40 + (i % 2) * 10};${700 + i * 26} ${20 + (i % 2) * 10}`} dur={`${18 + i * 2}s`} repeatCount="indefinite" />}
+                </path>
+              ))}
+            {s.partikel !== 'sonne' && <Partikel art={s.partikel} breite={breite} animiert={animiert} />}
+          </g>
         ) : (
           <Partikel art={s.partikel} breite={breite} animiert={animiert} />
         )}
@@ -146,12 +204,15 @@ export function CockpitBanner({ state, bericht }: { state: GameState; bericht: Q
         <g>
           <path d={`M0 140 Q 150 110 300 135 T 600 130 T 900 138 T ${breite * 2} 132 V ${hoehe} H 0 Z`} fill={s.huegel[1]} opacity="0.8" />
           <path d={`M${breite} 140 Q ${breite + 150} 110 ${breite + 300} 135 T ${breite + 600} 130 T ${breite + 900} 138 T ${breite * 2} 132 V ${hoehe} H ${breite} Z`} fill={s.huegel[1]} opacity="0.8" />
+          <EigenesWerk x={640} state={state} licht={licht} />
+          <EigenesWerk x={640 + breite} state={state} licht={licht} />
           {animiert && <animateTransform attributeName="transform" type="translate" from="0 0" to={`${-breite} 0`} dur="30s" repeatCount="indefinite" />}
         </g>
         {nacht && <rect width={breite} height={hoehe} fill="#0b1026" opacity="0.45" />}
+        {daemmerung && <rect width={breite} height={hoehe} fill={tz === 'morgen' ? '#fb7185' : '#7c3aed'} opacity="0.14" />}
         {/* Straße */}
         <rect x="0" y="152" width={breite} height="38" fill={nacht ? '#292524' : '#57534e'} />
-        {nacht && (
+        {licht && (
           <g>
             {[120, 420, 720, 1020].map((x) => (
               <g key={x}>
@@ -174,15 +235,18 @@ export function CockpitBanner({ state, bericht }: { state: GameState; bericht: Q
           const y = 160 - (rang % 2) * 6;
           return (
             <g key={t.id}>
-              {nacht && <path d={`M${x + 26} ${y - 22} L ${x + 120} ${y - 34} L ${x + 120} ${y + 4} Z`} fill="#fef08a" opacity="0.18" />}
+              {licht && <path d={`M${x + 26} ${y - 22} L ${x + 120} ${y - 34} L ${x + 120} ${y + 4} Z`} fill="#fef08a" opacity="0.18" />}
               <Fahrer farbe={t.farbe} x={x} y={y} skala={t.id === 'du' ? 1.15 : 0.95} animiert={animiert} name={t.id === 'du' ? 'Du' : t.name} />
             </g>
           );
         })}
       </svg>
       <div className="relative border-t border-[var(--line)] bg-white/90 px-4 py-3 dark:bg-slate-900/80 sm:absolute sm:left-5 sm:top-4 sm:max-w-[45%] sm:rounded-xl sm:border-0 sm:shadow-sm sm:backdrop-blur">
-        <div className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">{quartalLabel(state.quartal)} · {s.name}</div>
-        <div className="text-xl font-black leading-tight sm:text-2xl">{state.unternehmen.name}</div>
+        <div className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">{quartalLabel(state.quartal)} · {s.name} · {TAGESZEIT_NAME[nacht && tz !== 'nacht' ? 'nacht' : tz]}</div>
+        <div className="flex items-center gap-2">
+          <FirmenLogo ci={ciVon(state)} name={state.unternehmen.name} className="h-8 w-8 shrink-0" />
+          <div className="text-xl font-black leading-tight sm:text-2xl">{state.unternehmen.name}</div>
+        </div>
         <div className="text-sm">Saison: {s.text}</div>
         {bericht && (
           <div className="mt-1 text-sm">

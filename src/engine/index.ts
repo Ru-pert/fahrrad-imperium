@@ -13,3 +13,7 @@ export { REGIONEN, REGION_IDS } from './config/markets';
 export { HQ_STUFEN, HQ_EXTRAS } from './config/hq';
 export { KONKURRENTEN } from './config/competitors';
 export { ERFOLGE, type ErfolgDef } from './achievements';
+export { KRISEN, KRISE } from './config/krisen';
+export { krisenAnsicht, krisenDef, krisenText, krisenFaktor } from './krisen';
+export { RESSORTS, RESSORT_IDS, MACKEN, FUEHRUNG, mackeVon } from './config/fuehrung';
+export { fuehrungVon, fuehrungsWirkung, hauptwirkung, personWirkung, marktGehalt, titelVon, mackeName, kannBefoerdern, geplanteKosten, gehaelter } from './fuehrung';

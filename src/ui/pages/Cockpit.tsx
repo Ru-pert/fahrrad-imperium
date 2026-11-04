@@ -6,6 +6,8 @@ import { BikeIcon } from '../components/BikeIcon';
 import { CockpitBanner } from '../components/Banner';
 import { Beraterin } from '../components/Beraterin';
 import { RettungsBanner } from '../components/Tiefe';
+import { KrisenKarte } from '../components/Krise';
+import { AbwerbeAlarm } from './Team';
 import { ZielKarte } from '../components/Endabrechnung';
 import { Leer } from '../components/Leer';
 import { useGame } from '../../store/gameStore';
@@ -36,6 +38,8 @@ export function Cockpit() {
       <h1 className="sr-only">Cockpit</h1>
       <CockpitBanner state={state} bericht={bericht} />
       {state.rettungsangebot && entwurf && <RettungsBanner state={state} d={entwurf} aendere={aendere} />}
+      {state.krise && entwurf && <KrisenKarte state={state} d={entwurf} aendere={aendere} />}
+      {(state.fuehrung?.abwerbung.length ?? 0) > 0 && <AbwerbeAlarm />}
       <Beraterin state={state} vorschau={vorschau} bericht={bericht} />
       <ZielKarte state={state} />
 

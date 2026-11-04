@@ -1,3 +1,4 @@
+import { FirmenLogo, ciVon } from '../components/FirmenLogo';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PRODUKTE, quartalLabel, type Zeitung as ZeitungTyp } from '../../engine';
 import { erzeugeStartZeitung } from '../../engine/zeitung';
@@ -151,6 +152,7 @@ function Blatt({ z }: { z: ZeitungTyp }) {
         </div>
 
         <aside className="space-y-6 border-t border-current pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+          <Anzeige />
           <Kasten titel="Testmagazin „Rad & Tat“">
             {z.testmagazin.map((t) => (
               <div key={t.produkt} className="mb-4">
@@ -248,6 +250,25 @@ export function Zeitung() {
         <button className="btn-primary" onClick={() => gehe('entscheidungen')}>Zu den Entscheidungen für {quartalLabel(state.quartal)}</button>
       </div>
       <Blatt z={z} />
+    </div>
+  );
+}
+
+/** Eigene Werbeanzeige mit Logo und Slogan */
+function Anzeige() {
+  const state = useGame((s) => s.state);
+  if (!state) return null;
+  const ci = ciVon(state);
+  return (
+    <div className="relative border-2 border-current p-3 text-center">
+      <div className="absolute -top-2.5 left-3 bg-[#fbf7ee] dark:bg-[#1f1c17] px-1 text-[10px] font-bold uppercase tracking-[0.25em] opacity-70">Anzeige</div>
+      <div className="flex items-center justify-center gap-3">
+        <FirmenLogo ci={ci} name={state.unternehmen.name} className="h-12 w-12 shrink-0" />
+        <div className="text-left">
+          <div className="font-display text-lg font-black leading-tight">{state.unternehmen.name}</div>
+          <div className="text-sm italic">„{ci.slogan}“</div>
+        </div>
+      </div>
     </div>
   );
 }

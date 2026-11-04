@@ -32,6 +32,7 @@ import { LinienVerwaltung, WerksAnsicht } from '../components/Werk';
 import { Forschungsbaum } from '../components/Forschungsbaum';
 import { Beraterin } from '../components/Beraterin';
 import { Auftraege, EinkaufKarte, RettungsBanner, ZufriedenheitZelle } from '../components/Tiefe';
+import { KrisenKarte } from '../components/Krise';
 import { FinanzSzene, LieferketteSzene, MarketingSzene, PreisSzene, TeamSzene } from '../components/Szenen';
 import { KapazitaetsGrafik, PersonalErklaerung, TechnikVergleich } from '../components/Erklaer';
 
@@ -616,6 +617,7 @@ export function Entscheidungen() {
             </div>
           </div>
           <RettungsBanner state={state} d={entwurf} aendere={aendere} />
+          <KrisenKarte state={state} d={entwurf} aendere={aendere} />
           <div data-tour="bereiche" className="sticky top-[70px] z-20 -mx-1 rounded-2xl border border-[var(--line)] bg-[var(--card)]/90 p-1.5 shadow-sm backdrop-blur" role="tablist" aria-label="Bereiche">
             <div className="grid grid-cols-5 gap-1 2xl:grid-cols-9">
               {SCHRITTE.map((s, i) => {
@@ -702,6 +704,7 @@ export function Entscheidungen() {
       </div>
 
       <div className="mb-3"><RettungsBanner state={state} d={entwurf} aendere={aendere} /></div>
+      {state.krise && <div className="mb-3"><KrisenKarte state={state} d={entwurf} aendere={aendere} /></div>}
       {aktuell ? (
         aktuell.render(ctx)
       ) : (

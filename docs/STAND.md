@@ -58,6 +58,16 @@ Diese Datei hält fest, was umgesetzt ist, wo das Spiel bewusst von der [Spezifi
 - **Spielziel:** Endabrechnung nach 60 Quartalen (oder bei Insolvenz ×0,4): Unternehmenswert (log, bis 350), Weltrang (bis 250), Regionen (25 je), Erfolge (5 je, max. 100), Image/Nachhaltigkeit (bis 100). Stufen: Garagenbastler 0, Werkstattmeister 200, Fahrradfabrikant 350, Branchengröße 500, Konzernlenker 640, Fahrrad-Kaiser 800. Bot ≈ 660–680 (Konzernlenker), Nichtstun ≈ 130–160. Danach Weiterspielen ohne Wertung möglich; Bestenliste lokal im Browser.
 - Erfolg **Imperator** (4 Quartale Weltrang 1) ist erreichbar; der Weltrang steht in `kpiHistorie[].weltrang`.
 
+## Krisen, Führungsteam, Marke, Atmosphäre
+
+- **Krisen mit Entscheidungen** (`src/engine/krisen.ts`, Katalog `config/krisen.ts`): 12 Dilemmas (Bremsenmangel, Containerschiff, Gewerkschaft, Influencerin, Fahrradstraßen, Hacker, Abwasser, TV-Härtetest, Hochwasser, Kartell, Betriebskita, Filmstar) mit je 2–3 Antworten. Sie entstehen am Quartalsende (32 %, frühestens 2 Quartale nach der letzten, dieselbe frühestens nach 14 Quartalen) und wirken im Folgequartal. Kosten in Anteilen des letzten Quartalsumsatzes; Wirkungen auf Image, Bekanntheit, Motivation, Zufriedenheit, Nachhaltigkeit sowie zeitlich begrenzte Faktoren für Nachfrage, Kapazität und Material. Ohne Wahl gilt die Standard-Option. Kosten laufen über den sonstigen Aufwand, Kartell-Ertrag über die sonstigen Erträge.
+- **Führungsteam** (`src/engine/fuehrung.ts`, `config/fuehrung.ts`): 5 Ressorts (Produktion, Vertrieb, Forschung, Marketing, Finanzen), je 3 Bewerbungen pro Quartal (25 % von der Konkurrenz mit Ablöse), 9 Macken. Wirkung 2 % je Stern (Forschung, Marketing, Finanzen ×2), +15 % je Beförderung. Gehalt wächst mit dem Umsatz (Tarifanpassung auf mindestens 90 % des Marktgehalts); Gehälter, Prämien und Abfindungen laufen über die Verwaltung. Loyalität bestimmt das Abwerberisiko; bei Abwerbeversuchen hilft ein Gegenangebot.
+- **Eigener Zufallsstrom:** Krisen und Bewerbungen nutzen einen Zufall aus Seed und Quartal und verändern den Hauptstrom der Simulation nicht.
+- **Marke & Logo** (Seite „Marke & Logo“, `ui/components/FirmenLogo.tsx`): 12 Symbole, 5 Formen, Firmen- und Akzentfarbe, Slogan, optional Räder in Firmenfarbe. Rein optisch; sichtbar in Seitenleiste, Cockpit-Banner (eigenes Werk), Garage, Zeitungsanzeige und Börse.
+- **Musik** (`ui/musik.ts`): generative Web-Audio-Musik mit vier Stimmungen (Gelassen, Aufbruch, Gegenwind, Endspurt) je nach Lage; standardmäßig aus, Schalter in der Kopfzeile (`fi-musik`).
+- **Tag und Nacht im Cockpit:** Der Banner folgt der echten Uhrzeit (Morgen, Tag, Abend, Nacht); der Nachtmodus erzwingt die Nacht.
+- **Balancing-Messung (Bot, 4 Seeds):** mit Führungsteam (Stufe ≥ 3) etwa gleich viele bis mehr Punkte und meist deutlich höherer Firmenwert; 0–4 Abwerbeversuche pro Spiel; 10–16 Krisen pro Spiel.
+
 ## Wichtige Dateien
 
 - Engine: `src/engine/` (simulate, market, competitors, expansion, forschung, zeitung, achievements), Balancing in `src/engine/config/`.
@@ -68,5 +78,5 @@ Diese Datei hält fest, was umgesetzt ist, wo das Spiel bewusst von der [Spezifi
 
 ## Offene Wünsche / nächste Schritte
 
-- Stufe 5 vervollständigen (siehe oben), Stufe 8 (Börse, Übernahmen, Marktforschung).
-- Balancing-Durchläufe (Stufe 9).
+- Vertrieb mit echter Wirkung (Kanäle), Kostenrechnung/Deckungsbeitrag und Planungsrechner.
+- Chronik und Rückblick zum Spielende, Hotseat-Mehrspieler, Lehrkraft-Modus, englische Fassung.

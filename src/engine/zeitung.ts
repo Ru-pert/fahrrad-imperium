@@ -3,6 +3,7 @@
  * Erzeugt die Ausgabe deterministisch aus Zustand und Bericht; eigener Zufallsstrom,
  * damit die Zeitung die Simulation nicht beeinflusst.
  */
+import { krisenAnsicht } from './krisen';
 import { BALANCE } from './config/balance';
 import { EREIGNISKATALOG, VORFAELLE } from './config/events';
 import { PRODUKTE } from './config/products';
@@ -238,6 +239,10 @@ export function erzeugeZeitung(state: GameState, report: QuarterReport, vorher: 
     sonderausgabe = 'Skandal';
     schlagzeile = `James Bond auf dem Klapprad: ${firma} beim Schnüffeln erwischt`;
     unterzeile = report.vorfaelle.find((v) => v.art === 'spionage')!.text;
+  } else if (report.krise?.pech) {
+    sonderausgabe = 'Krisenticker';
+    schlagzeile = `Krise bei ${firma}: ${report.krise.titel}`;
+    unterzeile = report.krise.text;
   } else if (pleiten.length) {
     schlagzeile = `Pleite! ${pleiten[0].name} rollt ins Aus`;
     unterzeile = 'Die Konkurrenz lichtet sich – Kunden suchen neue Hersteller.';
@@ -310,6 +315,20 @@ export function erzeugeZeitung(state: GameState, report: QuarterReport, vorher: 
   }
   for (const k of pleiten) {
     artikel.push({ rubrik: 'Konkurrenz', titel: `${k.name} meldet Insolvenz an`, text: `Nach drei Quartalen ohne Geld in der Kasse ist ${k.name} am Ende. Die Kundschaft sucht sich neue Hersteller – eine Chance für alle, die liefern können.` });
+  }
+
+  // Krisen: Ausgang und neue Eilmeldung
+  if (report.krise && !(sonderausgabe === 'Krisenticker')) {
+    artikel.push({ rubrik: 'Krisenticker', titel: `${report.krise.titel}: ${firma} entscheidet sich für „${report.krise.label}“`, text: report.krise.text });
+  }
+  const neueKrise = krisenAnsicht(state);
+  if (neueKrise) {
+    artikel.push({ rubrik: 'Eilmeldung', titel: neueKrise.titel, text: `${neueKrise.text} ${firma} muss jetzt entscheiden – die Optionen liegen auf dem Schreibtisch der Geschäftsführung.` });
+  }
+  // Personalien im Führungsteam
+  for (const x of report.fuehrung ?? []) {
+    if (x.art === 'abgeworben') artikel.push({ rubrik: 'Personalien', titel: `Abgang bei ${firma}: ${x.name} geht`, text: `${x.text} In der Branche spricht man von einem herben Verlust.` });
+    else if (x.art !== 'abwerbeversuch') kurz.unshift(`Personalien: ${x.text}`);
   }
 
   const stufe = stufenHinweis(state);
