@@ -101,41 +101,48 @@ export function Einstellungen() {
     <div className="space-y-4">
       <h1 className="h-page">Einstellungen & Speichern</h1>
 
-      <Card titel="Darstellung">
+      <Card titel="Darstellung" icon="sun" farbe="#f59e0b">
         <div className="space-y-1">
           <button className="flex min-h-[44px] w-full items-center justify-between" onClick={() => setDunkel(!dunkel)} role="switch" aria-checked={dunkel}>
             <span className="flex items-center gap-2 text-sm"><Icon name={dunkel ? 'moon' : 'sun'} /> Dunkelmodus</span>
-            <span className={`rounded-full px-3 py-1 text-xs font-bold ${dunkel ? 'bg-brand-600 text-white' : 'bg-black/10'}`}>{dunkel ? 'an' : 'aus'}</span>
+            <span className={`relative h-6 w-11 rounded-full transition-colors ${dunkel ? 'bg-brand-600' : 'bg-black/15 dark:bg-white/20'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${dunkel ? 'left-[22px]' : 'left-0.5'}`} /></span>
           </button>
           <button className="flex min-h-[44px] w-full items-center justify-between" onClick={() => setReduziert(!reduziert)} role="switch" aria-checked={reduziert}>
-            <span className="text-sm">Animationen reduzieren</span>
-            <span className={`rounded-full px-3 py-1 text-xs font-bold ${reduziert ? 'bg-brand-600 text-white' : 'bg-black/10'}`}>{reduziert ? 'an' : 'aus'}</span>
+            <span className="flex items-center gap-2 text-sm"><Icon name="rakete" /> Animationen reduzieren</span>
+            <span className={`relative h-6 w-11 rounded-full transition-colors ${reduziert ? 'bg-brand-600' : 'bg-black/15 dark:bg-white/20'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${reduziert ? 'left-[22px]' : 'left-0.5'}`} /></span>
           </button>
         </div>
       </Card>
 
-      <Card titel="Spielstände" aktion={<span className="muted text-xs">Autosave nach jedem Quartal</span>}>
-        <ul className="divide-y divide-[var(--line)]">
-          {slots.map((s) => (
-            <li key={String(s.slot)} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold">{s.slot === 'auto' ? 'Autosave' : `Platz ${s.slot}`}</div>
-                <div className="muted truncate text-xs">
-                  {s.belegt ? `${s.firma} · ${quartalLabel(s.quartal ?? 0)} · ${s.gespeichert ? new Date(s.gespeichert).toLocaleString('de-DE') : ''}` : 'leer'}
+      <Card titel="Spielstände" icon="lager" aktion={<span className="muted text-xs">Autosave nach jedem Quartal</span>}>
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 2xl:grid-cols-4">
+          {slots.map((s) => {
+            const auto = s.slot === 'auto';
+            return (
+              <div key={String(s.slot)} className={`group relative rounded-xl border p-3 transition ${s.belegt ? 'border-[var(--line)] bg-[var(--card)] hover:shadow-md' : 'border-dashed border-[var(--line)] bg-black/[0.015] dark:bg-white/[0.02]'} ${auto ? 'ring-1 ring-brand-500/40' : ''}`}>
+                <div className="flex items-center gap-2">
+                  <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${s.belegt ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-100' : 'bg-black/5 text-slate-400 dark:bg-white/5'}`}>
+                    <Icon name={auto ? 'kalender' : s.belegt ? 'rad' : 'plus'} className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">{auto ? 'Autosave' : `Platz ${s.slot}`}</div>
+                    <div className="muted truncate text-xs">{s.belegt ? `${s.firma} · ${quartalLabel(s.quartal ?? 0)}` : 'frei'}</div>
+                  </div>
+                  {!auto && s.belegt && (
+                    <button className="muted ml-auto grid h-7 w-7 place-items-center rounded-md opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100" aria-label="Spielstand löschen" onClick={async () => { await loeschen(s.slot); lade(); }}>×</button>
+                  )}
+                </div>
+                {s.belegt && s.gespeichert && <div className="muted mt-1 text-[11px]">{new Date(s.gespeichert).toLocaleString('de-DE')}</div>}
+                <div className="mt-2 flex gap-1.5">
+                  {!auto && (
+                    <button className="btn-ghost min-h-[34px] flex-1 px-2 text-xs" onClick={async () => { await speichereSlot(s.slot, `${state.unternehmen.name} – ${quartalLabel(state.quartal)}`); lade(); }}>Speichern</button>
+                  )}
+                  <button className="btn-ghost min-h-[34px] flex-1 px-2 text-xs" disabled={!s.belegt} onClick={async () => { if (window.confirm('Aktuellen Spielstand durch diesen ersetzen?')) await ladeSlot(s.slot); }}>Laden</button>
                 </div>
               </div>
-              <div className="flex gap-2">
-                {s.slot !== 'auto' && (
-                  <button className="btn-ghost" onClick={async () => { await speichereSlot(s.slot, `${state.unternehmen.name} – ${quartalLabel(state.quartal)}`); lade(); }}>Speichern</button>
-                )}
-                <button className="btn-ghost" disabled={!s.belegt} onClick={async () => { if (window.confirm('Aktuellen Spielstand durch diesen ersetzen?')) await ladeSlot(s.slot); }}>Laden</button>
-                {s.slot !== 'auto' && s.belegt && (
-                  <button className="btn-ghost" aria-label="Spielstand löschen" onClick={async () => { await loeschen(s.slot); lade(); }}>×</button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+            );
+          })}
+        </div>
         <p className="muted mt-2 text-xs">{SLOT_ANZAHL} Speicherplätze liegen lokal in diesem Browser. Zum Übertragen auf ein anderes Gerät nutze den Datei-Export.</p>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <button className="btn-ghost" onClick={exportieren}>Als Datei exportieren</button>
@@ -144,15 +151,15 @@ export function Einstellungen() {
         </div>
       </Card>
 
-      <Card titel="Historie – zurückspringen">
+      <Card titel="Historie – zurückspringen" icon="kalender" farbe="#6366f1">
         {historie.length === 0 ? (
           <p className="muted text-sm">Noch keine abgeschlossenen Quartale.</p>
         ) : (
           <>
             <p className="muted mb-2 text-xs">Springt zu einem früheren Quartal und startet dort einen neuen Zweig – ideal, um riskante Strategien auszuprobieren.</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {historie.map((h, i) => (
-                <button key={i} className="btn-ghost" onClick={() => { if (window.confirm(`Zurück zu ${quartalLabel(h.report.quartal)}? Spätere Quartale gehen im aktuellen Zweig verloren (Spielstand vorher speichern).`)) zurueck(i); }}>
+                <button key={i} className="btn-ghost min-h-[34px] px-3 text-xs" onClick={() => { if (window.confirm(`Zurück zu ${quartalLabel(h.report.quartal)}? Spätere Quartale gehen im aktuellen Zweig verloren (Spielstand vorher speichern).`)) zurueck(i); }}>
                   {quartalLabel(h.report.quartal)}
                 </button>
               ))}

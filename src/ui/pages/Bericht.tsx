@@ -1,12 +1,29 @@
-import { PRODUKTE, quartalLabel } from '../../engine';
+import { motion } from 'framer-motion';
+import { Fragment } from 'react';
+import { PRODUKTE, REGIONEN, quartalLabel, type AngebotBericht, type ProductId } from '../../engine';
 import { useGame } from '../../store/gameStore';
-import { eur, eurKompakt, fmt0, pct } from '../format';
-import { Card, Tabelle, Warnung } from '../components/ui';
+import { eur, eurKompakt, fmt0, gruppiereWarnungen, pct, REGION_SYMBOL } from '../format';
+import { Aufklapper, Card, Icon, Info, KpiTile, Warnung } from '../components/ui';
+import { BikeIcon, PRODUKT_FARBE } from '../components/BikeIcon';
 import { useLetzterBericht } from '../hooks';
+
+/** Balken: Wie viel der Nachfrage konnte geliefert werden? */
+function Lieferquote({ absatz, nachfrage, farbe }: { absatz: number; nachfrage: number; farbe: string }) {
+  const q = nachfrage > 0 ? Math.min(1, absatz / nachfrage) : 1;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-2 w-24 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+        <motion.div className="h-full rounded-full" style={{ background: q < 0.8 ? '#f43f5e' : farbe }} initial={{ width: 0 }} animate={{ width: `${q * 100}%` }} transition={{ duration: 0.6 }} />
+      </div>
+      <span className={`tnum w-10 text-right text-xs ${q < 0.8 ? 'font-semibold text-rose-600 dark:text-rose-400' : 'muted'}`}>{pct(q, 0)}</span>
+    </div>
+  );
+}
 
 export function Bericht() {
   const bericht = useLetzterBericht();
   const state = useGame((s) => s.state)!;
+  const historie = useGame((s) => s.historie);
   const gehe = useGame((s) => s.gehe);
   const zeige = useGame((s) => s.zeigeAuswertung);
   if (!bericht) {
@@ -21,100 +38,141 @@ export function Bericht() {
     );
   }
   const g = bericht.guv;
+  const vorher = historie.length > 1 ? historie[historie.length - 2].report : undefined;
+  const verlauf = (f: (r: NonNullable<typeof bericht>) => number) => historie.slice(-12).map((h) => f(h.report));
+
+  // Absatz nach Produkt gruppiert
+  const produkte = [...new Set(bericht.angebote.map((a) => a.produkt))] as ProductId[];
+  const nachProdukt = produkte.map((p) => {
+    const zeilen = bericht.angebote.filter((a) => a.produkt === p);
+    const summe = (f: (a: AngebotBericht) => number) => zeilen.reduce((s, a) => s + f(a), 0);
+    return { p, zeilen, nachfrage: summe((a) => a.nachfrage), absatz: summe((a) => a.absatz), umsatz: summe((a) => a.umsatz) };
+  });
+  const mehrereRegionen = new Set(bericht.angebote.map((a) => a.region)).size > 1;
+
+  const firmen = [
+    { id: 'du', name: state.unternehmen.name, umsatz: g.umsatz, ebit: g.ebit, bilanz: bericht.bilanz.aktiva, farbe: state.unternehmen.farbe, eigen: true, pleite: false },
+    ...bericht.konkurrenz.map((k) => ({ id: k.id, name: k.name, umsatz: k.umsatz, ebit: k.ebit, bilanz: k.bilanzsumme, farbe: k.farbe, eigen: false, pleite: k.status === 'pleite' })),
+  ].sort((a, b) => b.umsatz - a.umsatz);
+  const maxUmsatz = Math.max(...firmen.map((f) => f.umsatz), 1);
+  const { sonstige, engpaesse } = gruppiereWarnungen(bericht.warnungen);
+
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="h-page">Quartalsbericht {quartalLabel(bericht.quartal)}</h1>
-        <p className="muted text-sm">Ergebnisse des Vorquartals und Branchenzahlen.</p>
-        <button className="btn-primary mt-3" onClick={() => zeige(bericht)}>Grafische Auswertung mit Konkurrenzvergleich öffnen</button>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="h-page">Quartalsbericht {quartalLabel(bericht.quartal)}</h1>
+          <p className="muted text-sm">Ergebnisse des abgeschlossenen Quartals und Branchenzahlen.</p>
+        </div>
+        <button className="btn-primary" onClick={() => zeige(bericht)}><Icon name="stern" className="h-4 w-4" /> Grafische Auswertung öffnen</button>
       </div>
 
-      {bericht.meldungen.map((m) => <Warnung key={m}>{m}</Warnung>)}
-
-      <Card icon="ebit" titel="Ergebnis">
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
-          {[
-            ['Umsatz', eurKompakt(g.umsatz)],
-            ['Deckungsbeitrag', eurKompakt(g.deckungsbeitrag)],
-            ['EBIT', eurKompakt(g.ebit)],
-            ['Überschuss', eurKompakt(g.ueberschuss)],
-            ['Absatz', `${fmt0(bericht.kennzahlen.absatz)} Räder`],
-            ['Kasse', eurKompakt(bericht.bilanz.kasse)],
-            ['Rating', bericht.kennzahlen.rating],
-            ['Kreditlimit', eurKompakt(bericht.kennzahlen.kreditlimit)],
-          ].map(([l, v]) => (
-            <div key={l}>
-              <dt className="muted text-xs">{l}</dt>
-              <dd className="tnum text-base font-semibold">{v}</dd>
+      {bericht.meldungen.length > 0 && (
+        <div className="card divide-y divide-[var(--line)] px-4">
+          {bericht.meldungen.map((m) => (
+            <div key={m} className="flex items-start gap-2 py-2 text-sm">
+              <Icon name="info" className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+              {m}
             </div>
           ))}
-        </dl>
-      </Card>
+        </div>
+      )}
 
-      <Card icon="rad" titel="Absatz je Produkt">
-        <Tabelle>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiTile icon="umsatz" label="Umsatz" wert={g.umsatz} vorher={vorher?.guv.umsatz} verlauf={verlauf((r) => r.guv.umsatz)} format={eurKompakt} farbe="#0d9488" />
+        <KpiTile icon="ebit" label="EBIT" wert={g.ebit} vorher={vorher?.guv.ebit} verlauf={verlauf((r) => r.guv.ebit)} format={eurKompakt} farbe="#6366f1" hinweis={`Überschuss ${eurKompakt(g.ueberschuss)}`} />
+        <KpiTile icon="rad" label="Absatz" wert={bericht.kennzahlen.absatz} vorher={vorher?.kennzahlen.absatz} verlauf={verlauf((r) => r.kennzahlen.absatz)} format={(x) => `${fmt0(x)} Räder`} farbe="#d97706" />
+        <KpiTile icon="kasse" label="Kasse" wert={bericht.bilanz.kasse} vorher={vorher?.bilanz.kasse} verlauf={verlauf((r) => r.bilanz.kasse)} format={eurKompakt} farbe="#16a34a" hinweis={`Rating ${bericht.kennzahlen.rating} · Kreditlimit ${eurKompakt(bericht.kennzahlen.kreditlimit)}`} />
+      </div>
+
+      <Card icon="rad" titel={<span className="flex items-center gap-1">Absatz je Produkt{mehrereRegionen ? ' und Markt' : ''} <Info titel="Lieferquote">Der Balken zeigt, welchen Teil der Nachfrage du bedienen konntest. Unbediente Nachfrage wandert zur Konkurrenz ab – unter 80 % wird er rot: Mehr Produktion oder Kapazität würde sich lohnen.</Info></span>}>
+        <table className="tnum w-full text-sm">
           <thead>
             <tr className="muted text-left text-xs">
-              <th className="py-1 pr-2">Produkt</th>
-              <th className="px-2 text-right">Preis</th>
-              <th className="px-2 text-right">Nachfrage</th>
-              <th className="px-2 text-right">Absatz</th>
-              <th className="px-2 text-right">Anteil</th>
-              <th className="pl-2 text-right">Umsatz</th>
+              <th className="py-1 pr-2 font-medium">Produkt / Markt</th>
+              <th className="px-2 text-right font-medium">Preis</th>
+              <th className="px-2 text-right font-medium">Nachfrage</th>
+              <th className="px-2 text-right font-medium">Absatz</th>
+              <th className="px-2 font-medium">Lieferquote</th>
+              <th className="px-2 text-right font-medium">Anteil</th>
+              <th className="pl-2 text-right font-medium">Umsatz</th>
             </tr>
           </thead>
           <tbody>
-            {bericht.angebote.map((a) => (
-              <tr key={a.produkt + a.region} className="border-t border-[var(--line)]">
-                <td className="py-2 pr-2 font-medium">{PRODUKTE[a.produkt].name}</td>
-                <td className="px-2 text-right">{eur(a.preis)}</td>
-                <td className="px-2 text-right">{fmt0(a.nachfrage)}</td>
-                <td className="px-2 text-right">{fmt0(a.absatz)}</td>
-                <td className="px-2 text-right">{pct(a.marktanteil, 2)}</td>
-                <td className="pl-2 text-right">{eurKompakt(a.umsatz)}</td>
-              </tr>
+            {nachProdukt.map(({ p, zeilen, nachfrage, absatz, umsatz }) => (
+              <Fragment key={p}>
+                <tr className="border-t-2 border-[var(--line)]" style={{ background: `${PRODUKT_FARBE[p]}0d` }}>
+                  <td className="py-2 pr-2 font-semibold"><span className="flex items-center gap-2"><BikeIcon produkt={p} className="h-6 w-9" />{PRODUKTE[p].name}</span></td>
+                  <td className="px-2" />
+                  <td className="px-2 text-right font-semibold">{fmt0(nachfrage)}</td>
+                  <td className="px-2 text-right font-semibold">{fmt0(absatz)}</td>
+                  <td className="px-2"><Lieferquote absatz={absatz} nachfrage={nachfrage} farbe={PRODUKT_FARBE[p]} /></td>
+                  <td className="px-2" />
+                  <td className="pl-2 text-right font-semibold">{eurKompakt(umsatz)}</td>
+                </tr>
+                {(mehrereRegionen ? zeilen : []).map((a) => (
+                  <tr key={a.region} className="border-t border-[var(--line)] text-[13px]">
+                    <td className="py-1.5 pl-11 pr-2"><span className="mr-1.5">{REGION_SYMBOL[a.region]}</span>{REGIONEN[a.region].name}</td>
+                    <td className="px-2 text-right">{eur(a.preis)}</td>
+                    <td className="muted px-2 text-right">{fmt0(a.nachfrage)}</td>
+                    <td className="px-2 text-right">{fmt0(a.absatz)}</td>
+                    <td className="px-2"><Lieferquote absatz={a.absatz} nachfrage={a.nachfrage} farbe={PRODUKT_FARBE[p]} /></td>
+                    <td className="muted px-2 text-right">{pct(a.marktanteil, 2)}</td>
+                    <td className="pl-2 text-right">{eurKompakt(a.umsatz)}</td>
+                  </tr>
+                ))}
+                {!mehrereRegionen && zeilen[0] && (
+                  <tr className="text-[13px]">
+                    <td className="muted pb-2 pl-11 text-xs" colSpan={7}>Preis {eur(zeilen[0].preis)} · Marktanteil {pct(zeilen[0].marktanteil, 2)}</td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
-        </Tabelle>
-        {bericht.angebote.some((a) => a.unbedient > 1) && (
-          <p className="muted mt-2 text-xs">Unbediente Nachfrage ist an die Konkurrenz abgewandert – mehr Produktion oder Kapazität würde sich lohnen.</p>
-        )}
+        </table>
       </Card>
 
-      <Card icon="bericht" titel="Branchenbericht (kostenlos)">
-        <Tabelle>
-          <thead>
-            <tr className="muted text-left text-xs">
-              <th className="py-1 pr-2">Unternehmen</th>
-              <th className="px-2 text-right">Umsatz/Q</th>
-              <th className="px-2 text-right">EBIT/Q</th>
-              <th className="pl-2 text-right">Bilanzsumme</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-t border-[var(--line)] font-semibold">
-              <td className="py-2 pr-2"><span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ background: state.unternehmen.farbe }} />{state.unternehmen.name}</td>
-              <td className="px-2 text-right">{eurKompakt(g.umsatz)}</td>
-              <td className="px-2 text-right">{eurKompakt(g.ebit)}</td>
-              <td className="pl-2 text-right">{eurKompakt(bericht.bilanz.aktiva)}</td>
-            </tr>
-            {bericht.konkurrenz.map((k) => (
-              <tr key={k.id} className="border-t border-[var(--line)]">
-                <td className="py-2 pr-2"><span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ background: k.farbe }} />{k.name}{k.status === 'pleite' ? ' (insolvent)' : ''}</td>
-                <td className="px-2 text-right">{eurKompakt(k.umsatz)}</td>
-                <td className="px-2 text-right">{eurKompakt(k.ebit)}</td>
-                <td className="pl-2 text-right">{eurKompakt(k.bilanzsumme)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </Tabelle>
-        <p className="muted mt-2 text-xs">Preise, Budgets und Marktanteile der Konkurrenz gibt es nur über Marktforschung (spätere Ausbaustufe).</p>
+      <Card icon="bericht" titel={<span className="flex items-center gap-1">Branchenbericht <Info titel="Branchenbericht">Umsatz und EBIT aller Hersteller im letzten Quartal. Preise, Budgets und Marktanteile der Konkurrenz gibt es nur über Marktforschung (spätere Ausbaustufe).</Info></span>}>
+        <div className="space-y-1.5">
+          <div className="muted grid grid-cols-[200px_1fr_110px_110px] gap-3 text-xs">
+            <span>Unternehmen</span><span>Umsatz im Quartal</span><span className="text-right">EBIT</span><span className="text-right">Bilanzsumme</span>
+          </div>
+          {firmen.map((f, i) => (
+            <div key={f.id} className={`grid grid-cols-[200px_1fr_110px_110px] items-center gap-3 rounded-lg px-1 py-1 text-sm ${f.eigen ? 'bg-brand-50 font-semibold dark:bg-brand-900/30' : ''}`}>
+              <span className="flex items-center gap-2 truncate"><span className="muted tnum w-4 text-xs">{i + 1}.</span><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: f.farbe }} />{f.name}{f.pleite ? ' (insolvent)' : ''}</span>
+              <div className="flex items-center gap-2">
+                <div className="h-3 flex-1 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+                  <motion.div className="h-full rounded-full" style={{ background: f.farbe }} initial={{ width: 0 }} animate={{ width: `${Math.max(1, (f.umsatz / maxUmsatz) * 100)}%` }} transition={{ duration: 0.7, delay: i * 0.04 }} />
+                </div>
+                <span className="tnum w-24 text-right">{eurKompakt(f.umsatz)}</span>
+              </div>
+              <span className={`tnum text-right ${f.ebit < 0 ? 'text-rose-600' : ''}`}>{eurKompakt(f.ebit)}</span>
+              <span className="tnum muted text-right">{eurKompakt(f.bilanz)}</span>
+            </div>
+          ))}
+        </div>
       </Card>
 
       {bericht.warnungen.length > 0 && (
-        <Card icon="warn" titel="Hinweise der Engine">
-          <div className="space-y-2">{bericht.warnungen.map((w) => <Warnung key={w}>{w}</Warnung>)}</div>
-        </Card>
+        <Aufklapper
+          merken="bericht-hinweise"
+          icon={<Icon name="warn" className="h-4 w-4 text-amber-600" />}
+          titel={`Hinweise der Engine (${bericht.warnungen.length})`}
+          zusammenfassung={engpaesse.length ? `${engpaesse.length} Märkte mit Lieferengpass` : undefined}
+          className="card"
+        >
+          <div className="space-y-2">
+            {sonstige.map((w) => <Warnung key={w}>{w}</Warnung>)}
+            {engpaesse.length > 0 && (
+              <Warnung>
+                <strong>Lieferengpass in {engpaesse.length} Märkten:</strong>
+                <ul className="mt-1 grid gap-x-6 gap-y-0.5 text-xs sm:grid-cols-2">
+                  {engpaesse.map((e) => <li key={e}>{e}</li>)}
+                </ul>
+              </Warnung>
+            )}
+          </div>
+        </Aufklapper>
       )}
     </div>
   );

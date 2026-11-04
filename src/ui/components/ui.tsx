@@ -400,6 +400,50 @@ export function NumberField(p: NumberFieldProps) {
   );
 }
 
+/** Kompaktes Zahlenfeld für Tabellen: Eingabe mit −/+ und dünnem Regler */
+export function KompaktFeld(p: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number; sliderMax?: number; step?: number; tastenSchritt?: number; farbe?: string; unit?: string }) {
+  const min = p.min ?? 0;
+  const step = p.step ?? 1;
+  const tasten = p.tastenSchritt ?? step;
+  const sliderMax = p.sliderMax ?? p.max ?? Math.max(p.value * 2, 100);
+  const [text, setText] = useState<string | null>(null);
+  const clampWert = (v: number) => Math.min(p.max ?? Infinity, Math.max(min, v));
+  const setze = (v: number) => p.onChange(clampWert(Math.round(v / step) * step));
+  return (
+    <div className="min-w-[150px]">
+      <div className="flex items-center rounded-lg border border-[var(--line)] bg-[var(--card)] focus-within:ring-2 focus-within:ring-brand-500/40">
+        <button type="button" className="grid h-8 w-7 place-items-center text-slate-500 hover:text-[var(--ink)]" aria-label={`${p.label} verringern`} onClick={() => setze(p.value - tasten)}>
+          <L.Minus className="h-3.5 w-3.5" />
+        </button>
+        <input
+          inputMode="decimal"
+          aria-label={p.label}
+          className="tnum h-8 w-full min-w-0 bg-transparent text-right text-sm font-semibold outline-none"
+          value={text ?? fmt0(p.value)}
+          onFocus={(e) => { setText(String(p.value)); e.currentTarget.select(); }}
+          onChange={(e) => { setText(e.target.value); const n = parseZahl(e.target.value); if (n !== null) p.onChange(clampWert(n)); }}
+          onBlur={() => setText(null)}
+        />
+        {p.unit && <span className="muted pl-1 text-xs">{p.unit}</span>}
+        <button type="button" className="grid h-8 w-7 place-items-center text-slate-500 hover:text-[var(--ink)]" aria-label={`${p.label} erhöhen`} onClick={() => setze(p.value + tasten)}>
+          <L.Plus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <input
+        type="range"
+        className="kompakt-regler mt-1 w-full"
+        min={min}
+        max={sliderMax}
+        step={step}
+        value={Math.min(sliderMax, Math.max(min, p.value))}
+        onChange={(e) => setze(Number(e.target.value))}
+        aria-label={p.label}
+        style={p.farbe ? { accentColor: p.farbe } : undefined}
+      />
+    </div>
+  );
+}
+
 export function Toasts() {
   const hinweise = useGame((s) => s.hinweise);
   return (

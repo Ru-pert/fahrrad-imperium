@@ -27,3 +27,20 @@ export function parseZahl(text: string): number | null {
   const n = Number(t);
   return Number.isFinite(n) ? n : null;
 }
+
+/** Kurze Symbole je Region */
+export const REGION_SYMBOL: Record<string, string> = { DE: '🇩🇪', EU: '🇪🇺', NA: '🌎', AS: '🌏', RW: '🌍' };
+
+const ENGPASS = /^(.+?) \((\w+)\): Nachfrage ([\d.]+) Stück, aber nur ([\d.]+) lieferbar\.?$/;
+
+/** Teilt Engine-Warnungen in Lieferengpässe (kurz gefasst) und sonstige Hinweise */
+export function gruppiereWarnungen(warnungen: string[]): { sonstige: string[]; engpaesse: string[] } {
+  const sonstige: string[] = [];
+  const engpaesse: string[] = [];
+  for (const w of warnungen) {
+    const m = ENGPASS.exec(w);
+    if (m) engpaesse.push(`${m[1]} ${REGION_SYMBOL[m[2]] ?? m[2]}: ${m[4]} von ${m[3]} lieferbar`);
+    else sonstige.push(w);
+  }
+  return { sonstige, engpaesse };
+}
