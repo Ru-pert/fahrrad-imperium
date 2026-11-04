@@ -7,6 +7,7 @@ import {
   HQ_STUFEN,
   LINIENTYPEN,
   PRODUKTE,
+  PRODUKT_IDS,
   REGIONEN,
   aktiveProdukte,
   aktiveRegionen,
@@ -19,8 +20,11 @@ import {
   type Decisions,
   type GameState,
   type QuarterReport,
+  type RegionId,
 } from '../engine';
 import { ratingAufschlag } from '../engine/finance';
+import { produktBedingungen, regionBedingungen, werkBaubar } from '../engine/expansion';
+import { WERK_STANDORTE } from '../engine/config/markets';
 import { ereignisDef } from '../engine/events';
 import { hallenPlaetze } from '../engine/production';
 import { saison } from '../engine/util';
@@ -166,7 +170,22 @@ export function lagebericht(state: GameState, letzter: QuarterReport | null, ent
         : null,
       hallenErweiterung: { kosten: BALANCE.produktion.hallenErweiterung.kosten, moeglich: state.werke.map((w) => ({ werk: w.id, moeglich: w.linien.length >= hallenPlaetze(w) && !(w.halleImBau ?? 0) })) },
       linientypen: Object.fromEntries(Object.entries(LINIENTYPEN).map(([t, c]) => [t, { preis: c.preis, kapazitaetStunden: c.kapazitaet, lebensdauer: c.lebensdauer, fixkosten: c.fixkosten, umweltindex: c.umwelt }])),
-      regionen: Object.fromEntries(Object.entries(REGIONEN).map(([r, c]) => [r, { aktiv: !!state.regionen[r as keyof typeof REGIONEN]?.aktiv, freischaltung: c.freischaltung }])),
+      regionen: Object.fromEntries(
+        Object.entries(REGIONEN).map(([r, c]) => [
+          r,
+          {
+            aktiv: !!state.regionen[r as RegionId]?.aktiv,
+            freigeschaltet: !!state.regionen[r as RegionId]?.freigeschaltet,
+            eintrittKosten: c.eintritt,
+            bedingungen: regionBedingungen(state, r as RegionId).map((b) => ({ text: b.text, ist: r2(b.ist), ziel: b.ziel, erfuellt: b.erfuellt })),
+          },
+        ]),
+      ),
+      produkteEinfuehrbar: state.produkteVerfuegbar ?? [],
+      produkteGesperrt: PRODUKT_IDS.filter((p) => !state.produkte[p] && !(state.produkteVerfuegbar ?? []).includes(p)).map((p) => ({
+        produkt: p, bedingungen: produktBedingungen(state, p).map((b) => ({ text: b.text, ist: r2(b.ist), ziel: b.ziel })),
+      })),
+      werkStandorte: Object.fromEntries(Object.entries(WERK_STANDORTE).map(([c, st]) => [c, { name: st.name, baukosten: st.baukosten, bauzeit: st.bauzeit, lohnIndex: st.lohnIndex, baubar: werkBaubar(state, c).ok }])),
     },
     vorschauMitEntwurf: {
       umsatz: r0(vorschau.guv.umsatz), ebit: r0(vorschau.guv.ebit), kasseEnde: r0(vorschau.bilanz.kasse),

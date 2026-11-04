@@ -30,7 +30,7 @@ export function stueckHk(k: KonkurrentZustand, p: ProductId, kum: number, effizi
   const cfg = PRODUKTE[p];
   const material = cfg.material * BALANCE.produktion.materialFaktor * LIEFERANTEN[k.lieferant].kosten * lk;
   const lohn = cfg.montageStunden * lk * KB.lohnProStunde;
-  return (material + lohn) * effizienz;
+  return (material + lohn) * effizienz * (profilVon(k.id).kostenFaktor ?? 1);
 }
 
 /** Entscheidungsregeln der Konkurrenz (9): Plan für das Quartal `state.quartal`, vor der Spielereingabe. */
@@ -76,10 +76,10 @@ export function planKonkurrenten(state: GameState, rng: Rng): Record<string, Kon
       plan.produkte[p] = eintrag;
     }
     void umsatzGesamt;
-    if (k.letzteAuslastung > KB.ausbauAuslastung && k.kasse > KB.linienKosten * (1.2 - 0.6 * profil.expansionsRisiko)) {
-      // große Hersteller bauen proportional zu ihrer Größe aus
-      plan.neueLinien = Math.max(1, Math.round(k.linien * 0.05));
-    }
+    // Ausbau bei hoher Auslastung; große Hersteller proportional zu ihrer Größe, aber nur wenn profitabel
+    const neu = Math.max(1, Math.round(k.linien * 0.03));
+    const vorsichtig = profil.zielAnteil ? k.letztesEbit > 0 && k.kasse > neu * KB.linienKosten * 3 : true;
+    if (vorsichtig && k.letzteAuslastung > KB.ausbauAuslastung && k.kasse > KB.linienKosten * neu * (1.2 - 0.6 * profil.expansionsRisiko)) plan.neueLinien = neu;
     plaene[profil.id] = plan;
   }
   return plaene;

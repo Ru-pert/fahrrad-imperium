@@ -31,6 +31,8 @@ export interface KonkurrentProfil {
   /** Reagiert erst ab diesem Jahresumsatz des Spielers – dann aber hart */
   reaktionAbUmsatz?: number;
   boersennotiert?: boolean;
+  /** Faktor auf die Herstellkosten (Fertigung in Niedriglohnländern, Einkaufsmacht) */
+  kostenFaktor?: number;
   start: {
     kasse: number;
     bekanntheit: Partial<Record<RegionId, number>>;
@@ -96,7 +98,7 @@ export const KONKURRENTEN: KonkurrentProfil[] = [
     profil: 'MTB-Riese', beschreibung: 'Aggressiv bei Preissenkungen gegen Neueinsteiger.',
     preisFaktor: 0.95, aggressivitaet: 0.8, marketingAnteil: 0.05, feAnteil: 0.03, lieferant: 'standard', preisSprung: 0,
     produkte: ['mountainbike', 'emtb', 'ebike', 'stadtrad', 'rennrad'], regionen: ['NA', 'EU', 'RW'],
-    zielAnteil: { NA: 0.012, EU: 0.002, RW: 0.002 }, fokus: { mountainbike: 3, emtb: 2 }, boersennotiert: true,
+    zielAnteil: { NA: 0.012, EU: 0.002, RW: 0.002 }, fokus: { mountainbike: 3, emtb: 2 }, boersennotiert: true, kostenFaktor: 0.85,
     start: { kasse: 80_000_000, bekanntheit: { NA: 0.35, EU: 0.05, RW: 0.05 }, image: 55, nachhaltigkeit: 45, feStock: { mountainbike: 800_000, emtb: 600_000 }, lagerFaktor: 0.3 },
     expansionsRisiko: 0.5,
   },
@@ -105,7 +107,7 @@ export const KONKURRENTEN: KonkurrentProfil[] = [
     profil: 'Amtierender Weltmarktführer', beschreibung: 'Wächst 1 % je Quartal, reagiert spät, aber hart.',
     preisFaktor: 0.88, aggressivitaet: 0.9, marketingAnteil: 0.03, feAnteil: 0.03, lieferant: 'standard', preisSprung: 0,
     produkte: ['stadtrad', 'ebike', 'mountainbike', 'rennrad', 'lastenrad', 'emtb'], regionen: ['AS', 'RW', 'NA', 'EU', 'DE'],
-    zielAnteil: { AS: 0.2, RW: 0.08, NA: 0.03, EU: 0.03, DE: 0.004 }, reaktionAbUmsatz: 1_000_000_000, boersennotiert: true,
+    zielAnteil: { AS: 0.2, RW: 0.08, NA: 0.03, EU: 0.03, DE: 0.004 }, reaktionAbUmsatz: 1_000_000_000, boersennotiert: true, kostenFaktor: 0.62,
     start: { kasse: 1_500_000_000, bekanntheit: { AS: 0.6, RW: 0.35, NA: 0.15, EU: 0.12, DE: 0.05 }, image: 50, nachhaltigkeit: 40, feStock: {}, lagerFaktor: 0.3 },
     expansionsRisiko: 1,
   },

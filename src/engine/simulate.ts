@@ -435,6 +435,43 @@ export function simulateQuarter(
   const restSupply: Partial<Record<ProductId, number>> = {};
   for (const p of produkte) restSupply[p] = s.produkte[p]!.lager.stueck;
 
+  /** Spieler-Angebot in einem Segment */
+  const spielerAnbieter = (r: RegionId, p: ProductId, kapazitaet: number): Anbieter => ({
+    id: SPIELER_ID,
+    preis: dec.preis[p]?.[r] ?? 0,
+    marketing: dec.marketing[p]?.[r] ?? 0,
+    bekanntheit: s.regionen[r]!.bekanntheit,
+    technik: tP[p]!,
+    qualitaet: qP[p]!,
+    image: s.unternehmen.image,
+    kapazitaet,
+  });
+  // Kontingente: bei Knappheit wird die Ware anteilig zur Nachfrage auf die Märkte verteilt
+  const kontingent: Record<string, number> = {};
+  if (B.lieferreihenfolge === 'anteilig' && reihenfolge.length > 1) {
+    for (const p of produkte) {
+      const nachfrage: Partial<Record<RegionId, number>> = {};
+      for (const r of reihenfolge) {
+        const zustand = s.markt[r]?.[p];
+        if (!zustand) continue;
+        const anbieter: Anbieter[] = [spielerAnbieter(r, p, 1e12)];
+        for (const prof of KONKURRENTEN) {
+          const k = s.konkurrenten[prof.id];
+          const plan = plaene[prof.id];
+          if (!k || !plan) continue;
+          const a = konkurrentAnbieter(k, plan, p, r, kRest[`${k.id}:${p}`] ?? 0);
+          if (a && a.preis > 0) anbieter.push(a);
+        }
+        nachfrage[r] = berechneSegment({ region: r, produkt: p, t, anbieter, zustand, eventFaktor: eff.nachfrage(p) }).nachfrage[SPIELER_ID] ?? 0;
+      }
+      const gesamt = sum(Object.values(nachfrage).map((x) => x ?? 0));
+      const vorrat = restSupply[p] ?? 0;
+      if (gesamt > vorrat && gesamt > 0) {
+        for (const r of reihenfolge) kontingent[`${r}:${p}`] = Math.floor((vorrat * (nachfrage[r] ?? 0)) / gesamt);
+      }
+    }
+  }
+
   for (const r of alleRegionen) {
     const spielerHier = regionen.includes(r);
     outs[r] = {};
@@ -447,16 +484,10 @@ export function simulateQuarter(
       const marketing = spielerP ? dec.marketing[p]?.[r] ?? 0 : 0;
       const anbieter: Anbieter[] = [];
       if (spielerP) {
-        anbieter.push({
-          id: SPIELER_ID,
-          preis,
-          marketing,
-          bekanntheit: s.regionen[r]!.bekanntheit,
-          technik: tP[p]!,
-          qualitaet: qP[p]!,
-          image: s.unternehmen.image,
-          kapazitaet: restSupply[p] ?? 0,
-        });
+        const k = kontingent[`${r}:${p}`];
+        // letzter Markt bekommt den Rest (Rundung), sonst das Kontingent
+        const letzterMarkt = r === reihenfolge[reihenfolge.length - 1];
+        anbieter.push(spielerAnbieter(r, p, k === undefined || letzterMarkt ? restSupply[p] ?? 0 : Math.min(k, restSupply[p] ?? 0)));
       }
       for (const prof of KONKURRENTEN) {
         const k = s.konkurrenten[prof.id];

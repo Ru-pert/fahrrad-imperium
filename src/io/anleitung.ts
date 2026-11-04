@@ -29,6 +29,7 @@ ENTSCHEIDUNGS-JSON (format "fahrrad-imperium/entscheidungen", version 1):
   "nachhaltigkeitsbudget": <€>,
   "finanzen": { "darlehenNeu": <€ bis freiesKreditlimit>, "tilgungExtra": <€>, "dividende": <€ ≤ Gewinnrücklagen> },
   "firmensitz": { "kaufen": [ "<nächste Stufe oder Extra-id>" ] },
+  "expansion": { "maerkteBetreten": [ "EU" | "NA" | "AS" | "RW" ], "produkteEinfuehren": [ "<produkt-id>" ], "werkeBauen": [ "DE" | "PL" | "US" | "MX" | "VN" | "BR" ] },
   "begruendung": "<1–3 Sätze>"
 }
 Fehlende Felder = Wert aus dem Vorquartal. Am einfachsten: „entscheidungsVorlage“ aus dem Lagebericht nehmen und ändern.
@@ -39,11 +40,12 @@ WERTEBEREICHE UND REGELN
   Kapazität = min(Maschinenstunden, Personalstunden × 1,15). Überstunden (über Personalstunden) kosten +50 % Lohn, 20.000 € Schichtkosten, Qualität −0,03.
 - Neue Linien: Bauzeit 1 Quartal, max. 4 je Quartal, nur auf freien Hallenplätzen; Halle erweitern erst, wenn alle Plätze belegt (5 Mio. €).
 - Gesperrte Bereiche stehen in optionen.gesperrt (Komplexitätsstufe) – Werte dort werden ignoriert.
+- Expansion: nur freigeschaltete Regionen/Produkte (siehe optionen). Markteintritt kostet einmalig (EU 2 Mio., NA 15 Mio., AS 40 Mio., RW 100 Mio. €), Verkauf ab Folgequartal. Produkteinführung 500.000 €, 1 Quartal Vorlauf. Werke: 2–3 Quartale Bauzeit, starten leer (Linien kaufen, Personal einstellen).
 - Darlehen: 8 Quartale lineare Tilgung, Zins = konditionen.darlehenszinsNeu. Kontokorrent (12 %) springt automatisch ein.
 
 WIRKUNGEN (kurz)
 - Nachfrage hängt ab von: Markenbekanntheit^0,6, Preis relativ zum Markt (Elastizität je Produkt), Technik (F&E-Stock veraltet 5 %/Q), Marketing mit abnehmendem Grenzertrag, Qualität und Image.
-- Unbediente Nachfrage wandert zur Konkurrenz. Lager kostet 2 % der Herstellkosten je Quartal.
+- Unbediente Nachfrage wandert zur Konkurrenz. Ist die Ware knapp, wird sie anteilig zur Nachfrage auf deine Märkte verteilt. Lager kostet 2 % der Herstellkosten je Quartal.
 - Saison: Q1 ×0,75, Q2 ×1,30, Q3 ×1,15, Q4 ×0,80. Marktpreise sinken langsam; die Erfahrungskurve senkt die Kosten.
 - „wirkungsabschaetzung“ im Lagebericht zeigt, was einzelne Hebel kurzfristig bringen (Schätzung ohne Zufall).
 - Ereignisse unter „ereignisseAktiv“ wirken im kommenden Quartal.

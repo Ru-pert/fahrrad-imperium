@@ -113,6 +113,13 @@ export const BALANCE = {
     linienBauzeit: 1,
   },
 
+  /**
+   * Verteilung knapper Ware auf die Märkte des Spielers:
+   * 'anteilig' = nach Nachfrage (Standard, damit neue Märkte nicht leer ausgehen),
+   * 'heimatZuerst' = strenge Reihenfolge laut Spezifikation 5.8.
+   */
+  lieferreihenfolge: 'anteilig' as 'anteilig' | 'heimatZuerst',
+
   /** Logistik (6) */
   logistik: { innerhalb: 0.03 },
 

@@ -471,9 +471,8 @@ describe('Expansion', () => {
     r = simulateQuarter(s, d);
     const eu = r.report.angebote.find((a) => a.region === 'EU' && a.produkt === 'stadtrad')!;
     expect(eu.nachfrage).toBeGreaterThan(0);
-    // Lieferreihenfolge: erst der Heimatmarkt, dann Europa
-    const de = r.report.angebote.find((a) => a.region === 'DE' && a.produkt === 'stadtrad')!;
-    if (eu.absatz > 0) expect(de.unbedient).toBeLessThan(1);
+    // Bei Knappheit wird anteilig zur Nachfrage verteilt – auch der neue Markt bekommt Ware
+    expect(eu.absatz).toBeGreaterThan(0);
   });
   it('Produkteinführung mit Vorlauf und Werksbau mit Bauzeit, Bilanz bleibt ausgeglichen', () => {
     let s = reich();

@@ -11,6 +11,7 @@ import { Bericht } from './pages/Bericht';
 import { Zeitung } from './pages/Zeitung';
 import { Entscheidungen } from './pages/Entscheidungen';
 import { Markt } from './pages/Markt';
+import { Expansion } from './pages/Expansion';
 import { Finanzen } from './pages/Finanzen';
 import { Werke } from './pages/Werke';
 import { Firmensitz } from './pages/Firmensitz';
@@ -24,6 +25,7 @@ const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
   { id: 'bericht', label: 'Quartalsbericht', kurz: 'Bericht', icon: 'cockpit' },
   { id: 'entscheidungen', label: 'Entscheidungen', kurz: 'Entscheiden', icon: 'entscheidungen' },
   { id: 'markt', label: 'Markt', kurz: 'Markt', icon: 'markt' },
+  { id: 'expansion', label: 'Expansion & Weltkarte', kurz: 'Welt', icon: 'expansion' },
   { id: 'finanzen', label: 'Finanzen', kurz: 'Finanzen', icon: 'finanzen' },
   { id: 'werke', label: 'Werke', kurz: 'Werke', icon: 'werke' },
   { id: 'firmensitz', label: 'Firmensitz', kurz: 'Firmensitz', icon: 'firmensitz' },
@@ -40,6 +42,7 @@ function Seiteninhalt({ seite }: { seite: Seite }) {
     case 'bericht': return <Bericht />;
     case 'entscheidungen': return <Entscheidungen />;
     case 'markt': return <Markt />;
+    case 'expansion': return <Expansion />;
     case 'finanzen': return <Finanzen />;
     case 'werke': return <Werke />;
     case 'firmensitz': return <Firmensitz />;

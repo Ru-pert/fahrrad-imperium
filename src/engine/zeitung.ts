@@ -6,6 +6,7 @@
 import { BALANCE } from './config/balance';
 import { EREIGNISKATALOG, VORFAELLE } from './config/events';
 import { PRODUKTE } from './config/products';
+import { REGIONEN } from './config/markets';
 import { ratingAufschlag } from './finance';
 import { technikAusStock, technikIndex } from './market';
 import { Rng, hashSeed } from './rng';
@@ -210,6 +211,11 @@ export function erzeugeZeitung(state: GameState, report: QuarterReport, vorher: 
       titel: `In stillem Gedenken an ${firma}`,
       text: `${firma} hat den Kampf gegen Kontokorrent und Kassenebbe verloren. Hinterlassen werden ${de0(report.produkte.reduce((s, p) => s + p.lagerEnde, 0))} Räder im Lager und ein Firmenschild in der Garage. Prof. Speiche: „Zu wenig Marge, zu viel Hoffnung.“ Wer mag, lädt einen früheren Spielstand und tritt erneut an.`,
     });
+  } else if ((report.freischaltungen ?? []).some((f) => f.art === 'region')) {
+    const r = report.freischaltungen.find((f) => f.art === 'region')!.id as keyof typeof REGIONEN;
+    sonderausgabe = 'Neue Märkte';
+    schlagzeile = pick([`Tor nach ${REGIONEN[r].name} aufgestoßen: ${firma} darf expandieren`, `${firma} greift nach ${REGIONEN[r].name}`, `Grenzenlos radeln: ${REGIONEN[r].name} wartet auf ${firma}`]);
+    unterzeile = `Der Meilenstein ist geschafft. Der Markteintritt kostet ${(REGIONEN[r].eintritt / 1e6).toLocaleString('de-DE')} Mio. € – Prof. Speiche rät: „Erst Kapazität, dann Koffer packen.“`;
   } else if (pleiten.length) {
     schlagzeile = `Pleite! ${pleiten[0].name} rollt ins Aus`;
     unterzeile = 'Die Konkurrenz lichtet sich – Kunden suchen neue Hersteller.';

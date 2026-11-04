@@ -25,7 +25,7 @@ import {
 } from '../engine';
 import { hallenPlaetze, lernkurve } from '../engine/production';
 import { ereignisEffekte } from '../engine/events';
-import { einstellungsLimit } from '../engine/expansion';
+import { einstellungsLimit, werkBaubar } from '../engine/expansion';
 import { BEKANNT, SPAETERE_FELDER, entscheidungsSchema } from './schemas';
 
 export interface Aenderung {
@@ -124,6 +124,9 @@ export function flach(state: GameState, d: Decisions): Map<string, string> {
   m.set('Sondertilgung', `${de(d.finanzen.tilgungExtra)} €`);
   m.set('Dividende', `${de(d.finanzen.dividende)} €`);
   m.set('Firmensitz-Käufe', d.firmensitz.kaufen.length ? d.firmensitz.kaufen.join(', ') : '–');
+  m.set('Markteintritte', d.expansion?.maerkteBetreten.length ? d.expansion.maerkteBetreten.join(', ') : '–');
+  m.set('Produkteinführungen', d.expansion?.produkteEinfuehren.length ? d.expansion.produkteEinfuehren.join(', ') : '–');
+  m.set('Werksbau', d.expansion?.werkeBauen.length ? d.expansion.werkeBauen.join(', ') : '–');
   return m;
 }
 
@@ -327,6 +330,31 @@ export function importiereEntscheidungen(text: string, state: GameState, basis: 
       }
     }
     d.firmensitz = { kaufen: ok };
+  }
+
+  // Expansion
+  if (e.expansion) {
+    const x = e.expansion;
+    if (x.uebernahmen?.length) warn.push('Übernahmen gibt es im Spiel noch nicht – werden ignoriert.');
+    const neu = { maerkteBetreten: [] as RegionId[], produkteEinfuehren: [] as ProductId[], werkeBauen: [] as string[] };
+    for (const r of x.maerkteBetreten ?? []) {
+      if (!(r in REGIONEN)) fehler.push(`Markteintritt: unbekannte Region „${r}“ (erlaubt: EU, NA, AS, RW).`);
+      else if (state.regionen[r as RegionId]?.aktiv) warn.push(`${REGIONEN[r as RegionId].name} ist bereits aktiv.`);
+      else if (!state.regionen[r as RegionId]?.freigeschaltet) fehler.push(`Markteintritt ${REGIONEN[r as RegionId].name}: noch nicht freigeschaltet.`);
+      else neu.maerkteBetreten.push(r as RegionId);
+    }
+    for (const p of x.produkteEinfuehren ?? []) {
+      if (!(p in PRODUKTE)) fehler.push(`Produkteinführung: unbekanntes Produkt „${p}“.`);
+      else if (state.produkte[p as ProductId]) warn.push(`${PRODUKTE[p as ProductId].name} ist bereits im Programm.`);
+      else if (!(state.produkteVerfuegbar ?? []).includes(p as ProductId)) fehler.push(`Produkteinführung ${PRODUKTE[p as ProductId].name}: noch nicht freigeschaltet.`);
+      else neu.produkteEinfuehren.push(p as ProductId);
+    }
+    for (const c of x.werkeBauen ?? []) {
+      const ok = werkBaubar(state, c);
+      if (!ok.ok) fehler.push(`Werksbau „${c}“: ${ok.grund}.`);
+      else neu.werkeBauen.push(c);
+    }
+    d.expansion = neu;
   }
 
   // Kapazität je Werk (nicht still kürzen, sondern melden)

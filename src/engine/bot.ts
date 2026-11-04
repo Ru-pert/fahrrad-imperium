@@ -49,9 +49,12 @@ export function botEntscheidungen(state: GameState, letzter: QuarterReport | nul
     for (const r of regionen) {
       const z = state.markt[r]?.[p];
       const ref = referenzPreis(r, p);
-      const preis = Math.min(1.3 * ref, Math.max(0.6 * ref, (z?.durchschnittspreis ?? ref) * opt.preisFaktor));
-      d.preis[p] = { ...d.preis[p], [r]: Math.round(preis) };
       const ang = letzter?.angebote.find((a) => a.produkt === p && a.region === r);
+      let preis = Math.min(1.3 * ref, Math.max(0.6 * ref, (z?.durchschnittspreis ?? ref) * opt.preisFaktor));
+      // Bei deutlicher Übernachfrage Preis schrittweise anheben (Knappheit nutzen, Auslandsmärkte nicht aushungern)
+      const bisher = state.letzteEntscheidungen.preis[p]?.[r];
+      if (ang && bisher && ang.nachfrage > ang.absatz * 1.25) preis = Math.min(1.6 * ref, Math.max(preis, bisher * 1.05));
+      d.preis[p] = { ...d.preis[p], [r]: Math.round(preis) };
       const neuImMarkt = !ang;
       d.marketing[p] = { ...d.marketing[p], [r]: Math.round(Math.max(neuImMarkt ? 60_000 : 10_000, (ang?.umsatz ?? 0) * opt.marketingAnteil * 1.2)) };
       basis += ang ? Math.max(ang.nachfrage, ang.absatz) : neuImMarkt ? 600 : 0;
