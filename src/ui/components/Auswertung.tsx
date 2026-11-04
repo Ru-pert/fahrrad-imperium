@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Konfetti, RechenAnimation } from './Effekte';
+import { klang } from '../klang';
+import { Quartalswechsel } from './Quartalswechsel';
 import { Abzeichen } from './Abzeichen';
 import { Weltkarte } from './Weltkarte';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -91,7 +93,12 @@ export function Auswertung() {
   const reduziert = useGame((s) => s.reduziert);
   const [fertigFuer, setFertigFuer] = useState<number | null>(null);
   const phase: 'rechnen' | 'fertig' = bericht && frisch && fertigFuer !== bericht.quartal ? 'rechnen' : 'fertig';
-  const rechnenFertig = useCallback(() => setFertigFuer(bericht?.quartal ?? null), [bericht]);
+  const rechnenFertig = useCallback(() => {
+    setFertigFuer(bericht?.quartal ?? null);
+    if (!bericht) return;
+    if (bericht.guv.ebit > 0) klang.kasse();
+    if ((bericht.neueErfolge?.length ?? 0) > 0 || (bericht.freischaltungen?.length ?? 0) > 0) setTimeout(() => klang.erfolg(), 450);
+  }, [bericht]);
 
   useEffect(() => {
     setZeitraum('quartal');
@@ -174,7 +181,7 @@ export function Auswertung() {
   if (phase === 'rechnen') {
     return (
       <motion.div className="fixed inset-0 z-[70] bg-[var(--bg)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} role="status" aria-live="polite">
-        <RechenAnimation dauer={reduziert ? 300 : 2400} fertig={rechnenFertig} />
+        {reduziert ? <RechenAnimation dauer={300} fertig={rechnenFertig} /> : <Quartalswechsel state={state} bericht={bericht} fertig={rechnenFertig} />}
       </motion.div>
     );
   }

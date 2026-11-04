@@ -22,14 +22,15 @@ import {
 } from '../../engine';
 import { lernkurve } from '../../engine/production';
 import { useGame } from '../../store/gameStore';
-import { eur, eurKompakt, fmt0, gruppiereWarnungen, pct, REGION_SYMBOL } from '../format';
-import { usePreview } from '../hooks';
-import { Card, Icon, IconBadge, Info, KompaktFeld, NumberField, Warnung } from '../components/ui';
+import { eur, eurKompakt, fmt0, gruppiereWarnungen, pct } from '../format';
+import { useLetzterBericht, usePreview } from '../hooks';
+import { Card, Icon, IconBadge, Info, KompaktFeld, NumberField, RegionMarke, Warnung } from '../components/ui';
 import { BikeIcon } from '../components/BikeIcon';
 import { HebelPanel, HebelZeile } from '../components/Hebel';
 import { useHebel, type HebelWirkung } from '../hebel';
 import { LinienVerwaltung, WerksAnsicht } from '../components/Werk';
 import { Forschungsbaum } from '../components/Forschungsbaum';
+import { Beraterin } from '../components/Beraterin';
 import { FinanzSzene, LieferketteSzene, MarketingSzene, PreisSzene, TeamSzene } from '../components/Szenen';
 import { KapazitaetsGrafik, PersonalErklaerung, TechnikVergleich } from '../components/Erklaer';
 
@@ -101,7 +102,7 @@ function Preise({ state, d, aendere, vorschau, hebel }: Ctx) {
           <thead>
             <tr className="muted text-left text-xs">
               <th className="pb-1 pr-3 font-medium">Produkt</th>
-              {regionen.map((r) => <th key={r} className="px-2 pb-1 font-medium">{REGION_SYMBOL[r]} {REGIONEN[r].name}</th>)}
+              {regionen.map((r) => <th key={r} className="px-2 pb-1 font-medium"><RegionMarke r={r} />{REGIONEN[r].name}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -230,7 +231,7 @@ function Marketing({ state, d, aendere, vorschau, hebel }: Ctx) {
           <thead>
             <tr className="muted text-left text-xs">
               <th className="pb-1 pr-3 font-medium">Produkt</th>
-              {regionen.map((r) => <th key={r} className="px-2 pb-1 font-medium">{REGION_SYMBOL[r]} {REGIONEN[r].name}</th>)}
+              {regionen.map((r) => <th key={r} className="px-2 pb-1 font-medium"><RegionMarke r={r} />{REGIONEN[r].name}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -566,6 +567,7 @@ export function Entscheidungen() {
   const reset = useGame((s) => s.entwurfZuruecksetzen);
   const abschliessen = useGame((s) => s.abschliessen);
   const vorschau = usePreview();
+  const letzterBericht = useLetzterBericht();
   const mobil = useIstMobil();
   const stufe = komplexitaetsStufe(state);
   const hebel = useHebel(state, entwurf);
@@ -642,6 +644,7 @@ export function Entscheidungen() {
           </div>
         </div>
         <aside className="space-y-4 xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto xl:pb-4">
+          <div className="card p-3"><Beraterin state={state} vorschau={vorschau} bericht={letzterBericht} kompakt /></div>
           <Card titel="Live-Vorschau" icon="cockpit">
             <Vorschau vorschau={vorschau} />
             <button className="btn-primary mt-3 w-full" onClick={bestaetigen} disabled={!!state.spielende}>Quartal abschließen</button>

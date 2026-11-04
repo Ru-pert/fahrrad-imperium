@@ -14,7 +14,7 @@ Diese Datei hält fest, was umgesetzt ist, wo das Spiel bewusst von der [Spezifi
 | 6 | Expansion: Regionen, Meilensteine, Werke, weitere Konkurrenten, Weltkarte, Weltrangliste | fertig |
 | 7 | Isometrisches Werksgelände, Firmensitz mit Shop | fertig |
 | 8 | Börse, Übernahmen, Marktforschung, Spionage | offen |
-| 9 | Erfolge, Animationen, Feinschliff, Balancing | teilweise (Erfolge, Animationen, Icons, Abteilungsszenen) |
+| 9 | Erfolge, Animationen, Feinschliff, Balancing | teilweise (Erfolge, Animationen, eigene Symbolsprache, Klänge, Quartalswechsel-Szene, Beraterin, Garage, Startbildschirm; Balancing offen) |
 
 ## Bewusste Abweichungen von der Spezifikation
 
@@ -41,7 +41,7 @@ Diese Datei hält fest, was umgesetzt ist, wo das Spiel bewusst von der [Spezifi
 
 - Engine: `src/engine/` (simulate, market, competitors, expansion, forschung, zeitung, achievements), Balancing in `src/engine/config/`.
 - Austausch: `src/io/`.
-- Oberfläche: `src/ui/pages/`, Grafiken in `src/ui/components/` und `src/ui/iso/`.
+- Oberfläche: `src/ui/pages/`, Grafiken in `src/ui/components/` und `src/ui/iso/`. Eigene Symbole: `components/Illus.tsx` (Duotone, über `Icon` automatisch), Klänge: `ui/klang.ts` (Web Audio, abschaltbar), Beraterin: `components/Beraterin.tsx`, Quartalswechsel: `components/Quartalswechsel.tsx`.
 - Tests: `src/engine/engine.test.ts`, `src/io/io.test.ts` (`npm test`).
 - Deployment: `.github/workflows/deploy.yml` → GitHub Pages bei Push auf `main`.
 

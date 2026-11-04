@@ -29,7 +29,8 @@ export function parseZahl(text: string): number | null {
 }
 
 /** Kurze Symbole je Region */
-export const REGION_SYMBOL: Record<string, string> = { DE: '🇩🇪', EU: '🇪🇺', NA: '🌎', AS: '🌏', RW: '🌍' };
+export const REGION_SYMBOL: Record<string, string> = { DE: 'DE', EU: 'EU', NA: 'NA', AS: 'AS', RW: 'RW' };
+export const REGION_FARBE: Record<string, string> = { DE: '#0d9488', EU: '#2563eb', NA: '#dc2626', AS: '#d97706', RW: '#7c3aed' };
 
 const ENGPASS = /^(.+?) \((\w+)\): Nachfrage ([\d.]+) Stück, aber nur ([\d.]+) lieferbar\.?$/;
 
@@ -39,7 +40,7 @@ export function gruppiereWarnungen(warnungen: string[]): { sonstige: string[]; e
   const engpaesse: string[] = [];
   for (const w of warnungen) {
     const m = ENGPASS.exec(w);
-    if (m) engpaesse.push(`${m[1]} ${REGION_SYMBOL[m[2]] ?? m[2]}: ${m[4]} von ${m[3]} lieferbar`);
+    if (m) engpaesse.push(`${m[1]} (${m[2]}): ${m[4]} von ${m[3]} lieferbar`);
     else sonstige.push(w);
   }
   return { sonstige, engpaesse };

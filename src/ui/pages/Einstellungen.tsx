@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { hashSeed, quartalLabel, type Schwierigkeit } from '../../engine';
+import { Leer } from '../components/Leer';
 import { useGame } from '../../store/gameStore';
 import { SLOT_ANZAHL, loeschen, slotListe, type SlotInfo } from '../../store/saveSlots';
 import { Card, Icon } from '../components/ui';
+import { klang, tonAn } from '../klang';
 
 const FARBEN = ['#0d9488', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0891b2', '#ca8a04'];
 
-export function NeuesSpielForm({ abbrechen }: { abbrechen?: () => void }) {
+export function NeuesSpielForm({ abbrechen, onVorschau }: { abbrechen?: () => void; onVorschau?: (name: string, farbe: string) => void }) {
   const neu = useGame((s) => s.neu);
-  const [name, setName] = useState('Rupert Rad GmbH');
-  const [farbe, setFarbe] = useState(FARBEN[0]);
+  const [name, setNameRoh] = useState('Rupert Rad GmbH');
+  const [farbe, setFarbeRoh] = useState(FARBEN[0]);
+  const setName = (n: string) => { setNameRoh(n); onVorschau?.(n, farbe); };
+  const setFarbe = (f: string) => { setFarbeRoh(f); onVorschau?.(name, f); };
   const [schwierigkeit, setSchwierigkeit] = useState<Schwierigkeit>('normal');
   const [profi, setProfi] = useState(false);
   const [seedText, setSeedText] = useState('');
@@ -18,7 +22,7 @@ export function NeuesSpielForm({ abbrechen }: { abbrechen?: () => void }) {
     neu({ firmenname: name.trim() || 'Fahrrad GmbH', farbe, schwierigkeit, profi, seed });
   };
   return (
-    <Card titel="Neues Spiel">
+    <Card titel="Neues Spiel" icon="rad">
       <div className="space-y-4">
         <label className="block text-sm font-medium">
           Firmenname
@@ -72,6 +76,7 @@ export function Einstellungen() {
   const zurueck = useGame((s) => s.zurueckspringen);
   const hinweis = useGame((s) => s.hinweis);
   const [neuesSpiel, setNeuesSpiel] = useState(false);
+  const [ton, setTon] = useState(tonAn());
   const [slots, setSlots] = useState<SlotInfo[]>([]);
   const datei = useRef<HTMLInputElement>(null);
   const lade = () => void slotListe().then(setSlots);
@@ -106,6 +111,10 @@ export function Einstellungen() {
           <button className="flex min-h-[44px] w-full items-center justify-between" onClick={() => setDunkel(!dunkel)} role="switch" aria-checked={dunkel}>
             <span className="flex items-center gap-2 text-sm"><Icon name={dunkel ? 'moon' : 'sun'} /> Dunkelmodus</span>
             <span className={`relative h-6 w-11 rounded-full transition-colors ${dunkel ? 'bg-brand-600' : 'bg-black/15 dark:bg-white/20'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${dunkel ? 'left-[22px]' : 'left-0.5'}`} /></span>
+          </button>
+          <button className="flex min-h-[44px] w-full items-center justify-between" onClick={() => { const n = !ton; try { localStorage.setItem('fi-ton', n ? '1' : '0'); } catch { /* egal */ } setTon(n); if (n) klang.klingel(); }} role="switch" aria-checked={ton}>
+            <span className="flex items-center gap-2 text-sm"><Icon name="vorlesen" /> Klänge (Klingel, Kasse, Fanfare)</span>
+            <span className={`relative h-6 w-11 rounded-full transition-colors ${ton ? 'bg-brand-600' : 'bg-black/15 dark:bg-white/20'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${ton ? 'left-[22px]' : 'left-0.5'}`} /></span>
           </button>
           <button className="flex min-h-[44px] w-full items-center justify-between" onClick={() => setReduziert(!reduziert)} role="switch" aria-checked={reduziert}>
             <span className="flex items-center gap-2 text-sm"><Icon name="rakete" /> Animationen reduzieren</span>
@@ -153,7 +162,7 @@ export function Einstellungen() {
 
       <Card titel="Historie – zurückspringen" icon="kalender" farbe="#6366f1">
         {historie.length === 0 ? (
-          <p className="muted text-sm">Noch keine abgeschlossenen Quartale.</p>
+          <Leer titel="Noch keine Geschichte">Nach dem ersten Quartal kannst du hier zu früheren Ständen zurückspringen.</Leer>
         ) : (
           <>
             <p className="muted mb-2 text-xs">Springt zu einem früheren Quartal und startet dort einen neuen Zweig – ideal, um riskante Strategien auszuprobieren.</p>

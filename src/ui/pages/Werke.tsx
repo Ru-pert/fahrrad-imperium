@@ -1,4 +1,5 @@
 import { LINIENTYPEN, PRODUKTE, quartalLabel } from '../../engine';
+import { Leer } from '../components/Leer';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, fmt2, pct } from '../format';
 import { LinienDiagramm } from '../components/charts';
@@ -42,7 +43,7 @@ export function Werke() {
         return (
           <Card icon="werke" key={w.id} titel={`Werk ${w.name}`} aktion={<Badge>{w.region}</Badge>}>
             <div className="mb-4">
-              <Werksgelaende state={state} werk={w} vorher={historie[historie.length - 1]?.stateVor} produktion={bericht?.produkte.reduce((s, p) => s + p.produziert, 0) ?? 0} />
+              <Werksgelaende state={state} werk={w} vorher={historie[historie.length - 1]?.stateVor} produktion={bericht?.produkte.reduce((s, p) => s + p.produziert, 0) ?? 0} ueberstunden={(bericht?.werke.find((x) => x.id === w.id)?.ueberstunden ?? 0) > 0} />
             </div>
             <div className="mb-1 flex justify-between text-sm">
               <span>Auslastung (Vorschau für dieses Quartal)</span>
@@ -103,7 +104,7 @@ export function Werke() {
             <p className="muted mt-2 text-xs">Jede Verdopplung der kumulierten Menge spart rund 10 % der Herstellkosten (Untergrenze 60 %).</p>
           </>
         ) : (
-          <p className="muted text-sm">Der Verlauf erscheint nach zwei abgeschlossenen Quartalen.</p>
+          <Leer titel="Noch kein Verlauf">Der Verlauf erscheint nach zwei abgeschlossenen Quartalen.</Leer>
         )}
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {produkte.map((p) => (
