@@ -10,10 +10,10 @@ Diese Datei hält fest, was umgesetzt ist, wo das Spiel bewusst von der [Spezifi
 | 2 | Basis-UI, Speichern, GitHub Pages, PWA | fertig (Fokus PC; Handy-Grundlayout vorhanden) |
 | 3 | Austausch mit Claude: Lagebericht, Entscheidungs-Import mit Prüfung, Anleitung | fertig |
 | 4 | Zeitung mit Ereigniskatalog, Text-Export, Vorlesen | fertig |
-| 5 | Tiefe (Vertrieb, CI, Kundenzufriedenheit, Großabnehmer, Planungsrechner …) | **teilweise** – Linientypen, Wartung, Nacharbeit, Motivation/Kompetenz, Lieferanten, Rating, Insolvenz, Nachhaltigkeit, Image sind drin; Vertrieb (Wirkung), Corporate Identity, Kundenzufriedenheit, Großabnehmer/Ausschreibungen, Einkauf mit Staffeln, Planungsrechner/-qualität, Kostenrechnung, Rettungsangebot fehlen |
+| 5 | Tiefe (Vertrieb, CI, Kundenzufriedenheit, Großabnehmer, Planungsrechner …) | **größtenteils** – zusätzlich Kundenzufriedenheit, Großabnehmer, Ausschreibungen, Einkauf mit Mengenstaffeln, Rettungsangebot; offen: Vertrieb (Wirkung), Corporate Identity, Planungsrechner/-qualität, Kostenrechnung |
 | 6 | Expansion: Regionen, Meilensteine, Werke, weitere Konkurrenten, Weltkarte, Weltrangliste | fertig |
 | 7 | Isometrisches Werksgelände, Firmensitz mit Shop | fertig |
-| 8 | Börse, Übernahmen, Marktforschung, Spionage | offen |
+| 8 | Börse, Übernahmen, Marktforschung, Spionage | teilweise – Marktforschung (4 Produkte) und Spionage fertig; Börse und Übernahmen offen |
 | 9 | Erfolge, Animationen, Feinschliff, Balancing | teilweise (Erfolge, Animationen, eigene Symbolsprache, Klänge, Quartalswechsel-Szene, Beraterin, Garage, Startbildschirm; Balancing offen) |
 
 ## Bewusste Abweichungen von der Spezifikation
@@ -30,6 +30,14 @@ Diese Datei hält fest, was umgesetzt ist, wo das Spiel bewusst von der [Spezifi
 - **Neue Werke** starten leer; Einstellungslimit mindestens 20 Personen.
 - **Hallenerweiterung** (+4 Plätze, 5 Mio. €) auch für das Startwerk.
 - **Firmensitz-Extras:** je +0,5 Image, zusammen max. +2.
+
+## Spieltiefe (`src/engine/tiefe.ts`, Parameter `config/tiefe.ts`)
+
+- **Kundenzufriedenheit** je Region und Produkt (Schlüssel `R:p` in `unternehmen.zufriedenheit`), Formel nach 5.7; Faktor (Z/50)^0,5 auf die Spieler-Attraktivität. Fehlmenge aus dem laufenden Quartal (wirkt ab dem nächsten).
+- **Einkauf**: Abweichung – nicht bestellte Sets werden **ohne Aufschlag** nachgekauft (statt Just-in-time +20 %), Rabatt nur auf Vorausbestellungen; Materiallager wird zuerst verbraucht.
+- **Großabnehmer/Ausschreibungen** werden zum Quartalsende für das Folgequartal erzeugt (`state.angebote`), Lieferung vor dem Markt; Ausschreibungen zahlen über die Forderungen im Folgequartal. Das Konkurrenzgebot ist verdeckt (nicht im Export).
+- **Rettungsangebot** statt sofortiger Insolvenz (einmalig); ohne Antwort gilt „annehmen“.
+- **Marktforschung** wird sofort angezeigt (Daten des Vorquartals mit Rauschen, geseedet je Quartal), gebucht beim Abschluss; Spionage zeigt `konkurrenzPlaene` exakt, 10 % Planänderung, Entdeckung mit Strafe, Image −15 und Rache-Preisen.
 
 ## Balancing-Stand (Standard-Bot, `src/engine/bot.ts`)
 

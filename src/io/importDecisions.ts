@@ -27,6 +27,7 @@ import { hallenPlaetze, lernkurve } from '../engine/production';
 import { ereignisEffekte } from '../engine/events';
 import { einstellungsLimit, werkBaubar } from '../engine/expansion';
 import { alleFeatures, alleProjekte } from '../engine/forschung';
+import { REGION_IDS } from '../engine/config/markets';
 import { BEKANNT, SPAETERE_FELDER, entscheidungsSchema } from './schemas';
 
 export interface Aenderung {
@@ -129,6 +130,12 @@ export function flach(state: GameState, d: Decisions): Map<string, string> {
   m.set('Produkteinführungen', d.expansion?.produkteEinfuehren.length ? d.expansion.produkteEinfuehren.join(', ') : '–');
   m.set('Werksbau', d.expansion?.werkeBauen.length ? d.expansion.werkeBauen.join(', ') : '–');
   for (const st of [...alleProjekte(state), ...alleFeatures(state)]) if (!st.fertig && (st.offen || (d.forschung?.[st.projekt.id] ?? 0) > 0)) m.set(`Forschung ${st.projekt.name}`, `${de(d.forschung?.[st.projekt.id] ?? 0)} €`);
+  for (const p of Object.keys(state.produkte) as ProductId[]) m.set(`Einkauf ${PRODUKTE[p].name}`, `${de(d.einkauf?.[p] ?? 0)} Sets`);
+  for (const g of state.angebote?.grossabnehmer ?? []) m.set(`Großabnehmer ${g.kunde}`, `${de(d.grossabnehmer?.find((x) => x.angebotId === g.id)?.menge ?? 0)} Stück`);
+  for (const a of state.angebote?.ausschreibungen ?? []) m.set(`Gebot ${a.behoerde}`, `${de(d.ausschreibungen?.find((x) => x.id === a.id)?.stueckpreis ?? 0)} €`);
+  const mf = d.marktforschung ?? {};
+  m.set('Marktforschung', [...(mf.marktbericht ?? []).map((r) => `Marktbericht ${r}`), ...(mf.branchenanalyse ?? []).map((r) => `Branchenanalyse ${r}`), ...(mf.kundenbefragung ? ['Kundenbefragung'] : []), ...(mf.spionage ?? []).map((k) => `Spionage ${k}`)].join(', ') || '–');
+  if (state.rettungsangebot) m.set('Rettungsangebot', d.rettung === 'ablehnen' ? 'ablehnen' : 'annehmen');
   return m;
 }
 
@@ -375,6 +382,60 @@ export function importiereEntscheidungen(text: string, state: GameState, basis: 
       else neu[id] = betrag;
     }
     d.forschung = neu;
+  }
+
+  // Einkauf
+  if (e.einkauf && Object.keys(e.einkauf).length) {
+    const neu: Partial<Record<ProductId, number>> = {};
+    for (const [p, menge] of Object.entries(e.einkauf)) {
+      if (!state.produkte[p as ProductId]) { fehler.push(`Einkauf: Produkt „${p}“ ist nicht im Programm.`); continue; }
+      if (menge < 0) { fehler.push(`Einkauf ${p}: Menge ist negativ.`); continue; }
+      neu[p as ProductId] = Math.round(menge);
+    }
+    d.einkauf = neu;
+  }
+  // Großabnehmer und Ausschreibungen (nur offene Angebote mit ID)
+  if (e.grossabnehmer?.length) {
+    d.grossabnehmer = [];
+    for (const g of e.grossabnehmer) {
+      const a = state.angebote?.grossabnehmer.find((x) => x.id === g.angebotId);
+      if (!a) { fehler.push(`Großabnehmer: Angebot „${g.angebotId}“ gibt es nicht (offen: ${(state.angebote?.grossabnehmer ?? []).map((x) => x.id).join(', ') || 'keine'}).`); continue; }
+      if (g.menge > a.hoechstmenge) warn.push(`${a.kunde}: höchstens ${a.hoechstmenge} Stück – Menge wird begrenzt.`);
+      d.grossabnehmer.push({ angebotId: a.id, menge: Math.max(0, Math.min(a.hoechstmenge, Math.round(g.menge))) });
+    }
+  }
+  if (e.ausschreibungen?.length) {
+    d.ausschreibungen = [];
+    for (const g of e.ausschreibungen) {
+      const a = state.angebote?.ausschreibungen.find((x) => x.id === g.id);
+      if (!a) { fehler.push(`Ausschreibung „${g.id}“ gibt es nicht (offen: ${(state.angebote?.ausschreibungen ?? []).map((x) => x.id).join(', ') || 'keine'}).`); continue; }
+      if (!(g.stueckpreis > 0)) { fehler.push(`Ausschreibung ${a.id}: Stückpreis muss größer als 0 sein.`); continue; }
+      d.ausschreibungen.push({ id: a.id, stueckpreis: Math.round(g.stueckpreis) });
+    }
+  }
+  // Marktforschung (wird mit dem Quartal gebucht)
+  if (e.marktforschung) {
+    const reg = (x?: string[]) => (x ?? []).filter((r) => {
+      const ok = (REGION_IDS as string[]).includes(r);
+      if (!ok) fehler.push(`Marktforschung: unbekannte Region „${r}“.`);
+      return ok;
+    }) as RegionId[];
+    const spione = (e.marktforschung.spionage ?? []).filter((id) => {
+      const ok = state.konkurrenten[id]?.status === 'aktiv';
+      if (!ok) fehler.push(`Spionage: Konkurrent „${id}“ unbekannt oder insolvent.`);
+      return ok;
+    });
+    d.marktforschung = {
+      marktbericht: [...new Set([...(d.marktforschung?.marktbericht ?? []), ...reg(e.marktforschung.marktbericht)])],
+      branchenanalyse: [...new Set([...(d.marktforschung?.branchenanalyse ?? []), ...reg(e.marktforschung.branchenanalyse)])],
+      kundenbefragung: !!(d.marktforschung?.kundenbefragung || e.marktforschung.kundenbefragung),
+      spionage: [...new Set([...(d.marktforschung?.spionage ?? []), ...spione])],
+    };
+    if (spione.length) warn.push(`Spionage bei ${spione.length} Konkurrent(en): Die Pläne sind zwar schon bekannt, aber es besteht ein Entdeckungsrisiko.`);
+  }
+  if (e.rettung) {
+    if (!state.rettungsangebot) warn.push('Es liegt kein Rettungsangebot vor – „rettung“ wird ignoriert.');
+    else d.rettung = e.rettung;
   }
 
   // Kapazität je Werk (nicht still kürzen, sondern melden)

@@ -71,6 +71,12 @@ export function standardEntscheidungen(state: GameState): Decisions {
   alt.finanzen = { darlehenNeu: 0, tilgungExtra: 0, dividende: 0 };
   alt.firmensitz = { kaufen: [] };
   alt.expansion = { maerkteBetreten: [], produkteEinfuehren: [], werkeBauen: [] };
+  // Einmalige Entscheidungen zurücksetzen
+  alt.einkauf = {};
+  alt.grossabnehmer = [];
+  alt.ausschreibungen = [];
+  alt.marktforschung = {};
+  delete alt.rettung;
   // Abgeschlossene Forschung braucht kein Budget mehr
   if (alt.forschung) alt.forschung = Object.fromEntries(Object.entries(alt.forschung).filter(([id]) => state.forschung?.[id]?.fertigIm === undefined));
   // Fehlende Felder für aktive Produkte/Regionen auffüllen

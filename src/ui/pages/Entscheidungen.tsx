@@ -31,6 +31,7 @@ import { useHebel, type HebelWirkung } from '../hebel';
 import { LinienVerwaltung, WerksAnsicht } from '../components/Werk';
 import { Forschungsbaum } from '../components/Forschungsbaum';
 import { Beraterin } from '../components/Beraterin';
+import { Auftraege, EinkaufKarte, RettungsBanner, ZufriedenheitZelle } from '../components/Tiefe';
 import { FinanzSzene, LieferketteSzene, MarketingSzene, PreisSzene, TeamSzene } from '../components/Szenen';
 import { KapazitaetsGrafik, PersonalErklaerung, TechnikVergleich } from '../components/Erklaer';
 
@@ -91,12 +92,13 @@ interface Ctx {
   vorschau: QuarterReport | null;
   stufe: 1 | 2 | 3;
   hebel: HebelWirkung[] | null;
+  letzter: QuarterReport | null;
 }
 
 function Preise({ state, d, aendere, vorschau, hebel }: Ctx) {
   const regionen = aktiveRegionen(state);
   return (
-    <Card titel={<span className="flex items-center gap-1">Verkaufspreise <Info titel="Preise">Der <strong>Referenzpreis</strong> ist der typische Ladenpreis eines Modells in der Region. Unter dem Marktdurchschnitt steigt die Nachfrage – bei günstigen Rädern stärker als bei teuren –, dafür sinkt die Marge. Mehr als das Dreifache des Referenzpreises ist nicht erlaubt. Der Balken zeigt, welchen Teil der geschätzten Nachfrage du liefern kannst.</Info></span>} icon="preis" farbe="#0d9488">
+    <Card titel={<span className="flex items-center gap-1">Verkaufspreise <Info titel="Preise">Der <strong>Referenzpreis</strong> ist der typische Ladenpreis eines Modells in der Region. Unter dem Marktdurchschnitt steigt die Nachfrage – bei günstigen Rädern stärker als bei teuren –, dafür sinkt die Marge. Mehr als das Dreifache des Referenzpreises ist nicht erlaubt. Der Balken zeigt, welchen Teil der geschätzten Nachfrage du liefern kannst. Das Gesicht zeigt die Kundenzufriedenheit: Preiserhöhungen senken sie!</Info></span>} icon="preis" farbe="#0d9488">
       <div className="overflow-x-auto">
         <table className="w-full border-separate border-spacing-y-1 text-sm">
           <thead>
@@ -141,9 +143,10 @@ function Preise({ state, d, aendere, vorschau, hebel }: Ctx) {
                           farbe={PRODUKT_FARBE[p]}
                           onChange={(v) => aendere((x) => { x.preis[p] = { ...x.preis[p], [r]: v }; })}
                         />
-                        <div className="tnum mt-0.5 flex justify-between text-[11px]">
+                        <div className="tnum mt-0.5 flex items-center justify-between text-[11px]">
                           <span className={preis / ref > 1.3 || preis / ref < 0.8 ? 'font-semibold text-amber-600' : 'muted'}>{pct(preis / ref, 0)} Ref.</span>
                           {seg && <span className="muted">Ø {eur(seg.durchschnittspreis)}</span>}
+                          <ZufriedenheitZelle state={state} r={r} p={p} />
                         </div>
                         {ang && (
                           <div className="mt-1" title={`Nachfrage ${fmt0(ang.nachfrage)} · Absatz ${fmt0(ang.absatz)}`}>
@@ -543,6 +546,14 @@ const SCHRITTE: Schritt[] = [
   { id: 'produktion', icon: 'produktion', farbe: '#475569', titel: 'Produktion', status: (c) => (c.vorschau?.werke[0] ? `Auslastung ${pct(c.vorschau.werke[0].auslastung, 0)}` : ''), render: (c) => <Produktion {...c} /> },
   { id: 'marketing', icon: 'marketing', farbe: '#db2777', titel: 'Marketing', status: (c) => eurKompakt(Object.values(c.d.marketing).reduce((s, m) => s + Object.values(m ?? {}).reduce((a, x) => a + (x ?? 0), 0), 0)), render: (c) => <><MarketingSzene state={c.state} d={c.d} vorschau={c.vorschau} /><Marketing {...c} /></> },
   {
+    id: 'auftraege', icon: 'nachfrage', farbe: '#6366f1', titel: 'Aufträge',
+    status: (c) => {
+      const n = (c.state.angebote?.grossabnehmer.length ?? 0) + (c.state.angebote?.ausschreibungen.length ?? 0);
+      return n ? `${n} Anfrage${n > 1 ? 'n' : ''} offen` : 'keine Anfragen';
+    },
+    render: (c) => (c.stufe < 2 ? <Card titel="Aufträge"><Gesperrt ab="ab Q3" /></Card> : <Auftraege state={c.state} d={c.d} aendere={c.aendere} vorschau={c.vorschau} letzter={c.letzter} />),
+  },
+  {
     id: 'fe', icon: 'fe', farbe: '#7c3aed', titel: 'Forschung & Entwicklung', kurz: 'Forschung',
     status: (c) => eurKompakt(Object.values(c.d.fe).reduce((s, x) => s + (x ?? 0), 0) + Object.values(c.d.forschung ?? {}).reduce((s, x) => s + (x ?? 0), 0)),
     render: (c) => (
@@ -556,7 +567,7 @@ const SCHRITTE: Schritt[] = [
   },
   { id: 'personal', icon: 'personal', farbe: '#2563eb', titel: 'Personal', status: (c) => `${fmt0(c.state.werke.reduce((s, w) => s + w.mitarbeitende, 0))} Personen`, render: (c) => <Personal {...c} /> },
   { id: 'werk', icon: 'werk', farbe: '#b45309', titel: 'Werk & Linien', kurz: 'Werke', status: (c) => `${c.state.werke.reduce((s, w) => s + w.linien.length, 0)} Linien`, render: (c) => <WerkBereich {...c} /> },
-  { id: 'lieferkette', icon: 'lieferkette', farbe: '#0891b2', titel: 'Lieferkette', status: (c) => Object.values(c.d.lieferanten).map((l) => LIEFERANTEN[l].label).join(' · '), render: (c) => <><LieferketteSzene state={c.state} d={c.d} /><Lieferkette {...c} /></> },
+  { id: 'lieferkette', icon: 'lieferkette', farbe: '#0891b2', titel: 'Lieferkette', status: (c) => Object.values(c.d.lieferanten).map((l) => LIEFERANTEN[l].label).join(' · '), render: (c) => <><LieferketteSzene state={c.state} d={c.d} /><Lieferkette {...c} />{c.stufe >= 3 ? <div className="mt-2"><EinkaufKarte state={c.state} d={c.d} aendere={c.aendere} vorschau={c.vorschau} /></div> : null}</> },
   { id: 'finanzen', icon: 'geld', farbe: '#16a34a', titel: 'Finanzen', status: (c) => `Kasse ${eurKompakt(c.state.finanzen.kasse)}`, render: (c) => <><FinanzSzene state={c.state} d={c.d} /><FinanzenBereich {...c} /></> },
 ];
 
@@ -571,7 +582,7 @@ export function Entscheidungen() {
   const mobil = useIstMobil();
   const stufe = komplexitaetsStufe(state);
   const hebel = useHebel(state, entwurf);
-  const ctx: Ctx = useMemo(() => ({ state, d: entwurf, aendere, vorschau, stufe, hebel }), [state, entwurf, aendere, vorschau, stufe, hebel]);
+  const ctx: Ctx = useMemo(() => ({ state, d: entwurf, aendere, vorschau, stufe, hebel, letzter: letzterBericht }), [state, entwurf, aendere, vorschau, stufe, hebel, letzterBericht]);
   const [schritt, setSchritt] = useState(0);
   const [bereich, setBereich] = useState<number>(() => {
     try { return Math.min(SCHRITTE.length - 1, Math.max(0, Number(localStorage.getItem('entscheidungen-bereich') ?? 0) || 0)); } catch { return 0; }
@@ -604,8 +615,9 @@ export function Entscheidungen() {
               <button className="btn-ghost" onClick={reset}>Zurücksetzen</button>
             </div>
           </div>
+          <RettungsBanner state={state} d={entwurf} aendere={aendere} />
           <div className="sticky top-[70px] z-20 -mx-1 rounded-2xl border border-[var(--line)] bg-[var(--card)]/90 p-1.5 shadow-sm backdrop-blur" role="tablist" aria-label="Bereiche">
-            <div className="grid grid-cols-4 gap-1 2xl:grid-cols-8">
+            <div className="grid grid-cols-5 gap-1 2xl:grid-cols-9">
               {SCHRITTE.map((s, i) => {
                 const aktiv = i === bereich;
                 return (
@@ -689,6 +701,7 @@ export function Entscheidungen() {
         ))}
       </div>
 
+      <div className="mb-3"><RettungsBanner state={state} d={entwurf} aendere={aendere} /></div>
       {aktuell ? (
         aktuell.render(ctx)
       ) : (

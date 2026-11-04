@@ -63,6 +63,10 @@ import { clamp, stk, sum } from './util';
 import { SPIELER_ID } from './util';
 import { ereignisEffekte, naechsteEreignisse, ereignisDef } from './events';
 import { erzeugeZeitung } from './zeitung';
+import { ZUFRIEDENHEIT, rabattFuer, RETTUNG, MARKTFORSCHUNG, AUSSCHREIBUNG } from './config/tiefe';
+import { generiereAngebote, marktforschungKosten, zufriedenheitVon } from './tiefe';
+import { technikIndex as tiAusTechnik } from './market';
+import type { SonderabsatzBericht, QuarterReport as QR } from './types';
 import { featureUnternehmen, featureWirkung, forscheQuartal, normalisiereForschung } from './forschung';
 import { normalisiereExpansion, pruefeFreischaltungen, schliesseExpansionAb, starteExpansion } from './expansion';
 import { pruefeErfolge } from './achievements';
@@ -150,6 +154,59 @@ export function simulateQuarter(
   let rueckrufKosten = 0;
   let bekanntheitBonus = 0;
 
+  // ------------------------------------------------------------ Rettungsangebot (Investor)
+  let kapitalerhoehung = 0;
+  let rettungAbgelehnt = false;
+  if (s.rettungsangebot) {
+    if (dec.rettung === 'ablehnen') {
+      rettungAbgelehnt = true;
+      meldungen.push('Du hast das Rettungsangebot abgelehnt.');
+    } else {
+      kapitalerhoehung = s.rettungsangebot.kapital;
+      fin.kapitalruecklage += kapitalerhoehung;
+      fin.investorAnteil = s.rettungsangebot.anteil;
+      fin.rettungGenutzt = true;
+      fin.rettungQuartal = t;
+      fin.kritischZaehler = 0;
+      meldungen.push(`Rettung angenommen: Ein Investor bringt ${Math.round(kapitalerhoehung).toLocaleString('de-DE')} € frisches Kapital und übernimmt ${Math.round(s.rettungsangebot.anteil * 100)} % der Anteile.`);
+    }
+    s.rettungsangebot = null;
+  }
+
+  // ------------------------------------------------------------ Marktforschung & Spionage
+  const mf = dec.marktforschung ?? {};
+  const mfKosten = marktforschungKosten(s, mf);
+  const spionageBericht: { konkurrent: string; erwischt: boolean; strafe: number }[] = [];
+  let spionageStrafe = 0;
+  const spioniert = (mf.spionage ?? []).filter((id) => s.konkurrenten[id]?.status === 'aktiv');
+  if (spioniert.length && opts.konkurrenzModus !== 'wiederholung') {
+    const MS = MARKTFORSCHUNG.spionage;
+    for (const id of spioniert) {
+      // Mit kleiner Wahrscheinlichkeit ändert der Konkurrent seinen Plan doch noch leicht
+      if (zufall && plaene[id] && rng.chance(MS.planAenderung)) {
+        const f = 1 + (rng.next() - 0.5) * 0.1;
+        for (const pp of Object.values(plaene[id].produkte)) if (pp) for (const r of Object.keys(pp.preis) as RegionId[]) pp.preis[r] = (pp.preis[r] ?? 0) * f;
+      }
+      const frueher = (s.spionageQuartale ?? []).filter((q) => q >= t - 4).length;
+      const risiko = MS.grundrisiko + MS.jeWeitere * frueher + (s.einstellungen.schwierigkeit === 'schwer' ? MS.schwerZuschlag : 0);
+      const erwischt = zufall && rng.chance(risiko);
+      if (erwischt) {
+        const strafe = MS.strafeFaktor * MS.preis;
+        spionageStrafe += strafe;
+        s.rache = { ...(s.rache ?? {}), [id]: t + MS.racheQuartale };
+        vorfaelle.push({ art: 'spionage', firma: s.unternehmen.name, text: `James Bond auf dem Klapprad: ${s.unternehmen.name} beim Schnüffeln bei ${s.konkurrenten[id].name} erwischt! Strafe ${strafe.toLocaleString('de-DE')} €, Image −15 – und ${s.konkurrenten[id].name} schwört Rache mit Kampfpreisen.` });
+        meldungen.push(`Spionage bei ${s.konkurrenten[id].name} aufgeflogen: Strafe ${strafe.toLocaleString('de-DE')} €, Image −15.`);
+      }
+      spionageBericht.push({ konkurrent: id, erwischt, strafe: erwischt ? MS.strafeFaktor * MS.preis : 0 });
+    }
+    if (zufall) s.spionageQuartale = [...(s.spionageQuartale ?? []).filter((q) => q >= t - 4), ...spioniert.map(() => t)];
+  }
+  // Rache: ertappte Spione bekommen Kampfpreise zu spüren
+  for (const [id, bis] of Object.entries(s.rache ?? {})) {
+    if (bis < t || !plaene[id]) continue;
+    for (const pp of Object.values(plaene[id].produkte)) if (pp) for (const r of Object.keys(pp.preis) as RegionId[]) pp.preis[r] = (pp.preis[r] ?? 0) * (1 - MARKTFORSCHUNG.spionage.racheRabatt);
+  }
+
   const kasseAnfang = fin.kasse;
   const forderungenAnfang = fin.forderungen;
   const verbindlichkeitenAnfang = fin.verbindlichkeiten;
@@ -161,7 +218,7 @@ export function simulateQuarter(
   let desinv = 0;
   let sonstErtrag = 0;
   let sonstAufwand = 0;
-  let imageSchock = 0;
+  let imageSchock = spionageBericht.some((x) => x.erwischt) ? MARKTFORSCHUNG.spionage.image * spionageBericht.filter((x) => x.erwischt).length : 0;
 
   // ------------------------------------------------------------ Firmensitz
   for (const id of dec.firmensitz.kaufen) {
@@ -378,6 +435,35 @@ export function simulateQuarter(
   }
   hoursNacharbeitNenner = { ...hoursNacharbeitNenner };
 
+  // ------------------------------------------------------------ Einkauf mit Mengenstaffeln (6.3)
+  // Material kommt zuerst aus dem Materiallager, dann aus der Vorausbestellung (mit Rabatt),
+  // fehlende Sets werden ohne Rabatt nachgekauft. Überschüsse gehen ins Materiallager.
+  const einkaufBericht: NonNullable<QR['einkauf']> = [];
+  const materialZahlung: Partial<Record<ProductId, number>> = {};
+  for (const p of produkte) {
+    const pz = s.produkte[p]!;
+    const menge = prodMenge[p] ?? 0;
+    const bestellt = Math.max(0, Math.round(dec.einkauf?.[p] ?? 0));
+    const w0 = s.werke.find((w) => (w.status ?? 'aktiv') === 'aktiv') ?? s.werke[0];
+    const einheit = menge > 0 ? (prodKostenMat[p] ?? 0) / menge : w0 ? herstellkosten(p, w0, 1, lernkurve(pz.kumMenge), eff.material(p) * fw[p].material).material : PRODUKTE[p].material;
+    const r = rabattFuer(bestellt);
+    const ausLager = Math.min(pz.materialSets, menge);
+    const wertJeSet = pz.materialSets > 0 ? pz.materialWert / pz.materialSets : einheit;
+    const lagerWert = ausLager * wertJeSet;
+    const bedarf = menge - ausLager;
+    const ausBestellung = Math.min(bestellt, bedarf);
+    const nachgekauft = bedarf - ausBestellung;
+    const ueberschuss = bestellt - ausBestellung;
+    const aufwand = lagerWert + ausBestellung * einheit * (1 - r) + nachgekauft * einheit;
+    materialZahlung[p] = bestellt * einheit * (1 - r) + nachgekauft * einheit;
+    pz.materialSets = pz.materialSets - ausLager + ueberschuss;
+    pz.materialWert = Math.max(0, pz.materialWert - lagerWert + ueberschuss * einheit * (1 - r));
+    if (pz.materialSets <= 0) pz.materialWert = 0;
+    const ersparnis = (prodKostenMat[p] ?? 0) - aufwand;
+    prodKostenMat[p] = aufwand;
+    if (bestellt > 0 || ausLager > 0) einkaufBericht.push({ produkt: p, bestellt, ausLager, nachgekauft, rabatt: r, ersparnis, lagerEnde: pz.materialSets });
+  }
+
   // Lager: Zugang mit Durchschnittskosten
   const produziert: Partial<Record<ProductId, number>> = {};
   for (const p of produkte) {
@@ -446,6 +532,49 @@ export function simulateQuarter(
   const restSupply: Partial<Record<ProductId, number>> = {};
   for (const p of produkte) restSupply[p] = s.produkte[p]!.lager.stueck;
 
+  // ------------------------------------------------------------ Sonderabsatz (5.8): erst Ausschreibungen, dann Großabnehmer
+  const sonderabsatz: SonderabsatzBericht[] = [];
+  let umsatzSofort = 0;
+  let umsatzSpaeter = 0;
+  const sonderVerkauft: Partial<Record<ProductId, number>> = {};
+  for (const a of s.angebote?.ausschreibungen ?? []) {
+    const gebot = (dec.ausschreibungen ?? []).find((x) => x.id === a.id)?.stueckpreis ?? 0;
+    if (!(gebot > 0) || !produkte.includes(a.produkt)) continue;
+    const ti = tiAusTechnik(tP[a.produkt]!, s.markt[a.region]?.[a.produkt]?.tBar ?? tP[a.produkt]!);
+    const technikOk = ti >= a.minTechnikindex;
+    const gewonnen = technikOk && (gebot < a.konkurrenzGebot || (gebot === a.konkurrenzGebot && ti > 105));
+    if (!gewonnen) {
+      sonderabsatz.push({ art: 'ausschreibung', id: a.id, kunde: a.behoerde, produkt: a.produkt, region: a.region, menge: 0, preis: gebot, umsatz: 0, gewonnen: false, gebot, konkurrenzGebot: a.konkurrenzGebot,
+        text: technikOk ? `Ausschreibung ${a.behoerde} verloren: Die Konkurrenz bot ${Math.round(a.konkurrenzGebot).toLocaleString('de-DE')} € je Rad.` : `Ausschreibung ${a.behoerde}: Technikindex ${Math.round(ti)} unter dem Minimum ${a.minTechnikindex} – Gebot ungültig.` });
+      continue;
+    }
+    const menge = Math.min(a.menge, Math.max(0, Math.floor(restSupply[a.produkt] ?? 0)));
+    restSupply[a.produkt] = (restSupply[a.produkt] ?? 0) - menge;
+    sonderVerkauft[a.produkt] = (sonderVerkauft[a.produkt] ?? 0) + menge;
+    umsatzSpaeter += menge * gebot;
+    umsatzP[a.produkt] = (umsatzP[a.produkt] ?? 0) + menge * gebot;
+    if (menge < a.menge) {
+      imageSchock -= AUSSCHREIBUNG.imageAbzugAusfall;
+      warn.push(`Ausschreibung ${a.behoerde}: nur ${menge.toLocaleString('de-DE')} von ${a.menge.toLocaleString('de-DE')} Rädern lieferbar – Image −${AUSSCHREIBUNG.imageAbzugAusfall}.`);
+    }
+    sonderabsatz.push({ art: 'ausschreibung', id: a.id, kunde: a.behoerde, produkt: a.produkt, region: a.region, menge, preis: gebot, umsatz: menge * gebot, gewonnen: true, gebot, konkurrenzGebot: a.konkurrenzGebot,
+      text: `Zuschlag! ${a.behoerde} kauft ${menge.toLocaleString('de-DE')} ${PRODUKTE[a.produkt].name}s zu ${Math.round(gebot).toLocaleString('de-DE')} € (Zahlung im Folgequartal).` });
+  }
+  for (const g of s.angebote?.grossabnehmer ?? []) {
+    const wunsch = (dec.grossabnehmer ?? []).find((x) => x.angebotId === g.id)?.menge ?? 0;
+    if (!(wunsch > 0) || !produkte.includes(g.produkt)) continue;
+    const menge = Math.min(Math.round(wunsch), g.hoechstmenge, Math.max(0, Math.floor(restSupply[g.produkt] ?? 0)));
+    if (menge < Math.min(wunsch, g.hoechstmenge)) warn.push(`${g.kunde}: nur ${menge.toLocaleString('de-DE')} statt ${Math.min(wunsch, g.hoechstmenge).toLocaleString('de-DE')} Räder lieferbar.`);
+    if (menge <= 0) continue;
+    restSupply[g.produkt] = (restSupply[g.produkt] ?? 0) - menge;
+    sonderVerkauft[g.produkt] = (sonderVerkauft[g.produkt] ?? 0) + menge;
+    umsatzSofort += menge * g.preis;
+    umsatzP[g.produkt] = (umsatzP[g.produkt] ?? 0) + menge * g.preis;
+    sonderabsatz.push({ art: 'grossabnehmer', id: g.id, kunde: g.kunde, produkt: g.produkt, region: g.region, menge, preis: g.preis, umsatz: menge * g.preis, text: `${g.kunde} übernimmt ${menge.toLocaleString('de-DE')} ${PRODUKTE[g.produkt].name}s zu je ${Math.round(g.preis).toLocaleString('de-DE')} €.` });
+  }
+  for (const p of produkte) verkauft[p] = (verkauft[p] ?? 0) + (sonderVerkauft[p] ?? 0);
+  umsatz += umsatzSofort + umsatzSpaeter;
+
   /** Spieler-Angebot in einem Segment */
   const spielerAnbieter = (r: RegionId, p: ProductId, kapazitaet: number): Anbieter => ({
     id: SPIELER_ID,
@@ -456,7 +585,7 @@ export function simulateQuarter(
     qualitaet: qP[p]!,
     image: s.unternehmen.image,
     kapazitaet,
-    staerke: fw[p].nachfrage,
+    staerke: fw[p].nachfrage * Math.pow(Math.max(1, zufriedenheitVon(s, r, p)) / 50, ZUFRIEDENHEIT.exponent),
   });
   // Kontingente: bei Knappheit wird die Ware anteilig zur Nachfrage auf die Märkte verteilt
   const kontingent: Record<string, number> = {};
@@ -638,6 +767,19 @@ export function simulateQuarter(
     });
   }
 
+  // ------------------------------------------------------------ Kundenzufriedenheit (5.7)
+  for (const a of angebote) {
+    const Z = ZUFRIEDENHEIT;
+    const alt = zufriedenheitVon(s, a.region, a.produkt);
+    const vorpreis = s.letzteEntscheidungen?.preis?.[a.produkt]?.[a.region];
+    const erhoehung = vorpreis && vorpreis > 0 ? Math.max(0, a.preis / vorpreis - 1) : 0;
+    const fehl = a.nachfrage > 0 ? Math.max(0, a.unbedient) / a.nachfrage : 0;
+    const ziel = Z.basis + Z.qualitaetFaktor * (a.qualitaet - 1) + Z.umweltFaktor * ((umweltProdukt[a.produkt] ?? 50) - 50) - Z.preiserhoehungFaktor * erhoehung - Z.fehlmengeFaktor * fehl + Z.imageFaktor * (s.unternehmen.image - 50);
+    const neu = clamp(alt + Z.anpassung * (clamp(ziel, 0, 100) - alt), 0, 100);
+    s.unternehmen.zufriedenheit[`${a.region}:${a.produkt}`] = neu;
+    a.zufriedenheit = neu;
+  }
+
   // ------------------------------------------------------------ GuV
   const marketingSumme = sum(produkte.flatMap((p) => regionen.map((r) => dec.marketing[p]?.[r] ?? 0)));
   const feSumme = sum(produkte.map((p) => dec.fe[p] ?? 0)) + forschungsAufwand;
@@ -673,7 +815,7 @@ export function simulateQuarter(
 
   const deckungsbeitrag = umsatz - herstellkostenUmsatz - logistik;
   const ebit =
-    deckungsbeitrag - marketingSumme - feSumme - nbBudget - personalKosten - fgk - vertriebKosten - verwaltung - afa + sonstErtrag - sonstAufwand - rueckrufKosten - expansionsAufwand;
+    deckungsbeitrag - marketingSumme - feSumme - nbBudget - personalKosten - fgk - vertriebKosten - verwaltung - afa + sonstErtrag - sonstAufwand - rueckrufKosten - expansionsAufwand - mfKosten - spionageStrafe;
   const zinsen = zinsDarlehen + zinsKontokorrent;
   const ebt = ebit - zinsen;
   let steuern = 0;
@@ -687,27 +829,27 @@ export function simulateQuarter(
   const ueberschuss = ebt - steuern;
   const guv: GuV = {
     umsatz, herstellkosten: herstellkostenUmsatz, logistik, deckungsbeitrag, marketing: marketingSumme, fe: feSumme,
-    nachhaltigkeit: nbBudget, marktforschung: 0, fertigungsgemeinkosten: fgk, personal: personalKosten, vertrieb: vertriebKosten,
-    verwaltung, sonstigeErtraege: sonstErtrag, sonstigerAufwand: sonstAufwand + rueckrufKosten + expansionsAufwand, abschreibungen: afa, ebit, ebitda: ebit + afa,
+    nachhaltigkeit: nbBudget, marktforschung: mfKosten, fertigungsgemeinkosten: fgk, personal: personalKosten, vertrieb: vertriebKosten,
+    verwaltung, sonstigeErtraege: sonstErtrag, sonstigerAufwand: sonstAufwand + rueckrufKosten + expansionsAufwand + spionageStrafe, abschreibungen: afa, ebit, ebitda: ebit + afa,
     zinsen, ebt, steuern, ueberschuss,
   };
 
   // ------------------------------------------------------------ Zahlungen
-  const forderungenEnde = umsatz * B.finanzen.forderungenAnteil;
+  const forderungenEnde = (umsatz - umsatzSofort - umsatzSpaeter) * B.finanzen.forderungenAnteil + umsatzSpaeter;
   const einzahlungKunden = umsatz - forderungenEnde + forderungenAnfang;
-  const materialKauf = sum(produkte.map((p) => prodKostenMat[p] ?? 0));
+  const materialKauf = sum(produkte.map((p) => materialZahlung[p] ?? prodKostenMat[p] ?? 0));
   const verbindlichkeitenEnde = materialKauf * B.finanzen.verbindlichkeitenAnteil;
   const auszahlungMaterial = materialKauf - verbindlichkeitenEnde + verbindlichkeitenAnfang;
   const laborCash = sum(werkRes.map((r) => r.laborCash));
   const hireFireTrain = sum(werkRes.map((r) => r.hireFireTrain));
   const periodenKosten =
     sum(werkRes.map((r) => r.energie + r.linienFix + r.wartung + r.schicht)) + nacharbeitGesamt + lagerKosten + logistik +
-    marketingSumme + feSumme + nbBudget + vertriebKosten + verwaltung + rueckrufKosten + expansionsAufwand;
+    marketingSumme + feSumme + nbBudget + vertriebKosten + verwaltung + rueckrufKosten + expansionsAufwand + mfKosten + spionageStrafe;
   const operativAuszahlung = auszahlungMaterial + laborCash + hireFireTrain + periodenKosten + zinsen + steuern;
   const regTilgung = sum(fin.kredite.map((k) => Math.min(k.tilgung, k.restbetrag)));
   const dividende = dec.finanzen.dividende;
 
-  let cash = kasseAnfang + einzahlungKunden - operativAuszahlung - capex + desinv + darlehenNeu - tilgungExtraGezahlt - regTilgung - dividende;
+  let cash = kasseAnfang + kapitalerhoehung + einzahlungKunden - operativAuszahlung - capex + desinv + darlehenNeu - tilgungExtraGezahlt - regTilgung - dividende;
   cash -= kontokorrentAlt;
   let kontokorrentNeu = 0;
   if (cash < B.finanzen.mindestkasse) {
@@ -873,13 +1015,13 @@ export function simulateQuarter(
   const vorraeteEnde = bilanz.vorraeteFertig + bilanz.vorraeteMaterial;
   const operativ = ueberschuss + afa + (sonstAufwand - sonstErtrag) - (forderungenEnde - forderungenAnfang) - (vorraeteEnde - vorraeteAnfang) + (verbindlichkeitenEnde - verbindlichkeitenAnfang);
   const investition = -capex + desinv;
-  const finanzierung = darlehenNeu - tilgungExtraGezahlt - regTilgung + (kontokorrentNeu - kontokorrentAlt) - dividende;
+  const finanzierung = kapitalerhoehung + darlehenNeu - tilgungExtraGezahlt - regTilgung + (kontokorrentNeu - kontokorrentAlt) - dividende;
   const kapitalfluss: Kapitalfluss = {
     ueberschuss, abschreibungen: afa, ergebnisAnlagenabgang: sonstAufwand - sonstErtrag,
     veraenderungForderungen: -(forderungenEnde - forderungenAnfang), veraenderungVorraete: -(vorraeteEnde - vorraeteAnfang),
     veraenderungVerbindlichkeiten: verbindlichkeitenEnde - verbindlichkeitenAnfang, operativ,
     investitionen: -capex, desinvestitionen: desinv, investition, darlehenNeu, tilgung: -(tilgungExtraGezahlt + regTilgung),
-    kontokorrent: kontokorrentNeu - kontokorrentAlt, dividende: -dividende, finanzierung,
+    kontokorrent: kontokorrentNeu - kontokorrentAlt, dividende: -dividende, kapitalerhoehung, finanzierung,
     gesamt: operativ + investition + finanzierung, kasseAnfang, kasseEnde: cash,
   };
 
@@ -887,9 +1029,18 @@ export function simulateQuarter(
   const kritisch = fin.kontokorrent > limit + 0.5 || bilanz.eigenkapital < 0;
   fin.kritischZaehler = kritisch ? fin.kritischZaehler + 1 : 0;
   if (kritisch) warn.push('Achtung: Kontokorrent über dem Kreditlimit bzw. negatives Eigenkapital!');
-  if (!s.spielende && fin.kritischZaehler >= B.finanzen.insolvenzQuartale) {
-    s.spielende = { grund: 'Insolvenz: Das Unternehmen ist zahlungsunfähig bzw. überschuldet.', quartal: t };
+  if (rettungAbgelehnt && !s.spielende) {
+    s.spielende = { grund: 'Insolvenz: Das Rettungsangebot wurde abgelehnt.', quartal: t };
     meldungen.push('INSOLVENZ – das Spiel ist vorbei.');
+  } else if (!s.spielende && fin.kritischZaehler >= B.finanzen.insolvenzQuartale) {
+    if (!fin.rettungGenutzt) {
+      const kapital = Math.max(RETTUNG.mindestKapital, -bilanz.eigenkapital + RETTUNG.puffer * bilanz.aktiva, 1.2 * fin.kontokorrent);
+      s.rettungsangebot = { quartal: t + 1, kapital: Math.round(kapital / 10_000) * 10_000, anteil: RETTUNG.anteil };
+      meldungen.push(`Rettung in letzter Sekunde? Ein Investor bietet ${Math.round(s.rettungsangebot.kapital).toLocaleString('de-DE')} € gegen ${Math.round(RETTUNG.anteil * 100)} % der Anteile. Entscheide im nächsten Quartal – ohne Rettung droht die Insolvenz.`);
+    } else {
+      s.spielende = { grund: 'Insolvenz: Das Unternehmen ist zahlungsunfähig bzw. überschuldet.', quartal: t };
+      meldungen.push('INSOLVENZ – das Spiel ist vorbei.');
+    }
   }
 
   // Marktanteil gesamt (umsatzbasiert)
@@ -931,6 +1082,7 @@ export function simulateQuarter(
       if (d?.effekt.art === 'gesetz') s.euGesetz = true;
     }
     s.konkurrenzPlaene = planKonkurrenten(s, rng);
+    s.angebote = generiereAngebote(s, rng, segmente, angebote);
   }
   s.rngState = rng.getState();
 
@@ -952,6 +1104,9 @@ export function simulateQuarter(
     warnungen: warn,
     meldungen,
     vorfaelle,
+    sonderabsatz,
+    einkauf: einkaufBericht,
+    spionage: spionageBericht,
     zeitung: null,
     neueErfolge: [],
     freischaltungen,

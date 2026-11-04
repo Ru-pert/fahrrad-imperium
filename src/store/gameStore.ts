@@ -12,8 +12,8 @@ import {
 } from '../engine';
 import { istSpielstand, laden, speichern, type HistorieEintrag, type Spielstand } from './saveSlots';
 
-export type Seite = 'cockpit' | 'zeitung' | 'bericht' | 'entscheidungen' | 'markt' | 'expansion' | 'finanzen' | 'werke' | 'garage' | 'firmensitz' | 'erfolge' | 'austausch' | 'einstellungen';
-export const SEITEN: Seite[] = ['cockpit', 'zeitung', 'bericht', 'entscheidungen', 'markt', 'expansion', 'finanzen', 'werke', 'garage', 'firmensitz', 'erfolge', 'austausch', 'einstellungen'];
+export type Seite = 'cockpit' | 'zeitung' | 'bericht' | 'entscheidungen' | 'markt' | 'expansion' | 'finanzen' | 'werke' | 'garage' | 'marktforschung' | 'firmensitz' | 'erfolge' | 'austausch' | 'einstellungen';
+export const SEITEN: Seite[] = ['cockpit', 'zeitung', 'bericht', 'entscheidungen', 'markt', 'expansion', 'finanzen', 'werke', 'garage', 'marktforschung', 'firmensitz', 'erfolge', 'austausch', 'einstellungen'];
 
 interface Hinweis {
   id: number;
@@ -131,8 +131,12 @@ export const useGame = create<Store>((set, get) => ({
   },
 
   entwurfZuruecksetzen() {
-    const { state } = get();
-    if (state) set({ entwurf: standardEntscheidungen(state) });
+    const { state, entwurf } = get();
+    if (!state) return;
+    const neu = standardEntscheidungen(state);
+    // Bereits gekaufte Marktforschung bleibt gekauft
+    if (entwurf?.marktforschung) neu.marktforschung = entwurf.marktforschung;
+    set({ entwurf: neu });
   },
 
   abschliessen() {

@@ -37,6 +37,13 @@ export const entscheidungsSchema = z.object({
     .object({ maerkteBetreten: z.array(z.string()).optional(), produkteEinfuehren: z.array(z.string()).optional(), werkeBauen: z.array(z.string()).optional(), uebernahmen: z.array(z.unknown()).optional() })
     .optional(),
   forschung: z.record(z.string(), zahl).optional(),
+  einkauf: z.record(z.string(), zahl).optional(),
+  grossabnehmer: z.array(z.object({ angebotId: z.string(), menge: zahl })).optional(),
+  ausschreibungen: z.array(z.object({ id: z.string(), stueckpreis: zahl })).optional(),
+  marktforschung: z
+    .object({ marktbericht: z.array(z.string()).optional(), branchenanalyse: z.array(z.string()).optional(), kundenbefragung: z.boolean().optional(), spionage: z.array(z.string()).optional() })
+    .optional(),
+  rettung: z.enum(['annehmen', 'ablehnen']).optional(),
   begruendung: z.string().optional(),
 });
 
@@ -44,7 +51,7 @@ export type EntscheidungsEingabe = z.infer<typeof entscheidungsSchema>;
 
 /** Bekannte Schlüssel je Ebene – alles andere wird mit Warnung ignoriert */
 export const BEKANNT = {
-  oben: ['format', 'version', 'quartal', 'produkte', 'werke', 'lieferanten', 'nachhaltigkeitsbudget', 'finanzen', 'firmensitz', 'expansion', 'forschung', 'begruendung'],
+  oben: ['format', 'version', 'quartal', 'produkte', 'werke', 'lieferanten', 'nachhaltigkeitsbudget', 'finanzen', 'firmensitz', 'expansion', 'forschung', 'einkauf', 'grossabnehmer', 'ausschreibungen', 'marktforschung', 'rettung', 'begruendung'],
   produkt: ['produktion', 'fe', 'maerkte'],
   markt: ['preis', 'marketing'],
   werk: ['linienKaufen', 'linienVerkaufen', 'neueLinien', 'wartung', 'personalAenderung', 'schulungProKopf', 'halleErweitern'],
@@ -57,10 +64,6 @@ export const BEKANNT = {
 export const SPAETERE_FELDER: Record<string, string> = {
   vertrieb: 'Vertrieb',
   corporateIdentity: 'Corporate Identity',
-  einkauf: 'Einkauf mit Mengenstaffeln',
-  grossabnehmer: 'Großabnehmer',
-  ausschreibungen: 'Ausschreibungen',
   prognose: 'Absatzprognose',
-  marktforschung: 'Marktforschung',
   boerse: 'Börse',
 };

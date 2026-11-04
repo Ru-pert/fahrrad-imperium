@@ -584,3 +584,123 @@ describe('Feature-Forschung', () => {
     expect(featureWirkung(s, 'stadtrad').technik).toBe(0);
   });
 });
+
+describe('Spieltiefe: Einkauf, Sonderabsatz, Zufriedenheit, Rettung, Spionage', () => {
+  const start = () => neuesSpiel({ firmenname: 'T', farbe: '#000', schwierigkeit: 'normal', profi: true, seed: 5 });
+  const bilanzOk = (r: QuarterReport) => expect(Math.abs(r.bilanz.aktiva - r.bilanz.passiva)).toBeLessThan(1e-4);
+
+  it('Vorausbestellung senkt die Materialkosten, Überschuss landet im Materiallager', () => {
+    const s = start();
+    const ohne = simulateQuarter(s, standardEntscheidungen(s), new Rng(1), { zufall: false });
+    const d = standardEntscheidungen(s);
+    d.einkauf = { stadtrad: 6000 };
+    const mit = simulateQuarter(s, d, new Rng(1), { zufall: false });
+    const e = mit.report.einkauf!.find((x) => x.produkt === 'stadtrad')!;
+    expect(e.rabatt).toBeCloseTo(0.06);
+    expect(e.ersparnis).toBeGreaterThan(0);
+    const hk = (r: QuarterReport) => r.produkte.find((x) => x.produkt === 'stadtrad')!.hkProStueck;
+    expect(hk(mit.report)).toBeLessThan(hk(ohne.report));
+    expect(mit.nextState.produkte.stadtrad!.materialSets).toBeGreaterThan(0);
+    bilanzOk(mit.report);
+    // Im Folgequartal wird zuerst das Materiallager verbraucht
+    const r2 = simulateQuarter(mit.nextState, standardEntscheidungen(mit.nextState), new Rng(2), { zufall: false });
+    expect(r2.report.einkauf!.find((x) => x.produkt === 'stadtrad')!.ausLager).toBeGreaterThan(0);
+    bilanzOk(r2.report);
+  });
+
+  it('Großabnehmer und gewonnene Ausschreibung bringen Umsatz; Ausschreibung zahlt im Folgequartal', () => {
+    const s = start();
+    s.angebote = {
+      grossabnehmer: [{ id: 'GA-1', kunde: 'Test-Leasing', region: 'DE', produkt: 'stadtrad', preis: 400, hoechstmenge: 300 }],
+      ausschreibungen: [
+        { id: 'AS-1', behoerde: 'Polizei', region: 'DE', produkt: 'stadtrad', menge: 200, minTechnikindex: 90, konkurrenzGebot: 450 },
+        { id: 'AS-2', behoerde: 'Post', region: 'DE', produkt: 'stadtrad', menge: 200, minTechnikindex: 90, konkurrenzGebot: 300 },
+      ],
+    };
+    const d = standardEntscheidungen(s);
+    d.grossabnehmer = [{ angebotId: 'GA-1', menge: 500 }];
+    d.ausschreibungen = [{ id: 'AS-1', stueckpreis: 440 }, { id: 'AS-2', stueckpreis: 440 }];
+    const basis = simulateQuarter(s, standardEntscheidungen(s), new Rng(1), { zufall: false });
+    const r = simulateQuarter(s, d, new Rng(1), { zufall: false });
+    const sa = r.report.sonderabsatz!;
+    expect(sa.find((x) => x.id === 'GA-1')!.menge).toBe(300);
+    expect(sa.find((x) => x.id === 'AS-1')!.gewonnen).toBe(true);
+    expect(sa.find((x) => x.id === 'AS-2')!.gewonnen).toBe(false);
+    expect(r.report.guv.umsatz).toBeGreaterThan(basis.report.guv.umsatz);
+    expect(r.report.bilanz.forderungen).toBeGreaterThanOrEqual(200 * 440);
+    bilanzOk(r.report);
+  });
+
+  it('Preiserhöhungen senken die Kundenzufriedenheit, und sie wirkt auf die Nachfrage', async () => {
+    const { zufriedenheitVon } = await import('./tiefe');
+    const s = start();
+    const d = standardEntscheidungen(s);
+    d.preis.stadtrad = { DE: Math.round((d.preis.stadtrad?.DE ?? 650) * 1.25) };
+    const r = simulateQuarter(s, d, new Rng(1), { zufall: false });
+    const normal = simulateQuarter(s, standardEntscheidungen(s), new Rng(1), { zufall: false });
+    expect(zufriedenheitVon(r.nextState, 'DE', 'stadtrad')).toBeLessThan(zufriedenheitVon(normal.nextState, 'DE', 'stadtrad'));
+    // Gleiche Entscheidungen, aber unterschiedliche Zufriedenheit → unterschiedliche Nachfrage
+    const froh = structuredClone(s);
+    froh.unternehmen.zufriedenheit['DE:stadtrad'] = 80;
+    const sauer = structuredClone(s);
+    sauer.unternehmen.zufriedenheit['DE:stadtrad'] = 25;
+    const n = (x: GameState) => previewQuarter(x, standardEntscheidungen(x)).angebote.find((a) => a.produkt === 'stadtrad')!.nachfrage;
+    expect(n(froh)).toBeGreaterThan(n(sauer) * 1.3);
+  });
+
+  it('Insolvenz löst einmalig ein Rettungsangebot aus; Annahme bringt Kapital', () => {
+    const s = start();
+    s.finanzen.kritischZaehler = 5;
+    s.finanzen.kontokorrent = 1e9;
+    const r = simulateQuarter(s, standardEntscheidungen(s), new Rng(1));
+    expect(r.nextState.spielende).toBeNull();
+    expect(r.nextState.rettungsangebot?.kapital).toBeGreaterThan(0);
+    const s2 = r.nextState;
+    const kapital = s2.rettungsangebot!.kapital;
+    const r2 = simulateQuarter(s2, standardEntscheidungen(s2), new Rng(2));
+    expect(r2.report.kapitalfluss.kapitalerhoehung).toBe(kapital);
+    expect(r2.nextState.finanzen.investorAnteil).toBeCloseTo(0.4);
+    // Ablehnen beendet das Spiel
+    const d = standardEntscheidungen(s2);
+    d.rettung = 'ablehnen';
+    expect(simulateQuarter(s2, d, new Rng(2)).nextState.spielende).not.toBeNull();
+  });
+
+  it('Marktforschung kostet Geld; ertappte Spionage bringt Strafe, Image-Verlust und Rache', () => {
+    const s = start();
+    const d = standardEntscheidungen(s);
+    d.marktforschung = { marktbericht: ['DE'], kundenbefragung: true };
+    const r = simulateQuarter(s, d, new Rng(1), { zufall: false });
+    expect(r.report.guv.marktforschung).toBe(70_000);
+    bilanzOk(r.report);
+    // Spionage, bis sie auffliegt
+    let erwischt: SimErg | null = null;
+    for (let seed = 1; seed < 60 && !erwischt; seed++) {
+      const d2 = standardEntscheidungen(s);
+      d2.marktforschung = { spionage: ['drahtesel'] };
+      const x = simulateQuarter(s, d2, new Rng(seed));
+      if (x.report.spionage?.[0]?.erwischt) erwischt = x;
+    }
+    expect(erwischt).not.toBeNull();
+    expect(erwischt!.report.guv.marktforschung).toBe(250_000);
+    expect(erwischt!.report.guv.sonstigerAufwand).toBeGreaterThanOrEqual(750_000);
+    expect(erwischt!.nextState.rache?.drahtesel).toBe(s.quartal + 2);
+    expect(erwischt!.report.vorfaelle.some((v) => v.art === 'spionage')).toBe(true);
+    bilanzOk(erwischt!.report);
+  });
+
+  it('Angebote erscheinen im Spielverlauf', () => {
+    let s = start();
+    let ga = 0;
+    let as = 0;
+    for (let i = 0; i < 12; i++) {
+      const r = simulateQuarter(s, standardEntscheidungen(s));
+      s = r.nextState;
+      ga += s.angebote?.grossabnehmer.length ?? 0;
+      as += s.angebote?.ausschreibungen.length ?? 0;
+    }
+    expect(ga).toBeGreaterThan(3);
+    expect(as).toBeGreaterThanOrEqual(0);
+  });
+});
+type SimErg = ReturnType<typeof simulateQuarter>;
