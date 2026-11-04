@@ -257,16 +257,17 @@ export function PreisSzene({ state, d, vorschau }: { state: GameState; d: Decisi
           const ref = referenzPreis(r, p);
           const preis = d.preis[p]?.[r] ?? ref;
           const markt = vorschau?.segmente.find((s) => s.produkt === p && s.region === r)?.durchschnittspreis ?? ref;
-          const pos = (x: number) => `${Math.min(100, Math.max(0, ((x / ref - 0.6) / 0.9) * 100))}%`;
+          const pos = (x: number) => `${Math.min(94, Math.max(6, ((x / ref - 0.5) / 1.3) * 100))}%`;
           return (
             <div key={p} className="grid grid-cols-[56px_1fr] items-center gap-2">
               <BikeIcon produkt={p} className="h-8 w-14" />
               <div className="relative h-10">
                 <div className="absolute inset-x-0 top-5 h-1.5 rounded-full bg-gradient-to-r from-emerald-300 via-slate-200 to-rose-300" />
                 <div className="absolute top-3 h-5 w-0.5 bg-slate-500" style={{ left: pos(markt) }} title="Marktdurchschnitt" />
-                <div className="muted absolute top-8 -translate-x-1/2 text-[10px]" style={{ left: pos(markt) }}>Ø Markt</div>
+                <div className="muted absolute top-8 -translate-x-1/2 whitespace-nowrap text-[10px]" style={{ left: pos(markt) }}>Ø Markt</div>
+                <div className="absolute top-4 h-3.5 w-px bg-slate-400/70" style={{ left: pos(ref) }} title="Referenzpreis" />
                 <motion.div className="absolute -top-0.5 -translate-x-1/2" initial={false} animate={{ left: pos(preis) }} transition={{ type: 'spring', stiffness: 200, damping: 20 }}>
-                  <div className="rounded-md px-1.5 py-0.5 text-xs font-bold text-white shadow" style={{ background: PRODUKT_FARBE[p] }}>
+                  <div className="whitespace-nowrap rounded-md px-1.5 py-0.5 text-xs font-bold text-white shadow" style={{ background: PRODUKT_FARBE[p] }}>
                     🏷️ {eurKompakt(preis)}
                   </div>
                 </motion.div>

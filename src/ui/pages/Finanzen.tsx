@@ -1,9 +1,10 @@
+import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { quartalLabel, type GuV, type Bilanz } from '../../engine';
 import { useGame } from '../../store/gameStore';
-import { eur, eurKompakt, fmt1, pct } from '../format';
+import { eur, eurKompakt, fmt0, fmt1, pct } from '../format';
 import { LinienDiagramm, Wasserfall } from '../components/charts';
-import { Badge, Card, Tabelle, Tabs } from '../components/ui';
+import { Badge, Card, IconBadge, Tabelle, Tabs } from '../components/ui';
 import { useLetzterBericht } from '../hooks';
 
 type Reiter = 'guv' | 'bilanz' | 'cashflow' | 'kredit';
@@ -72,6 +73,81 @@ const bilanzZeilen = (a: Bilanz, b?: Bilanz) => [
   { l: 'Summe Passiva', a: a.passiva, b: b?.passiva, fett: true },
 ];
 
+/** „Wohin fließt jeder Euro Umsatz?“ – gestapelter Balken mit Legende */
+function EuroAufteilung({ g }: { g: GuV }) {
+  const teile = [
+    { name: 'Material & Montage', wert: g.herstellkosten, farbe: '#64748b' },
+    { name: 'Logistik & Zölle', wert: g.logistik, farbe: '#0891b2' },
+    { name: 'Marketing', wert: g.marketing, farbe: '#db2777' },
+    { name: 'Forschung', wert: g.fe, farbe: '#7c3aed' },
+    { name: 'Fertigung & Personal', wert: g.fertigungsgemeinkosten + g.personal + g.nachhaltigkeit, farbe: '#b45309' },
+    { name: 'Verwaltung & Vertrieb', wert: g.verwaltung + g.vertrieb, farbe: '#475569' },
+    { name: 'Abschreibungen', wert: g.abschreibungen, farbe: '#94a3b8' },
+    { name: 'Zinsen & Steuern', wert: g.zinsen + g.steuern, farbe: '#f59e0b' },
+    { name: 'Gewinn', wert: Math.max(0, g.ueberschuss), farbe: '#10b981' },
+  ].filter((t) => t.wert > 0);
+  const summe = teile.reduce((s, t) => s + t.wert, 0) || 1;
+  return (
+    <div>
+      <div className="flex h-9 overflow-hidden rounded-xl">
+        {teile.map((t, i) => (
+          <motion.div
+            key={t.name}
+            title={`${t.name}: ${eurKompakt(t.wert)}`}
+            className="flex items-center justify-center text-[11px] font-semibold text-white"
+            style={{ background: t.farbe }}
+            initial={{ width: 0 }}
+            animate={{ width: `${(t.wert / summe) * 100}%` }}
+            transition={{ duration: 0.6, delay: i * 0.05 }}
+          >
+            {t.wert / summe > 0.06 ? pct(t.wert / summe, 0) : ''}
+          </motion.div>
+        ))}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+        {teile.map((t) => (
+          <span key={t.name} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: t.farbe }} />{t.name} <span className="muted tnum">{fmt0((t.wert / summe) * 100)} Cent</span></span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Bilanz als zwei gestapelte Säulen: Aktiva und Passiva */
+function BilanzSaeulen({ b }: { b: Bilanz }) {
+  const aktiva = [
+    { name: 'Sachanlagen', wert: b.sachanlagen, farbe: '#475569' },
+    { name: 'Vorräte', wert: b.vorraeteFertig + b.vorraeteMaterial, farbe: '#b45309' },
+    { name: 'Forderungen', wert: b.forderungen, farbe: '#0891b2' },
+    { name: 'Kasse', wert: b.kasse, farbe: '#10b981' },
+  ];
+  const passiva = [
+    { name: 'Eigenkapital', wert: b.gezeichnetesKapital + b.kapitalruecklage + b.gewinnruecklagen, farbe: '#0d9488' },
+    { name: 'Darlehen & Kontokorrent', wert: b.darlehen + b.kontokorrent, farbe: '#f43f5e' },
+    { name: 'Verbindlichkeiten', wert: b.verbindlichkeiten, farbe: '#f59e0b' },
+  ];
+  const max = Math.max(b.aktiva, b.passiva, 1);
+  const Saeule = ({ titel, teile }: { titel: string; teile: typeof aktiva }) => (
+    <div className="flex flex-1 flex-col items-center">
+      <div className="flex h-56 w-full max-w-[160px] flex-col-reverse overflow-hidden rounded-xl bg-black/5 dark:bg-white/5">
+        {teile.filter((t) => t.wert > 0).map((t, i) => (
+          <motion.div key={t.name} className="flex items-center justify-center px-1 text-center text-[11px] font-semibold leading-tight text-white" style={{ background: t.farbe }} initial={{ height: 0 }} animate={{ height: `${(t.wert / max) * 100}%` }} transition={{ duration: 0.6, delay: i * 0.08 }} title={`${t.name}: ${eurKompakt(t.wert)}`}>
+            {t.wert / max > 0.1 ? <span>{t.name}<br />{eurKompakt(t.wert)}</span> : ''}
+          </motion.div>
+        ))}
+      </div>
+      <div className="mt-2 text-sm font-semibold">{titel}</div>
+    </div>
+  );
+  return (
+    <div className="flex gap-6 px-4">
+      <Saeule titel={`Aktiva · ${eurKompakt(b.aktiva)}`} teile={aktiva} />
+      <div className="muted self-center text-2xl font-bold">=</div>
+      <Saeule titel={`Passiva · ${eurKompakt(b.passiva)}`} teile={passiva} />
+    </div>
+  );
+}
+
 export function Finanzen() {
   const historie = useGame((s) => s.historie);
   const state = useGame((s) => s.state)!;
@@ -100,7 +176,32 @@ export function Finanzen() {
       </div>
       <Tabs<Reiter> wert={reiter} onChange={setReiter} optionen={[{ id: 'guv', label: 'GuV' }, { id: 'bilanz', label: 'Bilanz' }, { id: 'cashflow', label: 'Cashflow' }, { id: 'kredit', label: 'Kredite & Rating' }]} />
 
-      {reiter === 'guv' && <Card><Zeilen spalten={spalten} zeilen={guvZeilen(letzter.guv, davor?.guv)} /></Card>}
+      {reiter === 'guv' && (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[
+              { l: 'Umsatz', w: eurKompakt(letzter.guv.umsatz), icon: 'umsatz', farbe: '#0d9488' },
+              { l: 'Deckungsbeitrag', w: pct(letzter.guv.deckungsbeitrag / Math.max(1, letzter.guv.umsatz), 0), sub: 'vom Umsatz', icon: 'geld', farbe: '#6366f1' },
+              { l: 'EBIT-Marge', w: pct(letzter.guv.ebit / Math.max(1, letzter.guv.umsatz), 1), sub: eurKompakt(letzter.guv.ebit), icon: 'ebit', farbe: letzter.guv.ebit >= 0 ? '#10b981' : '#f43f5e' },
+              { l: 'Überschuss', w: eurKompakt(letzter.guv.ueberschuss), sub: `Steuern ${eurKompakt(letzter.guv.steuern)}`, icon: 'kasse', farbe: '#16a34a' },
+            ].map((k) => (
+              <div key={k.l} className="card flex items-center gap-3 p-3">
+                <IconBadge name={k.icon} farbe={k.farbe} />
+                <div>
+                  <div className="muted text-xs uppercase tracking-wide">{k.l}</div>
+                  <div className="tnum text-lg font-bold">{k.w}</div>
+                  {k.sub && <div className="muted tnum text-xs">{k.sub}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <Card icon="umsatz" titel="Wohin fließt jeder Euro Umsatz?"><EuroAufteilung g={letzter.guv} /></Card>
+          <Card icon="bericht" titel="Gewinn- und Verlustrechnung"><Zeilen spalten={spalten} zeilen={guvZeilen(letzter.guv, davor?.guv)} /></Card>
+        </>
+      )}
+      {reiter === 'bilanz' && (
+        <Card icon="finanzen" titel="Bilanz auf einen Blick"><BilanzSaeulen b={letzter.bilanz} /></Card>
+      )}
       {reiter === 'bilanz' && (
         <Card>
           <Zeilen spalten={spalten} zeilen={bilanzZeilen(letzter.bilanz, davor?.bilanz)} />

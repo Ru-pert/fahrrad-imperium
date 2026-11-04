@@ -5,6 +5,7 @@ import {
   KOMPONENTEN,
   LIEFERANTEN,
   PRODUKTE,
+  REGIONEN,
   WARTUNG,
   aktiveProdukte,
   aktiveRegionen,
@@ -21,9 +22,9 @@ import {
 } from '../../engine';
 import { lernkurve } from '../../engine/production';
 import { useGame } from '../../store/gameStore';
-import { eur, eurKompakt, fmt0, pct } from '../format';
+import { eur, eurKompakt, fmt0, gruppiereWarnungen, pct, REGION_SYMBOL } from '../format';
 import { usePreview } from '../hooks';
-import { Card, IconBadge, Info, NumberField, Warnung } from '../components/ui';
+import { Card, Icon, IconBadge, Info, KompaktFeld, NumberField, Warnung } from '../components/ui';
 import { BikeIcon } from '../components/BikeIcon';
 import { HebelPanel, HebelZeile } from '../components/Hebel';
 import { useHebel, type HebelWirkung } from '../hebel';
@@ -92,48 +93,79 @@ interface Ctx {
 }
 
 function Preise({ state, d, aendere, vorschau, hebel }: Ctx) {
+  const regionen = aktiveRegionen(state);
   return (
-    <div className="space-y-2">
-      {aktiveProdukte(state).map((p) =>
-        aktiveRegionen(state).map((r) => {
-          const ref = referenzPreis(r, p);
-          const preis = d.preis[p]?.[r] ?? ref;
-          const seg = vorschau?.segmente.find((s) => s.produkt === p && s.region === r);
-          const ang = vorschau?.angebote.find((a) => a.produkt === p && a.region === r);
-          return (
-            <Card key={`${p}${r}`} titel={<span className="flex items-center gap-2" style={{ color: PRODUKT_FARBE[p] }}><BikeIcon produkt={p} className="h-7 w-11" />{PRODUKTE[p].name}{aktiveRegionen(state).length > 1 ? ` · ${r}` : ''}</span>}>
-              <NumberField
-                label="Verkaufspreis"
-                unit="€"
-                value={Math.round(preis)}
-                min={Math.round(ref * 0.5)}
-                max={Math.round(ref * 3)}
-                sliderMax={Math.round(ref * 1.6)}
-                step={1}
-                tastenSchritt={p === 'ebike' ? 10 : 5}
-                farbe={PRODUKT_FARBE[p]}
-                onChange={(v) => aendere((x) => { x.preis[p] = { ...x.preis[p], [r]: v }; })}
-                hint={`${pct(preis / ref, 0)} des Referenzpreises${seg ? ` · Ø Markt ${eur(seg.durchschnittspreis)}` : ''}`}
-                info={<>
-                  <p>Der <strong>Referenzpreis</strong> ({eur(ref)}) ist der typische Ladenpreis dieses Modells in dieser Region.</p>
-                  <p className="mt-1">Liegst du unter dem Marktdurchschnitt, steigt die Nachfrage – beim günstigen Stadtrad stärker als bei teuren Rädern (Elastizität {PRODUKTE[p].epsilon.toString().replace('.', ',')}). Dafür sinkt deine Marge je Rad.</p>
-                  <p className="mt-1">Sehr hohe Preise halbieren die Nachfrage schnell; mehr als das Dreifache des Referenzpreises ist nicht erlaubt.</p>
-                </>}
-              />
-              {ang && (
-                <div className="muted tnum mt-1 text-xs">
-                  Geschätzte Nachfrage {fmt0(ang.nachfrage)} Stück · Absatz {fmt0(ang.absatz)} · Marktanteil {pct(ang.marktanteil, 2)}
-                </div>
-              )}
-              <HebelZeile h={hebel?.find((h) => h.id === `preis-${p}`)} />
-              <HebelZeile h={hebel?.find((h) => h.id === `preis+${p}`)} />
-            </Card>
-          );
-        }),
-      )}
-    </div>
+    <Card titel={<span className="flex items-center gap-1">Verkaufspreise <Info titel="Preise">Der <strong>Referenzpreis</strong> ist der typische Ladenpreis eines Modells in der Region. Unter dem Marktdurchschnitt steigt die Nachfrage – bei günstigen Rädern stärker als bei teuren –, dafür sinkt die Marge. Mehr als das Dreifache des Referenzpreises ist nicht erlaubt. Der Balken zeigt, welchen Teil der geschätzten Nachfrage du liefern kannst.</Info></span>} icon="preis" farbe="#0d9488">
+      <div className="overflow-x-auto">
+        <table className="w-full border-separate border-spacing-y-1 text-sm">
+          <thead>
+            <tr className="muted text-left text-xs">
+              <th className="pb-1 pr-3 font-medium">Produkt</th>
+              {regionen.map((r) => <th key={r} className="px-2 pb-1 font-medium">{REGION_SYMBOL[r]} {REGIONEN[r].name}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {aktiveProdukte(state).map((p) => {
+              const hMinus = hebel?.find((h) => h.id === `preis-${p}`);
+              const hPlus = hebel?.find((h) => h.id === `preis+${p}`);
+              return (
+                <tr key={p} className="align-top">
+                  <td className="rounded-l-xl py-2 pl-2 pr-3" style={{ background: `${PRODUKT_FARBE[p]}0f` }}>
+                    <div className="flex items-center gap-2 font-semibold"><BikeIcon produkt={p} className="h-7 w-11" />{PRODUKTE[p].name}</div>
+                    {hMinus && hPlus && (
+                      <div className="tnum mt-1 text-[11px] leading-tight">
+                        <span className="muted">−5 %:</span> <span className={hMinus.ebitJetzt >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}>{vorzeichen(hMinus.ebitJetzt)}</span>
+                        <span className="muted"> · +5 %:</span> <span className={hPlus.ebitJetzt >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}>{vorzeichen(hPlus.ebitJetzt)}</span>
+                        <span className="muted"> EBIT</span>
+                      </div>
+                    )}
+                  </td>
+                  {regionen.map((r, i) => {
+                    const ref = referenzPreis(r, p);
+                    const preis = d.preis[p]?.[r] ?? ref;
+                    const seg = vorschau?.segmente.find((s) => s.produkt === p && s.region === r);
+                    const ang = vorschau?.angebote.find((a) => a.produkt === p && a.region === r);
+                    const quote = ang && ang.nachfrage > 0 ? Math.min(1, ang.absatz / ang.nachfrage) : 1;
+                    return (
+                      <td key={r} className={`px-2 py-2 ${i === regionen.length - 1 ? 'rounded-r-xl' : ''}`} style={{ background: `${PRODUKT_FARBE[p]}0f` }}>
+                        <KompaktFeld
+                          label={`Preis ${PRODUKTE[p].name} ${REGIONEN[r].name}`}
+                          unit="€"
+                          value={Math.round(preis)}
+                          min={Math.round(ref * 0.5)}
+                          max={Math.round(ref * 3)}
+                          sliderMax={Math.round(ref * 1.6)}
+                          step={1}
+                          tastenSchritt={ref > 2000 ? 10 : 5}
+                          farbe={PRODUKT_FARBE[p]}
+                          onChange={(v) => aendere((x) => { x.preis[p] = { ...x.preis[p], [r]: v }; })}
+                        />
+                        <div className="tnum mt-0.5 flex justify-between text-[11px]">
+                          <span className={preis / ref > 1.3 || preis / ref < 0.8 ? 'font-semibold text-amber-600' : 'muted'}>{pct(preis / ref, 0)} Ref.</span>
+                          {seg && <span className="muted">Ø {eur(seg.durchschnittspreis)}</span>}
+                        </div>
+                        {ang && (
+                          <div className="mt-1" title={`Nachfrage ${fmt0(ang.nachfrage)} · Absatz ${fmt0(ang.absatz)}`}>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+                              <div className="h-full rounded-full transition-all" style={{ width: `${quote * 100}%`, background: quote < 0.8 ? '#f43f5e' : PRODUKT_FARBE[p] }} />
+                            </div>
+                            <div className="tnum muted mt-0.5 text-[11px]">{fmt0(ang.absatz)} von {fmt0(ang.nachfrage)} Stück</div>
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
+
+const vorzeichen = (x: number) => `${x > 0 ? '+' : x < 0 ? '−' : '±'}${eurKompakt(Math.abs(x))}`;
 
 function Produktion({ state, d, aendere, vorschau, hebel }: Ctx) {
   const produkte = aktiveProdukte(state);
@@ -183,40 +215,64 @@ function Produktion({ state, d, aendere, vorschau, hebel }: Ctx) {
 }
 
 function Marketing({ state, d, aendere, vorschau, hebel }: Ctx) {
+  const regionen = aktiveRegionen(state);
+  const summe = aktiveProdukte(state).reduce((s, p) => s + regionen.reduce((a, r) => a + (d.marketing[p]?.[r] ?? 0), 0), 0);
   return (
-    <div className="space-y-2">
-      <Card titel={<span className="flex items-center gap-1">Marketingbudget je Quartal <Info titel="Markenbekanntheit">Die Markenbekanntheit (aktuell {pct(state.regionen.DE?.bekanntheit ?? 0, 1)} in Deutschland) baut sich durch Werbung und zufriedene Kundschaft langsam auf – ohne Werbung geht sie wieder zurück.</Info></span>}>
-        {aktiveProdukte(state).map((p) =>
-          aktiveRegionen(state).map((r) => {
-            const m = d.marketing[p]?.[r] ?? 0;
-            const seg = vorschau?.segmente.find((s) => s.produkt === p && s.region === r);
-            const ang = vorschau?.angebote.find((a) => a.produkt === p && a.region === r);
-            return (
-              <div key={`${p}${r}`}>
-              <NumberField
-
-                label={`${PRODUKTE[p].name}${aktiveRegionen(state).length > 1 ? ` · ${r}` : ''}`}
-                unit="€"
-                value={m}
-                min={0}
-                sliderMax={budgetSkala(state)}
-                step={1000}
-                tastenSchritt={5000}
-                farbe={PRODUKT_FARBE[p]}
-                onChange={(v) => aendere((x) => { x.marketing[p] = { ...x.marketing[p], [r]: v }; })}
-                hint={ang && seg ? `Marktanteil ${pct(ang.marktanteil, 2)}` : undefined}
-                info={<>
-                  <p>Werbung wirkt zweifach: Sie macht dich <strong>bekannter</strong> (langsam, über mehrere Quartale) und steigert direkt die Nachfrage.</p>
-                  <p className="mt-1">Der Effekt hat einen <strong>abnehmenden Grenzertrag</strong>: Die ersten Euro bringen viel, jeder weitere weniger. Ein gutes Preis-Leistungs-Verhältnis verstärkt die Werbung.</p>
-                </>}
-              />
-              <HebelZeile h={hebel?.find((h) => h.id === `mkt-${p}`)} />
-              </div>
-            );
-          }),
-        )}
-      </Card>
-    </div>
+    <Card
+      titel={<span className="flex items-center gap-1">Marketingbudget je Quartal <Info titel="Marketing">
+        <p>Werbung wirkt zweifach: Sie macht dich <strong>bekannter</strong> (langsam, über mehrere Quartale) und steigert direkt die Nachfrage. Ohne Werbung sinkt die Bekanntheit wieder.</p>
+        <p className="mt-1">Der Effekt hat einen <strong>abnehmenden Grenzertrag</strong>: Die ersten Euro bringen viel, jeder weitere weniger. Ein gutes Preis-Leistungs-Verhältnis verstärkt die Werbung.</p>
+      </Info></span>}
+      aktion={<span className="tnum muted text-sm">Summe {eurKompakt(summe)}</span>}
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full border-separate border-spacing-y-1 text-sm">
+          <thead>
+            <tr className="muted text-left text-xs">
+              <th className="pb-1 pr-3 font-medium">Produkt</th>
+              {regionen.map((r) => <th key={r} className="px-2 pb-1 font-medium">{REGION_SYMBOL[r]} {REGIONEN[r].name}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {aktiveProdukte(state).map((p) => {
+              const h = hebel?.find((x) => x.id === `mkt-${p}`);
+              return (
+                <tr key={p} className="align-top">
+                  <td className="rounded-l-xl py-2 pl-2 pr-3" style={{ background: `${PRODUKT_FARBE[p]}0f` }}>
+                    <div className="flex items-center gap-2 font-semibold"><BikeIcon produkt={p} className="h-7 w-11" />{PRODUKTE[p].name}</div>
+                    {h && (
+                      <div className="tnum mt-1 text-[11px] leading-tight">
+                        <span className="muted">+10 Tsd. €:</span> <span className={h.ebitJetzt >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}>{vorzeichen(h.ebitJetzt)}</span>
+                        <span className="muted"> jetzt, </span><span className={h.ebitNaechstes >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}>{vorzeichen(h.ebitNaechstes)}</span><span className="muted"> danach</span>
+                      </div>
+                    )}
+                  </td>
+                  {regionen.map((r, i) => {
+                    const ang = vorschau?.angebote.find((a) => a.produkt === p && a.region === r);
+                    return (
+                      <td key={r} className={`px-2 py-2 ${i === regionen.length - 1 ? 'rounded-r-xl' : ''}`} style={{ background: `${PRODUKT_FARBE[p]}0f` }}>
+                        <KompaktFeld
+                          label={`Marketing ${PRODUKTE[p].name} ${REGIONEN[r].name}`}
+                          unit="€"
+                          value={d.marketing[p]?.[r] ?? 0}
+                          min={0}
+                          sliderMax={budgetSkala(state)}
+                          step={1000}
+                          tastenSchritt={5000}
+                          farbe={PRODUKT_FARBE[p]}
+                          onChange={(v) => aendere((x) => { x.marketing[p] = { ...x.marketing[p], [r]: v }; })}
+                        />
+                        {ang && <div className="tnum muted mt-0.5 text-[11px]">Marktanteil {pct(ang.marktanteil, 2)}</div>}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 
@@ -450,13 +506,22 @@ function Vorschau({ vorschau, kompakt = false }: { vorschau: QuarterReport | nul
       {zeile('EBIT (Schätzung)', eurKompakt(vorschau.guv.ebit), vorschau.guv.ebit < 0)}
       {zeile('Kasse am Quartalsende', eurKompakt(vorschau.bilanz.kasse), vorschau.bilanz.kasse < 100_000)}
       {vorschau.bilanz.kontokorrent > 0 && zeile('Kontokorrent', eurKompakt(vorschau.bilanz.kontokorrent), true)}
-      {vorschau.warnungen.length > 0 && (
-        <div className="mt-2 space-y-2">
-          {vorschau.warnungen.slice(0, kompakt ? 2 : 6).map((w) => (
-            <Warnung key={w}>{w}</Warnung>
-          ))}
-        </div>
-      )}
+      {vorschau.warnungen.length > 0 && (() => {
+        const { sonstige, engpaesse } = gruppiereWarnungen(vorschau.warnungen);
+        return (
+          <div className="mt-2 space-y-2">
+            {sonstige.slice(0, kompakt ? 2 : 4).map((w) => <Warnung key={w}>{w}</Warnung>)}
+            {sonstige.length > (kompakt ? 2 : 4) && <div className="muted text-xs">+ {sonstige.length - (kompakt ? 2 : 4)} weitere Hinweise</div>}
+            {engpaesse.length > 0 && (
+              <Warnung>
+                <span className="flex items-center gap-1"><strong>Lieferengpass in {engpaesse.length} Märkten</strong>
+                  <Info titel="Lieferengpässe"><ul className="space-y-0.5">{engpaesse.map((e) => <li key={e}>{e}</li>)}</ul><p className="mt-1">Mehr produzieren, Preise anheben oder Kapazität ausbauen.</p></Info>
+                </span>
+              </Warnung>
+            )}
+          </div>
+        );
+      })()}
       <div className="muted mt-2 flex items-center gap-1 text-[11px]">Schätzung ohne Gewähr <Info titel="Wie wird geschätzt?">Die Vorschau rechnet dein Quartal mit deinen aktuellen Eingaben durch. Annahmen: Die Konkurrenz wiederholt ihre Entscheidungen aus dem Vorquartal, und es treten keine Zufallsereignisse ein. Das echte Ergebnis kann also abweichen.</Info></div>
     </div>
   );
@@ -468,14 +533,17 @@ interface Schritt {
   titel: string;
   icon: string;
   farbe: string;
+  kurz?: string;
+  status?: (c: Ctx) => string;
   render: (c: Ctx) => ReactNode;
 }
 const SCHRITTE: Schritt[] = [
-  { id: 'preise', icon: 'preis', farbe: '#0d9488', titel: 'Preise', render: (c) => <><PreisSzene state={c.state} d={c.d} vorschau={c.vorschau} /><Preise {...c} /></> },
-  { id: 'produktion', icon: 'produktion', farbe: '#475569', titel: 'Produktion', render: (c) => <Produktion {...c} /> },
-  { id: 'marketing', icon: 'marketing', farbe: '#db2777', titel: 'Marketing', render: (c) => <><MarketingSzene state={c.state} d={c.d} vorschau={c.vorschau} /><Marketing {...c} /></> },
+  { id: 'preise', icon: 'preis', farbe: '#0d9488', titel: 'Preise', status: (c) => `${aktiveProdukte(c.state).length * aktiveRegionen(c.state).length} Preisschilder`, render: (c) => <><PreisSzene state={c.state} d={c.d} vorschau={c.vorschau} /><Preise {...c} /></> },
+  { id: 'produktion', icon: 'produktion', farbe: '#475569', titel: 'Produktion', status: (c) => (c.vorschau?.werke[0] ? `Auslastung ${pct(c.vorschau.werke[0].auslastung, 0)}` : ''), render: (c) => <Produktion {...c} /> },
+  { id: 'marketing', icon: 'marketing', farbe: '#db2777', titel: 'Marketing', status: (c) => eurKompakt(Object.values(c.d.marketing).reduce((s, m) => s + Object.values(m ?? {}).reduce((a, x) => a + (x ?? 0), 0), 0)), render: (c) => <><MarketingSzene state={c.state} d={c.d} vorschau={c.vorschau} /><Marketing {...c} /></> },
   {
-    id: 'fe', icon: 'fe', farbe: '#7c3aed', titel: 'Forschung & Entwicklung',
+    id: 'fe', icon: 'fe', farbe: '#7c3aed', titel: 'Forschung & Entwicklung', kurz: 'Forschung',
+    status: (c) => eurKompakt(Object.values(c.d.fe).reduce((s, x) => s + (x ?? 0), 0) + Object.values(c.d.forschung ?? {}).reduce((s, x) => s + (x ?? 0), 0)),
     render: (c) => (
       <div className="space-y-3">
         <Card titel="Labor: Forschung" icon="fe" farbe="#7c3aed">
@@ -485,10 +553,10 @@ const SCHRITTE: Schritt[] = [
       </div>
     ),
   },
-  { id: 'personal', icon: 'personal', farbe: '#2563eb', titel: 'Personal', render: (c) => <Personal {...c} /> },
-  { id: 'werk', icon: 'werk', farbe: '#b45309', titel: 'Werk & Linien', render: (c) => <WerkBereich {...c} /> },
-  { id: 'lieferkette', icon: 'lieferkette', farbe: '#0891b2', titel: 'Lieferkette', render: (c) => <><LieferketteSzene state={c.state} d={c.d} /><Lieferkette {...c} /></> },
-  { id: 'finanzen', icon: 'geld', farbe: '#16a34a', titel: 'Finanzen', render: (c) => <><FinanzSzene state={c.state} d={c.d} /><FinanzenBereich {...c} /></> },
+  { id: 'personal', icon: 'personal', farbe: '#2563eb', titel: 'Personal', status: (c) => `${fmt0(c.state.werke.reduce((s, w) => s + w.mitarbeitende, 0))} Personen`, render: (c) => <Personal {...c} /> },
+  { id: 'werk', icon: 'werk', farbe: '#b45309', titel: 'Werk & Linien', kurz: 'Werke', status: (c) => `${c.state.werke.reduce((s, w) => s + w.linien.length, 0)} Linien`, render: (c) => <WerkBereich {...c} /> },
+  { id: 'lieferkette', icon: 'lieferkette', farbe: '#0891b2', titel: 'Lieferkette', status: (c) => Object.values(c.d.lieferanten).map((l) => LIEFERANTEN[l].label).join(' · '), render: (c) => <><LieferketteSzene state={c.state} d={c.d} /><Lieferkette {...c} /></> },
+  { id: 'finanzen', icon: 'geld', farbe: '#16a34a', titel: 'Finanzen', status: (c) => `Kasse ${eurKompakt(c.state.finanzen.kasse)}`, render: (c) => <><FinanzSzene state={c.state} d={c.d} /><FinanzenBereich {...c} /></> },
 ];
 
 export function Entscheidungen() {
@@ -503,6 +571,14 @@ export function Entscheidungen() {
   const hebel = useHebel(state, entwurf);
   const ctx: Ctx = useMemo(() => ({ state, d: entwurf, aendere, vorschau, stufe, hebel }), [state, entwurf, aendere, vorschau, stufe, hebel]);
   const [schritt, setSchritt] = useState(0);
+  const [bereich, setBereich] = useState<number>(() => {
+    try { return Math.min(SCHRITTE.length - 1, Math.max(0, Number(localStorage.getItem('entscheidungen-bereich') ?? 0) || 0)); } catch { return 0; }
+  });
+  const waehleBereich = (i: number) => {
+    setBereich(i);
+    try { localStorage.setItem('entscheidungen-bereich', String(i)); } catch { /* egal */ }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const [vorschauOffen, setVorschauOffen] = useState(false);
   const start = useRef<{ x: number; y: number } | null>(null);
   const letzterSchritt = SCHRITTE.length; // Zusammenfassung
@@ -522,17 +598,47 @@ export function Entscheidungen() {
               <p className="muted text-sm">Stufe {stufe} · nicht veränderte Werte werden aus dem Vorquartal übernommen.</p>
             </div>
             <div className="flex gap-2">
-              <button className="btn-ghost" onClick={() => useGame.getState().gehe('austausch')}>Mit Claude planen</button>
+              <button className="btn-ghost whitespace-nowrap" onClick={() => useGame.getState().gehe('austausch')}><Icon name="austausch" className="h-4 w-4" />Mit Claude planen</button>
               <button className="btn-ghost" onClick={reset}>Zurücksetzen</button>
             </div>
           </div>
-          <div className="grid gap-4 xl:grid-cols-2">
-            {SCHRITTE.map((s) => (
-              <div key={s.id} className={['werk', 'fe', 'marketing', 'lieferkette', 'finanzen'].includes(s.id) ? 'xl:col-span-2' : ''}>
-                <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><IconBadge name={s.icon} farbe={s.farbe} groesse="sm" /><span className="muted">{s.titel}</span></h2>
-                {s.render(ctx)}
-              </div>
-            ))}
+          <div className="sticky top-[70px] z-20 -mx-1 rounded-2xl border border-[var(--line)] bg-[var(--card)]/90 p-1.5 shadow-sm backdrop-blur" role="tablist" aria-label="Bereiche">
+            <div className="grid grid-cols-4 gap-1 2xl:grid-cols-8">
+              {SCHRITTE.map((s, i) => {
+                const aktiv = i === bereich;
+                return (
+                  <button
+                    key={s.id}
+                    role="tab"
+                    aria-selected={aktiv}
+                    onClick={() => waehleBereich(i)}
+                    className={`relative flex items-center gap-2 rounded-xl px-2 py-1.5 text-left transition ${aktiv ? '' : 'hover:bg-black/[0.04] dark:hover:bg-white/5'}`}
+                  >
+                    {aktiv && <motion.span layoutId="bereich-aktiv" className="absolute inset-0 rounded-xl" style={{ background: `${s.farbe}1a`, boxShadow: `inset 0 0 0 1.5px ${s.farbe}66` }} transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                    <span className="relative"><IconBadge name={s.icon} farbe={s.farbe} groesse="sm" /></span>
+                    <span className="relative min-w-0">
+                      <span className="block truncate text-[13px] font-semibold leading-tight">{s.kurz ?? s.titel}</span>
+                      <span className="muted tnum block truncate text-[11px] leading-tight">{s.status?.(ctx) ?? ''}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <motion.div key={SCHRITTE[bereich].id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
+            {SCHRITTE[bereich].render(ctx)}
+          </motion.div>
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <button className="btn-ghost" disabled={bereich === 0} onClick={() => waehleBereich(bereich - 1)}>
+              <Icon name="chevronLeft" className="h-4 w-4" /> {bereich > 0 ? SCHRITTE[bereich - 1].kurz ?? SCHRITTE[bereich - 1].titel : 'Zurück'}
+            </button>
+            {bereich < SCHRITTE.length - 1 ? (
+              <button className="btn-primary" onClick={() => waehleBereich(bereich + 1)}>
+                Weiter: {SCHRITTE[bereich + 1].kurz ?? SCHRITTE[bereich + 1].titel} <Icon name="chevron" className="h-4 w-4" />
+              </button>
+            ) : (
+              <button className="btn-primary" onClick={bestaetigen} disabled={!!state.spielende}>Quartal abschließen <Icon name="chevron" className="h-4 w-4" /></button>
+            )}
           </div>
         </div>
         <aside className="space-y-4 xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto xl:pb-4">

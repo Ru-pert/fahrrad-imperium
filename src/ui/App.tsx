@@ -2,7 +2,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { BALANCE, quartalLabel } from '../engine';
 import { useGame, type Seite } from '../store/gameStore';
-import { eur, eurKompakt } from './format';
+import { eur, eurKompakt, fmt0, pct } from './format';
+import { ERFOLGE } from '../engine/achievements';
 import { usePreview, useLetzterBericht } from './hooks';
 import { Badge, Icon, Toasts } from './components/ui';
 import { Auswertung } from './components/Auswertung';
@@ -21,8 +22,8 @@ import { Einstellungen, NeuesSpielForm } from './pages/Einstellungen';
 
 const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
   { id: 'cockpit', label: 'Cockpit', kurz: 'Cockpit', icon: 'cockpit' },
-  { id: 'zeitung', label: 'Zeitung', kurz: 'Zeitung', icon: 'bericht' },
-  { id: 'bericht', label: 'Quartalsbericht', kurz: 'Bericht', icon: 'cockpit' },
+  { id: 'zeitung', label: 'Zeitung', kurz: 'Zeitung', icon: 'zeitung' },
+  { id: 'bericht', label: 'Quartalsbericht', kurz: 'Bericht', icon: 'bericht' },
   { id: 'entscheidungen', label: 'Entscheidungen', kurz: 'Entscheiden', icon: 'entscheidungen' },
   { id: 'markt', label: 'Markt', kurz: 'Markt', icon: 'markt' },
   { id: 'expansion', label: 'Expansion & Weltkarte', kurz: 'Welt', icon: 'expansion' },
@@ -32,6 +33,18 @@ const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
   { id: 'erfolge', label: 'Erfolge', kurz: 'Erfolge', icon: 'erfolge' },
   { id: 'austausch', label: 'Mit Claude planen', kurz: 'Claude', icon: 'austausch' },
   { id: 'einstellungen', label: 'Einstellungen & Speichern', kurz: 'Einstellungen', icon: 'einstellungen' },
+];
+const GRUPPEN: { titel: string; seiten: Seite[] }[] = [
+  { titel: 'Überblick', seiten: ['cockpit', 'zeitung', 'bericht'] },
+  { titel: 'Steuern', seiten: ['entscheidungen', 'austausch'] },
+  { titel: 'Unternehmen', seiten: ['markt', 'expansion', 'finanzen', 'werke', 'firmensitz'] },
+  { titel: 'Spiel', seiten: ['erfolge', 'einstellungen'] },
+];
+const JAHRESZEIT = [
+  { name: 'Winter', icon: 'schnee' },
+  { name: 'Frühling', icon: 'bluete' },
+  { name: 'Sommer', icon: 'sun' },
+  { name: 'Herbst', icon: 'laub' },
 ];
 const MOBIL_HAUPT: Seite[] = ['cockpit', 'zeitung', 'entscheidungen', 'markt'];
 
@@ -63,20 +76,47 @@ function Kopfzeile() {
     }
     abschliessen();
   };
+  const bericht = useLetzterBericht();
+  const jz = JAHRESZEIT[state.quartal % 4];
+  const chips: { icon: string; label: string; wert: string; warn?: boolean }[] = bericht
+    ? [
+        { icon: 'umsatz', label: 'Umsatz', wert: eurKompakt(bericht.guv.umsatz) },
+        { icon: 'ebit', label: 'EBIT', wert: eurKompakt(bericht.guv.ebit), warn: bericht.guv.ebit < 0 },
+        { icon: 'marktanteil', label: 'Anteil DE', wert: pct(bericht.kennzahlen.marktanteil ?? 0, 2) },
+        { icon: 'image', label: 'Image', wert: fmt0(state.unternehmen.image) },
+      ]
+    : [];
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--card)]/95 backdrop-blur" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-      <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-base font-bold sm:text-lg">{quartalLabel(state.quartal)}</span>
-            <Badge farbe={(BALANCE.finanzen.ratingStufen as readonly string[]).indexOf(state.finanzen.rating) <= 4 ? 'green' : 'amber'}>{state.finanzen.rating}</Badge>
+    <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--card)]/85 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-2">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="hidden h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-100 to-sky-100 text-amber-600 sm:grid dark:from-slate-700 dark:to-slate-800" title={jz.name}>
+            <Icon name={jz.icon} className="h-5 w-5" />
           </div>
-          <div className="muted tnum truncate text-xs sm:text-sm">
-            Kasse <strong className="text-[var(--ink)]">{eurKompakt(state.finanzen.kasse)}</strong>
-            <span className="hidden sm:inline"> · {state.unternehmen.name}{state.unternehmen.rechtsform === 'AG' ? '' : ''}</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-base font-bold sm:text-lg">{quartalLabel(state.quartal)}</span>
+              <span className="muted hidden text-xs sm:inline">{jz.name}</span>
+              <Badge farbe={(BALANCE.finanzen.ratingStufen as readonly string[]).indexOf(state.finanzen.rating) <= 4 ? 'green' : 'amber'}>{state.finanzen.rating}</Badge>
+            </div>
+            <div className="muted tnum truncate text-xs sm:text-sm">
+              Kasse <strong className="text-[var(--ink)]">{eurKompakt(state.finanzen.kasse)}</strong>
+              <span className="hidden sm:inline"> · {state.unternehmen.name}</span>
+            </div>
           </div>
         </div>
-        <button className="btn-primary" onClick={klick} disabled={!!state.spielende}>
+        <div className="hidden flex-1 items-center justify-center gap-2 xl:flex">
+          {chips.map((c) => (
+            <div key={c.label} className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg)]/60 px-2.5 py-1">
+              <Icon name={c.icon} className="h-4 w-4 text-brand-600" />
+              <div className="leading-tight">
+                <div className="muted text-[10px] uppercase tracking-wide">{c.label}</div>
+                <div className={`tnum text-sm font-semibold ${c.warn ? 'text-rose-600' : ''}`}>{c.wert}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button className="btn-primary ml-auto shadow-md shadow-brand-600/25" onClick={klick} disabled={!!state.spielende}>
           <span className="hidden sm:inline">Quartal abschließen</span>
           <span className="sm:hidden">Abschließen</span>
           <Icon name="chevron" className="h-4 w-4" />
@@ -90,26 +130,49 @@ function Seitenleiste() {
   const seite = useGame((s) => s.seite);
   const gehe = useGame((s) => s.gehe);
   const state = useGame((s) => s.state)!;
+  const erfolge = state.erfolge?.length ?? 0;
   return (
-    <nav className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-[var(--line)] bg-[var(--card)] p-3 lg:flex" aria-label="Hauptnavigation">
-      <div className="mb-4 flex items-center gap-2 px-2 pt-2">
-        <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="h-9 w-9 rounded-lg" />
+    <nav className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto bg-gradient-to-b from-[#0f3b38] via-[#0c2f2d] to-[#0a2322] p-3 text-teal-50 lg:flex" aria-label="Hauptnavigation">
+      <div className="mb-3 flex items-center gap-2.5 px-2 pt-2">
+        <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="h-10 w-10 rounded-xl shadow-lg shadow-black/30 ring-1 ring-white/10" />
         <div className="leading-tight">
-          <div className="font-bold">Fahrrad-Imperium</div>
-          <div className="muted text-xs">{state.unternehmen.name}</div>
+          <div className="font-bold tracking-tight text-white">Fahrrad-Imperium</div>
+          <div className="flex items-center gap-1.5 text-xs text-teal-200/80">
+            <span className="h-2 w-2 rounded-full" style={{ background: state.unternehmen.farbe }} />
+            {state.unternehmen.name}
+          </div>
         </div>
       </div>
-      {NAV.map((n) => (
-        <button
-          key={n.id}
-          onClick={() => gehe(n.id)}
-          aria-current={seite === n.id ? 'page' : undefined}
-          className={`relative flex min-h-[44px] items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors ${seite === n.id ? 'text-white' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
-        >
-          {seite === n.id && <motion.span layoutId="nav-aktiv" className="absolute inset-0 rounded-xl bg-brand-600" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
-          <span className="relative flex items-center gap-3"><Icon name={n.icon} />{n.label}</span>
-        </button>
+      {GRUPPEN.map((g) => (
+        <div key={g.titel} className="mt-3">
+          <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-teal-300/60">{g.titel}</div>
+          {g.seiten.map((id) => {
+            const n = NAV.find((x) => x.id === id)!;
+            const aktiv = seite === n.id;
+            return (
+              <button
+                key={n.id}
+                onClick={() => gehe(n.id)}
+                aria-current={aktiv ? 'page' : undefined}
+                className={`relative flex min-h-[40px] w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors ${aktiv ? 'text-[#0c2f2d]' : 'text-teal-50/85 hover:bg-white/[0.07] hover:text-white'}`}
+              >
+                {aktiv && <motion.span layoutId="nav-aktiv" className="absolute inset-0 rounded-xl bg-gradient-to-r from-teal-200 to-emerald-100 shadow-md shadow-black/20" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />}
+                <span className="relative flex items-center gap-3"><Icon name={n.icon} className="h-[18px] w-[18px]" />{n.label}</span>
+                {n.id === 'erfolge' && <span className="relative ml-auto rounded-full bg-amber-400/90 px-1.5 text-[10px] font-bold text-amber-950">{erfolge}</span>}
+              </button>
+            );
+          })}
+        </div>
       ))}
+      <div className="mt-auto rounded-2xl bg-white/[0.06] p-3 ring-1 ring-white/10">
+        <div className="flex items-center justify-between text-xs text-teal-200/80">
+          <span>Spieljahr {Math.floor(state.quartal / 4) + 1}</span>
+          <span>{erfolge}/{ERFOLGE.length} Erfolge</span>
+        </div>
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+          <div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-amber-500" style={{ width: `${(erfolge / ERFOLGE.length) * 100}%` }} />
+        </div>
+      </div>
     </nav>
   );
 }
