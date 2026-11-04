@@ -12,6 +12,7 @@ import {
 import { hallenPlaetze } from '../../engine/production';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
+import { Info } from './ui';
 
 export const linienName = (l: Linie): string => `Linie ${/-L(\d+)$/.exec(l.id)?.[1] ?? l.id}`;
 
@@ -285,8 +286,7 @@ export function LinienVerwaltung({
               return (
                 <tr key={t} className="border-b border-[var(--line)] align-top">
                   <td className="py-2 pr-2">
-                    <div className="font-semibold">Typ {t} · {cfg.name}</div>
-                    <div className="muted text-xs">{TYP_BESCHREIBUNG[t]}</div>
+                    <div className="flex items-center gap-1 font-semibold">Typ {t} · {cfg.name} <Info titel={`Typ ${t} · ${cfg.name}`}>{TYP_BESCHREIBUNG[t]}</Info></div>
                   </td>
                   <td className="py-2 text-right">{eurKompakt(cfg.preis)}</td>
                   <td className="py-2 text-right">{fmt0(cfg.kapazitaet)} Std.</td>
@@ -311,10 +311,9 @@ export function LinienVerwaltung({
 
       {/* Halle */}
       <div className="rounded-xl border border-[var(--line)] p-3">
-        <h3 className="text-sm font-semibold">Halle erweitern</h3>
-        <p className="muted text-xs">
-          Die Halle hat {plaetze} Linienplätze. Sind alle belegt, kannst du sie für {eurKompakt(H.kosten)} um {H.plaetze} Plätze erweitern (Bauzeit {H.bauzeit} Quartal, Abschreibung über 40 Quartale).
-        </p>
+        <h3 className="flex items-center gap-1 text-sm font-semibold">Halle erweitern · {werk.linien.length}/{plaetze} Plätze belegt
+          <Info titel="Halle erweitern">Sind alle {plaetze} Linienplätze belegt, kannst du die Halle für {eurKompakt(H.kosten)} um {H.plaetze} Plätze erweitern (Bauzeit {H.bauzeit} Quartal, Abschreibung über 40 Quartale).</Info>
+        </h3>
         {(werk.halleImBau ?? 0) > 0 ? (
           <p className="mt-2 text-sm font-semibold text-amber-700">Erweiterung läuft – ab nächstem Quartal gibt es {plaetze + H.plaetze} Plätze.</p>
         ) : (

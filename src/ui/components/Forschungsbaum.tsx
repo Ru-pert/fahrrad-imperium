@@ -7,7 +7,7 @@ import { volumenFaktor } from '../../engine/market';
 import { useGame } from '../../store/gameStore';
 import { eurKompakt, fmt0, pct } from '../format';
 import { BikeIcon, PRODUKT_FARBE } from './BikeIcon';
-import { NumberField } from './ui';
+import { Info, NumberField } from './ui';
 import { FeatureBaum } from './FeatureBaum';
 
 const SP = 230;
@@ -170,7 +170,7 @@ function ProduktBaum({ state, d, aendere }: { state: GameState; d: Decisions; ae
         <div className="mt-3">
           <div className="mb-1 text-xs font-semibold uppercase tracking-wide">Erwarteter Markt in Deutschland</div>
           <Lebenszyklus produkt={st.projekt.produkt} ab={state.quartal} />
-          <div className="muted text-xs">{PRODUKTE[st.projekt.produkt].lebenszyklus.text}</div>
+          <div className="muted flex items-center gap-1 text-xs">{PRODUKTE[st.projekt.produkt].lebenszyklus.text}<Info titel="Marktentwicklung">Jedes Segment hat seinen eigenen Lebenszyklus: Manche Märkte boomen früh, andere später, manche schrumpfen. Die Kurve zeigt die erwartete Größe des deutschen Marktes in den nächsten zehn Jahren.</Info></div>
         </div>
         <div className="mt-3 border-t border-[var(--line)] pt-3">
           {st.fertig ? (
@@ -190,12 +190,12 @@ function ProduktBaum({ state, d, aendere }: { state: GameState; d: Decisions; ae
                 sliderMax={Math.round(st.projekt.kosten - st.investiert)}
                 step={10_000}
                 tastenSchritt={50_000}
+                info="Ein Projekt ist fertig, wenn das investierte Budget die Kosten erreicht UND die Mindestdauer vorbei ist. Das Budget läuft weiter, bis du es änderst oder das Projekt fertig ist. Es zählt als F&E-Aufwand in der GuV."
                 onChange={(v) => aendere((x) => { x.forschung = { ...(x.forschung ?? {}), [auswahl]: v }; })}
               />
               <p className={`mt-1 text-sm ${rest === Infinity ? 'text-amber-700' : 'text-emerald-700'}`}>
                 {rest === Infinity ? 'Ohne Budget geht es nicht voran.' : `Fertig in ca. ${fmt0(rest)} Quartal${rest > 1 ? 'en' : ''} (${quartalLabel(state.quartal + rest)}).`}
               </p>
-              <p className="muted mt-1 text-xs">Das Budget läuft weiter, bis du es änderst oder das Projekt fertig ist. Es zählt als F&E-Aufwand in der GuV.</p>
             </>
           )}
         </div>

@@ -23,7 +23,7 @@ import { lernkurve } from '../../engine/production';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
 import { usePreview } from '../hooks';
-import { Card, IconBadge, NumberField, Warnung } from '../components/ui';
+import { Card, IconBadge, Info, NumberField, Warnung } from '../components/ui';
 import { BikeIcon } from '../components/BikeIcon';
 import { HebelPanel, HebelZeile } from '../components/Hebel';
 import { useHebel, type HebelWirkung } from '../hebel';
@@ -113,7 +113,12 @@ function Preise({ state, d, aendere, vorschau, hebel }: Ctx) {
                 tastenSchritt={p === 'ebike' ? 10 : 5}
                 farbe={PRODUKT_FARBE[p]}
                 onChange={(v) => aendere((x) => { x.preis[p] = { ...x.preis[p], [r]: v }; })}
-                hint={`${pct(preis / ref, 0)} des Referenzpreises (${eur(ref)})${seg ? ` · Marktdurchschnitt ${eur(seg.durchschnittspreis)}` : ''}`}
+                hint={`${pct(preis / ref, 0)} des Referenzpreises${seg ? ` · Ø Markt ${eur(seg.durchschnittspreis)}` : ''}`}
+                info={<>
+                  <p>Der <strong>Referenzpreis</strong> ({eur(ref)}) ist der typische Ladenpreis dieses Modells in dieser Region.</p>
+                  <p className="mt-1">Liegst du unter dem Marktdurchschnitt, steigt die Nachfrage – beim günstigen Stadtrad stärker als bei teuren Rädern (Elastizität {PRODUKTE[p].epsilon.toString().replace('.', ',')}). Dafür sinkt deine Marge je Rad.</p>
+                  <p className="mt-1">Sehr hohe Preise halbieren die Nachfrage schnell; mehr als das Dreifache des Referenzpreises ist nicht erlaubt.</p>
+                </>}
               />
               {ang && (
                 <div className="muted tnum mt-1 text-xs">
@@ -161,6 +166,10 @@ function Produktion({ state, d, aendere, vorschau, hebel }: Ctx) {
                   farbe={PRODUKT_FARBE[p]}
                   onChange={(v) => aendere((x) => { x.produktion[p] = { ...x.produktion[p], [w.id]: Math.round(v) }; })}
                   hint={pb ? `Lager ${fmt0(state.produkte[p]!.lager.stueck)} · Herstellkosten ${eur(pb.hkProStueck)}/Stück` : undefined}
+                  info={<>
+                    <p>Ein {PRODUKTE[p].name} braucht {PRODUKTE[p].montageStunden} Montagestunden. Mit jeder gebauten Menge wird dein Team schneller (Lernkurve), die Stunden je Rad sinken.</p>
+                    <p className="mt-1">Was du nicht verkaufst, landet im Lager und verursacht Lagerkosten. Verkaufen kannst du höchstens Lager + Produktion.</p>
+                  </>}
                 />
                 <HebelZeile h={hebel?.find((h) => h.id === `prod-${p}`)} />
                 </div>
@@ -176,7 +185,7 @@ function Produktion({ state, d, aendere, vorschau, hebel }: Ctx) {
 function Marketing({ state, d, aendere, vorschau, hebel }: Ctx) {
   return (
     <div className="space-y-2">
-      <Card titel="Marketingbudget je Quartal">
+      <Card titel={<span className="flex items-center gap-1">Marketingbudget je Quartal <Info titel="Markenbekanntheit">Die Markenbekanntheit (aktuell {pct(state.regionen.DE?.bekanntheit ?? 0, 1)} in Deutschland) baut sich durch Werbung und zufriedene Kundschaft langsam auf – ohne Werbung geht sie wieder zurück.</Info></span>}>
         {aktiveProdukte(state).map((p) =>
           aktiveRegionen(state).map((r) => {
             const m = d.marketing[p]?.[r] ?? 0;
@@ -195,7 +204,11 @@ function Marketing({ state, d, aendere, vorschau, hebel }: Ctx) {
                 tastenSchritt={5000}
                 farbe={PRODUKT_FARBE[p]}
                 onChange={(v) => aendere((x) => { x.marketing[p] = { ...x.marketing[p], [r]: v }; })}
-                hint={ang && seg ? `Marketingfaktor wirkt mit abnehmendem Grenzertrag · Marktanteil ${pct(ang.marktanteil, 2)}` : undefined}
+                hint={ang && seg ? `Marktanteil ${pct(ang.marktanteil, 2)}` : undefined}
+                info={<>
+                  <p>Werbung wirkt zweifach: Sie macht dich <strong>bekannter</strong> (langsam, über mehrere Quartale) und steigert direkt die Nachfrage.</p>
+                  <p className="mt-1">Der Effekt hat einen <strong>abnehmenden Grenzertrag</strong>: Die ersten Euro bringen viel, jeder weitere weniger. Ein gutes Preis-Leistungs-Verhältnis verstärkt die Werbung.</p>
+                </>}
               />
               <HebelZeile h={hebel?.find((h) => h.id === `mkt-${p}`)} />
               </div>
@@ -203,7 +216,6 @@ function Marketing({ state, d, aendere, vorschau, hebel }: Ctx) {
           }),
         )}
       </Card>
-      <p className="muted px-1 text-xs">Die Markenbekanntheit (aktuell {pct(state.regionen.DE?.bekanntheit ?? 0, 1)} in Deutschland) baut sich langsam auf und wieder ab.</p>
     </div>
   );
 }
@@ -225,7 +237,11 @@ function ForschungEntwicklung({ state, d, aendere, vorschau, hebel }: Ctx) {
             tastenSchritt={5000}
             farbe={PRODUKT_FARBE[p]}
             onChange={(v) => aendere((x) => { x.fe[p] = v; })}
-            hint={`F&E-Stock ${eur(state.produkte[p]!.fe)} – veraltet um 5 % je Quartal`}
+            hint={`F&E-Stock ${eur(state.produkte[p]!.fe)}`}
+            info={<>
+              <p>Dein F&E-Budget fließt in den <strong>F&E-Stock</strong> des Produkts. Daraus ergibt sich die Technik – mit abnehmendem Ertrag.</p>
+              <p className="mt-1">Der Stock <strong>veraltet um 5 % je Quartal</strong>, und der Markt wird jedes Quartal besser. Wer nicht forscht, fällt zurück.</p>
+            </>}
           />
           <HebelZeile h={hebel?.find((h) => h.id === `fe-${p}`)} />
           <TechnikVergleich state={state} p={p} fe={fe} vorschau={vorschau} />
@@ -254,7 +270,11 @@ function Personal({ state, d, aendere, vorschau, hebel }: Ctx) {
               max={maxPlus}
               step={1}
               onChange={(v) => aendere((x) => { x.werke[w.id].personalAenderung = Math.round(v); })}
-              hint={`Erlaubt: −${maxMinus} bis +${maxPlus} · Einstellung 3.000 €, Entlassung 6.000 € je Person`}
+              hint={`Erlaubt: −${maxMinus} bis +${maxPlus}`}
+              info={<>
+                <p>Einstellen kostet 3.000 € je Person, Entlassen 6.000 € (Abfindung) und schadet Motivation und Image.</p>
+                <p className="mt-1">Neue Leute arbeiten im ersten Quartal nur halb so produktiv. Je Quartal sind höchstens +50 % bzw. −20 % der Belegschaft möglich.</p>
+              </>}
             />
             <HebelZeile h={hebel?.find((h) => h.id === 'personal')} />
             <PersonalErklaerung state={state} wr={vorschau?.werke.find((x) => x.id === w.id)} />
@@ -267,7 +287,7 @@ function Personal({ state, d, aendere, vorschau, hebel }: Ctx) {
               step={50}
               tastenSchritt={100}
               onChange={(v) => aendere((x) => { x.werke[w.id].schulungProKopf = v; })}
-              hint="Hebt Qualität, Kompetenz und Motivation – unter 300 € steigt das Streikrisiko"
+              info="Schulungen heben Qualität, Kompetenz und Motivation. Unter 300 € je Kopf steigt das Streikrisiko."
             />
           </Card>
         );
@@ -313,7 +333,7 @@ function Lieferkette({ state, d, aendere, stufe }: Ctx) {
   }
   return (
     <div className="space-y-2">
-      <Card titel="Lieferanten">
+      <Card titel={<span className="flex items-center gap-1">Lieferanten <Info titel="Lieferanten">Billig-Lieferanten sparen Materialkosten, senken aber die Qualität und fallen häufiger aus (8 % je Quartal, Standard 3 %, Premium 1 %). Premium kostet mehr, hebt die Qualität und ist zuverlässig.</Info></span>}>
         {KOMPONENTEN.map((k) => (
           <div key={k} className="py-1.5">
             <div className="mb-1 text-sm font-medium capitalize">{k}</div>
@@ -325,7 +345,6 @@ function Lieferkette({ state, d, aendere, stufe }: Ctx) {
             />
           </div>
         ))}
-        <p className="muted mt-1 text-xs">Billig-Lieferanten fallen häufiger aus (8 % je Quartal, Standard 3 %, Premium 1 %).</p>
       </Card>
       <Card titel="Wartungsvertrag">
         {state.werke.map((w) => (
@@ -351,7 +370,8 @@ function Lieferkette({ state, d, aendere, stufe }: Ctx) {
             step={1000}
             tastenSchritt={5000}
             onChange={(v) => aendere((x) => { x.nachhaltigkeitsbudget = v; })}
-            hint={`Nachhaltigkeitsindex aktuell ${state.unternehmen.nachhaltigkeit.toFixed(1).replace('.', ',')} · Image ${state.unternehmen.image.toFixed(1).replace('.', ',')}`}
+            info="Das Budget hebt deinen Nachhaltigkeitsindex (mit abnehmendem Ertrag). Er verbessert das Image und ist Bedingung für Nordamerika."
+            hint={`Index aktuell ${state.unternehmen.nachhaltigkeit.toFixed(1).replace('.', ',')} · Image ${state.unternehmen.image.toFixed(1).replace('.', ',')}`}
           />
         </Card>
       ) : (
@@ -375,9 +395,9 @@ function FinanzenBereich({ state, d, aendere }: Ctx) {
     <div className="space-y-2">
       <Card titel="Darlehen">
         <div className="muted tnum mb-1 text-xs">
-          Kreditlimit {eur(limit)} · frei {eur(frei)} · offen {eur(offen)} · Zins: Basiszins 3 % + Rating-Aufschlag
+          Kreditlimit {eur(limit)} · frei {eur(frei)} · offen {eur(offen)}
         </div>
-        <NumberField label="Darlehen aufnehmen" unit="€" value={d.finanzen.darlehenNeu} min={0} max={Math.floor(frei)} sliderMax={Math.max(1000, Math.floor(frei))} step={10000} tastenSchritt={50000} onChange={(v) => aendere((x) => { x.finanzen.darlehenNeu = v; })} hint="Laufzeit 8 Quartale, lineare Tilgung" />
+        <NumberField label="Darlehen aufnehmen" unit="€" value={d.finanzen.darlehenNeu} min={0} max={Math.floor(frei)} sliderMax={Math.max(1000, Math.floor(frei))} step={10000} tastenSchritt={50000} onChange={(v) => aendere((x) => { x.finanzen.darlehenNeu = v; })} info="Laufzeit 8 Quartale, lineare Tilgung. Der Zins richtet sich nach Basiszins und deinem Rating; das Kreditlimit hängt an Sachanlagen und Ertrag." />
         <NumberField label="Sondertilgung" unit="€" value={d.finanzen.tilgungExtra} min={0} max={Math.floor(offen)} sliderMax={Math.max(1000, Math.floor(offen))} step={10000} tastenSchritt={50000} onChange={(v) => aendere((x) => { x.finanzen.tilgungExtra = v; })} />
       </Card>
       <Card titel="Dividende">
@@ -437,7 +457,7 @@ function Vorschau({ vorschau, kompakt = false }: { vorschau: QuarterReport | nul
           ))}
         </div>
       )}
-      <p className="muted mt-2 text-[11px]">Schätzung ohne Absatzrisiko: Die Konkurrenz wiederholt ihre Vorquartalsentscheidungen, es treten keine Zufallsereignisse ein.</p>
+      <div className="muted mt-2 flex items-center gap-1 text-[11px]">Schätzung ohne Gewähr <Info titel="Wie wird geschätzt?">Die Vorschau rechnet dein Quartal mit deinen aktuellen Eingaben durch. Annahmen: Die Konkurrenz wiederholt ihre Entscheidungen aus dem Vorquartal, und es treten keine Zufallsereignisse ein. Das echte Ergebnis kann also abweichen.</Info></div>
     </div>
   );
 }
