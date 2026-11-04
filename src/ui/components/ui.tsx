@@ -1,7 +1,8 @@
-import { animate, motion, useMotionValue } from 'framer-motion';
+import { AnimatePresence, animate, motion, useMotionValue } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import * as L from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { fmt0, parseZahl } from '../format';
 import { useGame } from '../../store/gameStore';
 
@@ -179,6 +180,146 @@ export function Warnung({ children }: { children: ReactNode }) {
   );
 }
 
+// ---------------------------------------------------------------- Erklärungen: Pop-up und Aufklapper
+
+/**
+ * Kleines ⓘ-Symbol: Beim Überfahren erscheint die Erklärung, ein Klick heftet sie an.
+ * Das Pop-up liegt in einem Portal, damit es nicht von Rahmen mit overflow abgeschnitten wird.
+ */
+export function Info({ children, titel, className = '' }: { children: ReactNode; titel?: string; className?: string }) {
+  const knopf = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const [offen, setOffen] = useState<'hover' | 'fix' | null>(null);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; oben: boolean }>({ top: 0, left: 0, oben: false });
+  const id = useId();
+  const platziere = () => {
+    const r = knopf.current?.getBoundingClientRect();
+    if (!r) return;
+    const breite = 300;
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - breite / 2), window.innerWidth - breite - 8);
+    const oben = r.bottom > window.innerHeight - 220;
+    setPos(oben ? { bottom: window.innerHeight - r.top + 8, left, oben } : { top: r.bottom + 8, left, oben });
+  };
+  useEffect(() => {
+    if (!offen) return;
+    const zu = (e: Event) => {
+      if (e instanceof KeyboardEvent) {
+        if (e.key === 'Escape') setOffen(null);
+        return;
+      }
+      if (e.type === 'scroll') {
+        if (offen === 'hover') setOffen(null);
+        else platziere();
+        return;
+      }
+      const t = e.target as Node;
+      if (!knopf.current?.contains(t) && !panel.current?.contains(t)) setOffen(null);
+    };
+    document.addEventListener('mousedown', zu);
+    document.addEventListener('keydown', zu);
+    window.addEventListener('scroll', zu, true);
+    window.addEventListener('resize', platziere);
+    return () => {
+      document.removeEventListener('mousedown', zu);
+      document.removeEventListener('keydown', zu);
+      window.removeEventListener('scroll', zu, true);
+      window.removeEventListener('resize', platziere);
+    };
+  }, [offen]);
+  return (
+    <>
+      <button
+        ref={knopf}
+        type="button"
+        aria-label={titel ? `Erklärung: ${titel}` : 'Erklärung anzeigen'}
+        aria-expanded={!!offen}
+        aria-describedby={offen ? id : undefined}
+        className={`inline-grid h-5 w-5 shrink-0 place-items-center rounded-full align-middle text-slate-400 transition hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-slate-700 ${offen ? 'bg-brand-50 text-brand-600 dark:bg-slate-700' : ''} ${className}`}
+        onMouseEnter={() => { if (!offen) { platziere(); setOffen('hover'); } }}
+        onMouseLeave={() => { if (offen === 'hover') setOffen(null); }}
+        onClick={(e) => { e.stopPropagation(); e.preventDefault(); platziere(); setOffen(offen === 'fix' ? null : 'fix'); }}
+      >
+        <L.Info className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+      </button>
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {offen && (
+              <motion.div
+                ref={panel}
+                id={id}
+                role="tooltip"
+                initial={{ opacity: 0, y: pos.oben ? 6 : -6, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                transition={{ duration: 0.15 }}
+                className="card fixed z-[100] w-[300px] p-3 text-xs leading-relaxed shadow-xl"
+                style={{ top: pos.top, bottom: pos.bottom, left: pos.left }}
+              >
+                {titel && <div className="mb-1 flex items-center gap-1.5 text-sm font-semibold"><Icon name="info" className="h-4 w-4 text-brand-600" />{titel}</div>}
+                <div className="text-slate-700 dark:text-slate-200">{children}</div>
+                {offen === 'fix' && <div className="muted mt-1.5 text-[10px]">Klick daneben oder Esc schließt.</div>}
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
+    </>
+  );
+}
+
+const ladeOffen = (schluessel?: string): boolean | null => {
+  if (!schluessel) return null;
+  try {
+    const v = localStorage.getItem(`aufklapper:${schluessel}`);
+    return v === null ? null : v === '1';
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Aufklappbarer Bereich: Kopfzeile mit Titel und kurzer Zusammenfassung, Details erst auf Klick.
+ * Mit `merken` bleibt der Zustand im Browser gespeichert.
+ */
+export function Aufklapper({
+  titel, zusammenfassung, children, merken, standardOffen = false, icon, className = '',
+}: { titel: ReactNode; zusammenfassung?: ReactNode; children: ReactNode; merken?: string; standardOffen?: boolean; icon?: ReactNode; className?: string }) {
+  const [offen, setOffen] = useState<boolean>(() => ladeOffen(merken) ?? standardOffen);
+  const reduziert = useGame((s) => s.reduziert);
+  const umschalten = () => {
+    setOffen(!offen);
+    if (merken) {
+      try { localStorage.setItem(`aufklapper:${merken}`, offen ? '0' : '1'); } catch { /* egal */ }
+    }
+  };
+  return (
+    <div className={`rounded-xl border border-[var(--line)] ${offen ? 'bg-transparent' : 'bg-black/[0.02] dark:bg-white/[0.03]'} ${className}`}>
+      <button type="button" onClick={umschalten} aria-expanded={offen} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-black/[0.03] dark:hover:bg-white/5">
+        <motion.span animate={{ rotate: offen ? 90 : 0 }} transition={{ duration: reduziert ? 0 : 0.2 }} className="text-slate-400">
+          <L.ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </motion.span>
+        {icon}
+        <span className="font-semibold">{titel}</span>
+        {zusammenfassung && <span className="muted tnum ml-auto truncate text-right">{zusammenfassung}</span>}
+      </button>
+      <AnimatePresence initial={false}>
+        {offen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: reduziert ? 0 : 0.22 }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 pb-3">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- Eingabe
 export interface NumberFieldProps {
   label: string;
@@ -190,7 +331,9 @@ export interface NumberFieldProps {
   sliderMax?: number;
   step?: number;
   unit?: string;
-  hint?: string;
+  hint?: ReactNode;
+  /** Erklärung als ⓘ-Pop-up neben der Beschriftung */
+  info?: ReactNode;
   farbe?: string;
   /** Schrittweite der +/−-Tasten */
   tastenSchritt?: number;
@@ -208,9 +351,12 @@ export function NumberField(p: NumberFieldProps) {
   return (
     <div className="py-1">
       <div className="flex items-center justify-between gap-3">
-        <label htmlFor={id} className="text-sm font-medium">
-          {p.label}
-        </label>
+        <div className="flex items-center gap-1">
+          <label htmlFor={id} className="text-sm font-medium">
+            {p.label}
+          </label>
+          {p.info && <Info titel={p.label}>{p.info}</Info>}
+        </div>
         <div className="flex items-center gap-1">
           <input
             id={id}

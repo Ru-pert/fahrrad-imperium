@@ -7,7 +7,7 @@ import { useGame } from '../../store/gameStore';
 import { eurKompakt, fmt0, pct } from '../format';
 import { BikeBild, BikeIcon } from './BikeIcon';
 import { FeatureBild } from './FeatureBild';
-import { NumberField } from './ui';
+import { Info, NumberField } from './ui';
 
 const SP = 200;
 const ZE = 128;
@@ -175,7 +175,7 @@ export function FeatureBaum({ state, d, aendere }: { state: GameState; d: Decisi
             ))}
           </svg>
           <div className="muted px-2 pb-1 text-xs">
-            Je weiter rechts, desto abgedrehter – und teurer. {laufend.length > 0 ? `Feature-Forschung in diesem Quartal: ${eurKompakt(summe)} für ${laufend.map((s) => s.projekt.name).join(', ')}.` : 'Derzeit wird an keinem Feature geforscht.'}
+            Je weiter rechts, desto abgedrehter – und teurer. <Info titel="Feature-Forschung">Features verbessern deine Räder dauerhaft: mehr Nachfrage, Technik, Qualität, Image oder Nachhaltigkeit – manche erhöhen aber die Materialkosten oder haben Nebenwirkungen. Die Konkurrenz hat keine Features, damit kannst du dich absetzen.</Info> {laufend.length > 0 ? `Feature-Forschung in diesem Quartal: ${eurKompakt(summe)} für ${laufend.map((s) => s.projekt.name).join(', ')}.` : 'Derzeit wird an keinem Feature geforscht.'}
           </div>
         </div>
 
@@ -234,6 +234,7 @@ export function FeatureBaum({ state, d, aendere }: { state: GameState; d: Decisi
                   sliderMax={Math.round(st.projekt.kosten - st.investiert)}
                   step={10_000}
                   tastenSchritt={50_000}
+                  info="Fertig, wenn das investierte Budget die Kosten erreicht UND die Mindestdauer vorbei ist. Ab dem Quartal danach wirkt das Feature dauerhaft auf alle passenden Räder – auch auf später entwickelte."
                   onChange={(v) => aendere((x) => { x.forschung = { ...(x.forschung ?? {}), [auswahl]: v }; })}
                 />
                 <p className={`mt-1 text-sm ${rest === Infinity ? 'text-amber-700' : 'text-emerald-700'}`}>
