@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import {
   BALANCE,
   LIEFERANTEN,
-  PRODUKTE,
   REGIONEN,
   aktiveProdukte,
   aktiveRegionen,
@@ -21,13 +20,13 @@ import {
 import { useGame } from '../../store/gameStore';
 import { eurKompakt, fmt0, pct } from '../format';
 import { BikeIcon, PRODUKT_FARBE } from './BikeIcon';
-import { Icon } from './ui';
+import { Icon, Info } from './ui';
 
-function Rahmen({ children, farbe, titel, untertitel }: { children: React.ReactNode; farbe: string; titel: string; untertitel?: string }) {
+function Rahmen({ children, farbe, titel, untertitel, info }: { children: React.ReactNode; farbe: string; titel: string; untertitel?: string; info?: React.ReactNode }) {
   return (
     <div className="mb-3 overflow-hidden rounded-xl border border-[var(--line)]" style={{ background: `linear-gradient(135deg, ${farbe}14, transparent 70%)` }}>
       <div className="flex items-baseline justify-between px-3 pt-2">
-        <span className="text-xs font-bold uppercase tracking-widest" style={{ color: farbe }}>{titel}</span>
+        <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-widest" style={{ color: farbe }}>{titel}{info && <span className="normal-case tracking-normal"><Info titel={titel}>{info}</Info></span>}</span>
         {untertitel && <span className="muted text-xs">{untertitel}</span>}
       </div>
       <div className="p-3 pt-1">{children}</div>
@@ -97,7 +96,7 @@ export function MarketingSzene({ state, d, vorschau }: { state: GameState; d: De
   const lautstaerke = Math.min(3, Math.round(gesamt / 50_000));
   void mStar;
   return (
-    <Rahmen farbe="#db2777" titel="Marketing & Marke" untertitel={`${eurKompakt(gesamt)} Werbung in diesem Quartal`}>
+    <Rahmen farbe="#db2777" titel="Marketing & Marke" untertitel={`${eurKompakt(gesamt)} Werbung in diesem Quartal`} info="Jeder Punkt steht für 1 % der Menschen in der Region. Werbung baut Bekanntheit langsam auf, ohne Werbung geht sie zurück.">
       <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
         <svg viewBox="0 0 220 120" className="w-full max-w-[260px]">
           <rect x="20" y="10" width="160" height="70" rx="4" fill="#fff" stroke="#db2777" strokeWidth="3" />
@@ -134,7 +133,6 @@ export function MarketingSzene({ state, d, vorschau }: { state: GameState; d: De
               </div>
             );
           })}
-          <p className="muted text-xs md:col-span-2">Jeder Punkt = 1 % der Menschen in der Region. Werbung baut Bekanntheit langsam auf, ohne Werbung geht sie zurück.</p>
         </div>
       </div>
     </Rahmen>
@@ -160,7 +158,7 @@ export function LieferketteSzene({ state, d }: { state: GameState; d: Decisions 
     </svg>
   );
   return (
-    <Rahmen farbe="#0891b2" titel="Lieferkette" untertitel="Lieferanten → Werke → Märkte">
+    <Rahmen farbe="#0891b2" titel="Lieferkette" untertitel="Lieferanten → Werke → Märkte" info="€ = Billig (günstig, Qualität 0,90, fällt öfter aus) · €€ = Standard · €€€ = Premium (teuer, Qualität 1,10, zuverlässig). E-Modelle brauchen zusätzlich Akkus.">
       <div className="flex flex-wrap items-center gap-2">
         <div className="space-y-1.5">
           {komp.map((k) => {
@@ -197,7 +195,6 @@ export function LieferketteSzene({ state, d }: { state: GameState; d: Decisions 
           ))}
         </div>
       </div>
-      <p className="muted mt-2 text-xs">€ = Billig (günstig, Qualität 0,90, fällt öfter aus) · €€ = Standard · €€€ = Premium (teuer, Qualität 1,10, zuverlässig). E-Modelle brauchen zusätzlich Akkus.</p>
     </Rahmen>
   );
 }
@@ -254,7 +251,7 @@ export function PreisSzene({ state, d, vorschau }: { state: GameState; d: Decisi
   const regionen = aktiveRegionen(state);
   const r = regionen[0];
   return (
-    <Rahmen farbe="#0d9488" titel={`Preisschilder ${REGIONEN[r].name}`} untertitel="links günstig · rechts teuer">
+    <Rahmen farbe="#0d9488" titel={`Preisschilder ${REGIONEN[r].name}`} untertitel="links günstig · rechts teuer" info={<>Liegt dein Preisschild links vom Marktdurchschnitt, bist du günstiger – das bringt Nachfrage (beim Stadtrad stärker als bei teuren Rädern), kostet aber Marge.</>}>
       <div className="space-y-3">
         {aktiveProdukte(state).map((p) => {
           const ref = referenzPreis(r, p);
@@ -278,7 +275,6 @@ export function PreisSzene({ state, d, vorschau }: { state: GameState; d: Decisi
           );
         })}
       </div>
-      <p className="muted mt-1 text-xs">Liegt dein Preisschild links vom Marktdurchschnitt, bist du günstiger – das bringt Nachfrage (beim Stadtrad stärker als bei teuren Rädern), kostet aber Marge. {PRODUKTE.stadtrad.name}: Elastizität {PRODUKTE.stadtrad.epsilon.toString().replace('.', ',')}.</p>
     </Rahmen>
   );
 }

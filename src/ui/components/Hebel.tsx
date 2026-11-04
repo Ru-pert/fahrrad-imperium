@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import type { HebelWirkung } from '../hebel';
 import { eurKompakt, fmt0 } from '../format';
+import { Info } from './ui';
 
 const vz = (x: number, f: (x: number) => string) => (x > 0 ? '+' : x < 0 ? '−' : '±') + f(Math.abs(x));
 
@@ -27,10 +28,12 @@ export function HebelPanel({ hebel }: { hebel: HebelWirkung[] | null }) {
   const bester = [...hebel].sort((a, b) => b.ebitJetzt + b.ebitNaechstes - (a.ebitJetzt + a.ebitNaechstes))[0];
   return (
     <div>
-      <p className="muted mb-2 text-xs">
-        Was passiert, wenn du ausgehend von deinen aktuellen Eingaben <em>einen</em> Hebel ein Stück bewegst? Linker Balken: EBIT-Wirkung
-        in diesem Quartal, heller Balken: Spätwirkung im nächsten Quartal (Marke, Technik, Lager, Personal).
-      </p>
+      <div className="muted mb-2 flex items-center gap-1 text-xs">
+        EBIT-Wirkung je Hebel: jetzt · danach
+        <Info titel="Wie lese ich die Hebel?">
+          Was passiert, wenn du ausgehend von deinen aktuellen Eingaben <em>einen</em> Hebel ein Stück bewegst? Linker Balken: EBIT-Wirkung in diesem Quartal, heller Balken: Spätwirkung im nächsten Quartal (Marke, Technik, Lager, Personal).
+        </Info>
+      </div>
       {bester && bester.ebitJetzt + bester.ebitNaechstes > 0 && (
         <div className="mb-3 rounded-lg bg-emerald-50 p-2 text-xs text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
           <strong>Tipp:</strong> „{bester.label}“ bringt über zwei Quartale rund {eurKompakt(bester.ebitJetzt + bester.ebitNaechstes)} mehr EBIT.
