@@ -10,8 +10,8 @@ import {
 } from '../engine';
 import { istSpielstand, laden, speichern, type HistorieEintrag, type Spielstand } from './saveSlots';
 
-export type Seite = 'cockpit' | 'zeitung' | 'bericht' | 'entscheidungen' | 'markt' | 'finanzen' | 'werke' | 'firmensitz' | 'erfolge' | 'austausch' | 'einstellungen';
-export const SEITEN: Seite[] = ['cockpit', 'zeitung', 'bericht', 'entscheidungen', 'markt', 'finanzen', 'werke', 'firmensitz', 'erfolge', 'austausch', 'einstellungen'];
+export type Seite = 'cockpit' | 'zeitung' | 'bericht' | 'entscheidungen' | 'markt' | 'expansion' | 'finanzen' | 'werke' | 'firmensitz' | 'erfolge' | 'austausch' | 'einstellungen';
+export const SEITEN: Seite[] = ['cockpit', 'zeitung', 'bericht', 'entscheidungen', 'markt', 'expansion', 'finanzen', 'werke', 'firmensitz', 'erfolge', 'austausch', 'einstellungen'];
 
 interface Hinweis {
   id: number;

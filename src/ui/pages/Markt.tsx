@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PRODUKTE, SPIELER_ID, aktiveProdukte, quartalLabel, referenzPreis, type ProductId } from '../../engine';
+import { PRODUKTE, REGIONEN, SPIELER_ID, aktiveProdukte, aktiveRegionen, quartalLabel, referenzPreis, type ProductId, type RegionId } from '../../engine';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
 import { Donut, LinienDiagramm } from '../components/charts';
@@ -12,12 +12,14 @@ export function Markt() {
   const bericht = useLetzterBericht();
   const produkte = aktiveProdukte(state);
   const [p, setP] = useState<ProductId>(produkte[0]);
+  const regionen = aktiveRegionen(state);
+  const [r, setR] = useState<RegionId>('DE');
   const farbe = state.unternehmen.farbe;
-  const seg = bericht?.segmente.find((s) => s.produkt === p && s.region === 'DE');
-  const ang = bericht?.angebote.find((a) => a.produkt === p && a.region === 'DE');
+  const seg = bericht?.segmente.find((s) => s.produkt === p && s.region === r);
+  const ang = bericht?.angebote.find((a) => a.produkt === p && a.region === r);
   const verlauf = historie.map((h) => {
-    const s = h.report.segmente.find((x) => x.produkt === p && x.region === 'DE');
-    return { label: quartalLabel(h.report.quartal), volumen: s?.volumen ?? 0, preis: s?.durchschnittspreis ?? 0, eigen: h.report.angebote.find((a) => a.produkt === p)?.preis ?? 0 };
+    const s = h.report.segmente.find((x) => x.produkt === p && x.region === r);
+    return { label: quartalLabel(h.report.quartal), volumen: s?.volumen ?? 0, preis: s?.durchschnittspreis ?? 0, eigen: h.report.angebote.find((a) => a.produkt === p && a.region === r)?.preis ?? 0 };
   });
   const anteil = ang?.marktanteil ?? 0;
   const rangliste = bericht
@@ -30,9 +32,10 @@ export function Markt() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="h-page">Markt Deutschland</h1>
+        <h1 className="h-page">Markt {REGIONEN[r].name}</h1>
         <p className="muted text-sm">Saisonal schwankender Markt; der Restmarkt vieler kleiner Anbieter ist grau dargestellt.</p>
       </div>
+      {regionen.length > 1 && <Tabs<RegionId> wert={r} optionen={regionen.map((x) => ({ id: x, label: REGIONEN[x].name }))} onChange={setR} />}
       <Tabs wert={p} optionen={produkte.map((x) => ({ id: x, label: PRODUKTE[x].name }))} onChange={setP} />
 
       {!bericht || !seg ? (
@@ -60,15 +63,15 @@ export function Markt() {
                 <dt className="muted">Ø Marktpreis</dt>
                 <dd className="tnum text-right font-semibold">{eur(seg.durchschnittspreis)}</dd>
                 <dt className="muted">Referenzpreis</dt>
-                <dd className="tnum text-right font-semibold">{eur(referenzPreis('DE', p))}</dd>
+                <dd className="tnum text-right font-semibold">{eur(referenzPreis(r, p))}</dd>
                 <dt className="muted">Dein Preis</dt>
                 <dd className="tnum text-right font-semibold">{eur(ang?.preis ?? 0)}</dd>
                 <dt className="muted">Technikindex (Testmagazin)</dt>
                 <dd className={`tnum text-right font-semibold ${(ang?.technikIndex ?? 100) < 100 ? 'text-rose-600' : ''}`}>{fmt0(ang?.technikIndex ?? 0)}{(ang?.technikIndex ?? 100) < 100 ? ' – nicht marktfähig' : ''}</dd>
                 <dt className="muted">Nachfrage / Absatz</dt>
                 <dd className="tnum text-right font-semibold">{fmt0(ang?.nachfrage ?? 0)} / {fmt0(ang?.absatz ?? 0)}</dd>
-                <dt className="muted">Markenbekanntheit DE</dt>
-                <dd className="tnum text-right font-semibold">{pct(state.regionen.DE?.bekanntheit ?? 0, 1)}</dd>
+                <dt className="muted">Markenbekanntheit</dt>
+                <dd className="tnum text-right font-semibold">{pct(state.regionen[r]?.bekanntheit ?? 0, 1)}</dd>
               </dl>
             </Card>
           </div>

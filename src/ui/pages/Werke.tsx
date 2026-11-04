@@ -30,7 +30,12 @@ export function Werke() {
         <h1 className="h-page">Werke</h1>
         <p className="muted text-sm">Linien, Personal, Produktivität und Stückkosten.</p>
       </div>
-      {state.werke.map((w) => {
+      {state.werke.filter((w) => w.status === 'bau').map((w) => (
+        <Card icon="werk" farbe="#f59e0b" key={w.id} titel={`Werk ${w.name} – im Bau`}>
+          <p className="text-sm">Fertig in {w.bauRest} Quartal(en). Danach Linien kaufen und Personal einstellen (Entscheidungen → Werk &amp; Linien).</p>
+        </Card>
+      ))}
+      {state.werke.filter((w) => w.status !== 'bau').map((w) => {
         const wr = bericht?.werke.find((x) => x.id === w.id);
         const vw = vorschau?.werke.find((x) => x.id === w.id);
         const aus = vw?.auslastung ?? wr?.auslastung ?? 0;

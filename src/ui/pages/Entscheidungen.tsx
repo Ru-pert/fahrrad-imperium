@@ -132,7 +132,7 @@ function Produktion({ state, d, aendere, vorschau, hebel }: Ctx) {
   const produkte = aktiveProdukte(state);
   return (
     <div className="space-y-2">
-      {state.werke.map((w) => {
+      {state.werke.filter((w) => (w.status ?? 'aktiv') === 'aktiv').map((w) => {
         const wr = vorschau?.werke.find((x) => x.id === w.id);
         return (
           <Card key={w.id} titel={`Werk ${w.name}`}>
@@ -237,7 +237,7 @@ function ForschungEntwicklung({ state, d, aendere, vorschau, hebel }: Ctx) {
 function Personal({ state, d, aendere, vorschau, hebel }: Ctx) {
   return (
     <div className="space-y-2">
-      {state.werke.map((w) => {
+      {state.werke.filter((w) => (w.status ?? 'aktiv') === 'aktiv').map((w) => {
         const e = d.werke[w.id];
         if (!e) return null;
         const maxPlus = Math.floor(w.mitarbeitende * 0.5);
@@ -280,6 +280,13 @@ function WerkBereich({ state, d, aendere, vorschau, stufe }: Ctx) {
       {state.werke.map((w) => {
         const e = d.werke[w.id];
         if (!e) return null;
+        if (w.status === 'bau') {
+          return (
+            <Card key={w.id} titel={`Werk ${w.name}`} icon="werk" farbe="#f59e0b">
+              <p className="text-sm">Im Bau – fertig in <strong>{w.bauRest} Quartal{(w.bauRest ?? 1) > 1 ? 'en' : ''}</strong>. Danach kannst du hier Linien kaufen und Personal einstellen.</p>
+            </Card>
+          );
+        }
         const produktion = aktiveProdukte(state).reduce((s, p) => s + (d.produktion[p]?.[w.id] ?? 0), 0);
         return (
           <Card key={w.id} titel={`Werk ${w.name}: Halle und Fertigungslinien`}>

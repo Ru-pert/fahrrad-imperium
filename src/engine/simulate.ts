@@ -1,8 +1,8 @@
 import { BALANCE } from './config/balance';
 import { KONKURRENTEN } from './config/competitors';
 import { HQ_EXTRAS, HQ_EXTRAS_MAX_BONUS, HQ_STUFEN } from './config/hq';
-import { LIEFERANTEN, LINIENTYPEN, PRODUKTE } from './config/products';
-import { LOGISTIK, REGIONEN } from './config/markets';
+import { LIEFERANTEN, LINIENTYPEN, PRODUKTE, PRODUKT_IDS } from './config/products';
+import { LOGISTIK, REGIONEN, REGION_IDS, WERK_STANDORTE } from './config/markets';
 import { Rng } from './rng';
 import type {
   AngebotBericht,
@@ -26,8 +26,9 @@ import {
   konkurrentAnbieter,
   planKonkurrenten,
   produziereKonkurrent,
-  KONKURRENZ_PRODUKTE,
+  konkurrentProdukte,
   type KonkurrentProduktion,
+  type KonkurrentRegionErgebnis,
 } from './competitors';
 import { aktiveProdukte, aktiveRegionen, normalisiere } from './decisions';
 import {
@@ -62,6 +63,7 @@ import { clamp, stk, sum } from './util';
 import { SPIELER_ID } from './util';
 import { ereignisEffekte, naechsteEreignisse, ereignisDef } from './events';
 import { erzeugeZeitung } from './zeitung';
+import { normalisiereExpansion, pruefeFreischaltungen, schliesseExpansionAb, starteExpansion } from './expansion';
 import { pruefeErfolge } from './achievements';
 import { VORFAELLE } from './config/events';
 import type { Vorfall } from './types';
@@ -180,6 +182,14 @@ export function simulateQuarter(
     meldungen.push(`Firmensitz ausgebaut: ${HQ_STUFEN[idx].name}`);
   }
 
+  // ------------------------------------------------------------ Expansion (Markteintritt, Produkte, Werke)
+  const expansion = normalisiereExpansion(s, dec, warn);
+  dec.expansion = expansion;
+  const expWirkung = starteExpansion(s, expansion, t);
+  capex += expWirkung.capex;
+  const expansionsAufwand = expWirkung.aufwand;
+  meldungen.push(...expWirkung.meldungen);
+
   // ------------------------------------------------------------ Kredite
   let tilgungExtra = dec.finanzen.tilgungExtra;
   for (const k of fin.kredite) {
@@ -233,6 +243,7 @@ export function simulateQuarter(
   const uUndMengen: { p: ProductId; menge: number; u: number }[] = [];
 
   for (const w of s.werke) {
+    if ((w.status ?? 'aktiv') === 'bau') continue;
     const e = dec.werke[w.id];
     // Linien verkaufen
     for (const id of e.linienVerkaufen) {
@@ -377,7 +388,11 @@ export function simulateQuarter(
   const qP: Partial<Record<ProductId, number>> = {};
   const tP: Partial<Record<ProductId, number>> = {};
   for (const p of produkte) {
-    qP[p] = qualitaet(p, dec.lieferanten, schulungMittel, maxUeberstd);
+    // Qualitätsabschlag je nach Werksstandort, gewichtet mit der Produktionsmenge
+    const mengen = werkRes.map((r) => r.qty[p] ?? 0);
+    const summeMenge = sum(mengen);
+    const standortMalus = summeMenge > 0 ? sum(werkRes.map((r, i) => mengen[i] * (WERK_STANDORTE[r.werk.standort ?? 'DE']?.qualitaet ?? 0))) / summeMenge : 0;
+    qP[p] = clamp(qualitaet(p, dec.lieferanten, schulungMittel, maxUeberstd) + standortMalus, B.qualitaet.min, B.qualitaet.max);
     tP[p] = technikAusStock(s.produkte[p]!.fe);
   }
 
@@ -391,7 +406,10 @@ export function simulateQuarter(
   }
 
   // ------------------------------------------------------------ Markt
-  const reihenfolge = regionen;
+  // Lieferreihenfolge: Heimatmarkt, dann Auslandsmärkte in der Reihenfolge der Freischaltung.
+  // Regionen ohne Spieler werden im Hintergrund mitsimuliert (Konkurrenz, Marktdaten).
+  const reihenfolge = [...(s.regionenReihenfolge ?? ['DE']).filter((r) => regionen.includes(r)), ...regionen.filter((r) => !(s.regionenReihenfolge ?? ['DE']).includes(r))];
+  const alleRegionen: RegionId[] = [...reihenfolge, ...REGION_IDS.filter((r) => !reihenfolge.includes(r))];
   const segmente: SegmentBericht[] = [];
   const angebote: AngebotBericht[] = [];
   const outs: Partial<Record<RegionId, Partial<Record<ProductId, SegmentOutput>>>> = {};
@@ -399,67 +417,99 @@ export function simulateQuarter(
   const umsatzP: Partial<Record<ProductId, number>> = {};
   let umsatz = 0;
   let logistik = 0;
-  const heimat = s.werke[0]?.region ?? 'DE';
   const regionSummen: Partial<Record<RegionId, { eigen: number; gesamt: number; marketing: number; mStar: number; umsatzEigen: number; umsatzGesamt: number }>> = {};
-  const kRegion: Record<string, { eigen: number; gesamt: number; marketing: number; mStar: number; absatz: Partial<Record<ProductId, number>> }> = {};
+  const kRegion: Record<string, Partial<Record<RegionId, KonkurrentRegionErgebnis>>> = {};
+  const kRest: Record<string, number> = {};
+  for (const prof of KONKURRENTEN) {
+    const k = s.konkurrenten[prof.id];
+    if (!k) continue;
+    for (const p of konkurrentProdukte(k)) kRest[`${k.id}:${p}`] = k.produkte[p]!.lager;
+  }
+  /** Logistiksatz: vom günstigsten Werk, das das Produkt in diesem Quartal gebaut hat */
+  const logistikSatz = (p: ProductId, r: RegionId): number => {
+    const quellen = werkRes.filter((x) => (x.qty[p] ?? 0) > 0).map((x) => x.werk.region);
+    const kandidaten = quellen.length ? quellen : [s.werke[0]?.region ?? 'DE'];
+    return Math.min(...kandidaten.map((q) => (q === r ? LOGISTIK.innerhalb : LOGISTIK.uebergreifend + REGIONEN[r].zoll)));
+  };
 
   const restSupply: Partial<Record<ProductId, number>> = {};
   for (const p of produkte) restSupply[p] = s.produkte[p]!.lager.stueck;
 
-  for (const r of reihenfolge) {
-    outs[r] = {};
-    regionSummen[r] = { eigen: 0, gesamt: 0, marketing: 0, mStar: 0, umsatzEigen: 0, umsatzGesamt: 0 };
+  /** Spieler-Angebot in einem Segment */
+  const spielerAnbieter = (r: RegionId, p: ProductId, kapazitaet: number): Anbieter => ({
+    id: SPIELER_ID,
+    preis: dec.preis[p]?.[r] ?? 0,
+    marketing: dec.marketing[p]?.[r] ?? 0,
+    bekanntheit: s.regionen[r]!.bekanntheit,
+    technik: tP[p]!,
+    qualitaet: qP[p]!,
+    image: s.unternehmen.image,
+    kapazitaet,
+  });
+  // Kontingente: bei Knappheit wird die Ware anteilig zur Nachfrage auf die Märkte verteilt
+  const kontingent: Record<string, number> = {};
+  if (B.lieferreihenfolge === 'anteilig' && reihenfolge.length > 1) {
     for (const p of produkte) {
+      const nachfrage: Partial<Record<RegionId, number>> = {};
+      for (const r of reihenfolge) {
+        const zustand = s.markt[r]?.[p];
+        if (!zustand) continue;
+        const anbieter: Anbieter[] = [spielerAnbieter(r, p, 1e12)];
+        for (const prof of KONKURRENTEN) {
+          const k = s.konkurrenten[prof.id];
+          const plan = plaene[prof.id];
+          if (!k || !plan) continue;
+          const a = konkurrentAnbieter(k, plan, p, r, kRest[`${k.id}:${p}`] ?? 0);
+          if (a && a.preis > 0) anbieter.push(a);
+        }
+        nachfrage[r] = berechneSegment({ region: r, produkt: p, t, anbieter, zustand, eventFaktor: eff.nachfrage(p) }).nachfrage[SPIELER_ID] ?? 0;
+      }
+      const gesamt = sum(Object.values(nachfrage).map((x) => x ?? 0));
+      const vorrat = restSupply[p] ?? 0;
+      if (gesamt > vorrat && gesamt > 0) {
+        for (const r of reihenfolge) kontingent[`${r}:${p}`] = Math.floor((vorrat * (nachfrage[r] ?? 0)) / gesamt);
+      }
+    }
+  }
+
+  for (const r of alleRegionen) {
+    const spielerHier = regionen.includes(r);
+    outs[r] = {};
+    if (spielerHier) regionSummen[r] = { eigen: 0, gesamt: 0, marketing: 0, mStar: 0, umsatzEigen: 0, umsatzGesamt: 0 };
+    for (const p of PRODUKT_IDS) {
       const zustand = s.markt[r]?.[p];
       if (!zustand) continue;
-      const preis = dec.preis[p]?.[r] ?? 0;
-      const marketing = dec.marketing[p]?.[r] ?? 0;
-      const anbieter: Anbieter[] = [
-        {
-          id: SPIELER_ID,
-          preis,
-          marketing,
-          bekanntheit: s.regionen[r]!.bekanntheit,
-          technik: tP[p]!,
-          qualitaet: qP[p]!,
-          image: s.unternehmen.image,
-          kapazitaet: restSupply[p] ?? 0,
-        },
-      ];
+      const spielerP = spielerHier && produkte.includes(p);
+      const preis = spielerP ? dec.preis[p]?.[r] ?? 0 : 0;
+      const marketing = spielerP ? dec.marketing[p]?.[r] ?? 0 : 0;
+      const anbieter: Anbieter[] = [];
+      if (spielerP) {
+        const k = kontingent[`${r}:${p}`];
+        // letzter Markt bekommt den Rest (Rundung), sonst das Kontingent
+        const letzterMarkt = r === reihenfolge[reihenfolge.length - 1];
+        anbieter.push(spielerAnbieter(r, p, k === undefined || letzterMarkt ? restSupply[p] ?? 0 : Math.min(k, restSupply[p] ?? 0)));
+      }
       for (const prof of KONKURRENTEN) {
         const k = s.konkurrenten[prof.id];
         const plan = plaene[prof.id];
         if (!k || !plan) continue;
-        const a = konkurrentAnbieter(k, plan, p, r);
+        const a = konkurrentAnbieter(k, plan, p, r, kRest[`${k.id}:${p}`] ?? 0);
         if (a && a.preis > 0) anbieter.push(a);
       }
       const out = berechneSegment({ region: r, produkt: p, t, anbieter, zustand, eventFaktor: eff.nachfrage(p) });
       outs[r]![p] = out;
-      const absatz = out.absatz[SPIELER_ID] ?? 0;
-      restSupply[p] = (restSupply[p] ?? 0) - absatz;
-      verkauft[p] = (verkauft[p] ?? 0) + absatz;
-      const erloes = absatz * preis;
-      umsatzP[p] = (umsatzP[p] ?? 0) + erloes;
-      umsatz += erloes;
-      const logSatz = r === heimat ? LOGISTIK.innerhalb : LOGISTIK.uebergreifend + REGIONEN[r].zoll;
-      logistik += erloes * logSatz;
-
-      const rs = regionSummen[r]!;
       const gesamtStk = sum(Object.values(out.absatz)) + out.restAbsatz;
-      rs.eigen += absatz;
-      rs.gesamt += gesamtStk;
-      rs.marketing += marketing;
-      rs.mStar += out.mStar;
-      rs.umsatzEigen += erloes;
-      rs.umsatzGesamt += gesamtStk * out.pBar;
-      for (const prof of KONKURRENTEN) {
-        if (!(prof.id in out.absatz)) continue;
-        const kr = (kRegion[prof.id] ??= { eigen: 0, gesamt: 0, marketing: 0, mStar: 0, absatz: {} });
-        kr.eigen += out.absatz[prof.id];
-        kr.gesamt += gesamtStk;
-        kr.marketing += anbieter.find((x) => x.id === prof.id)?.marketing ?? 0;
+      for (const a of anbieter) {
+        if (a.id === SPIELER_ID) continue;
+        const menge = out.absatz[a.id] ?? 0;
+        kRest[`${a.id}:${p}`] = (kRest[`${a.id}:${p}`] ?? 0) - menge;
+        const kr = ((kRegion[a.id] ??= {})[r] ??= { absatz: {}, preis: {}, marketing: 0, mStar: 0, eigen: 0, gesamt: 0 });
+        kr.absatz[p] = (kr.absatz[p] ?? 0) + menge;
+        kr.preis[p] = a.preis;
+        kr.marketing += a.marketing;
         kr.mStar += out.mStar;
-        kr.absatz[p] = (kr.absatz[p] ?? 0) + out.absatz[prof.id];
+        kr.eigen += menge;
+        kr.gesamt += gesamtStk;
       }
 
       const preise: Record<string, number> = {};
@@ -475,6 +525,23 @@ export function simulateQuarter(
         anteile: out.anteile, absatz: { ...out.absatz, rest: out.restAbsatz }, preise, marketing: mark,
         technikIndex: { ...out.technikIndex }, qualitaet: qual,
       });
+      if (!spielerP) continue;
+
+      const absatz = out.absatz[SPIELER_ID] ?? 0;
+      restSupply[p] = (restSupply[p] ?? 0) - absatz;
+      verkauft[p] = (verkauft[p] ?? 0) + absatz;
+      const erloes = absatz * preis;
+      umsatzP[p] = (umsatzP[p] ?? 0) + erloes;
+      umsatz += erloes;
+      logistik += erloes * logistikSatz(p, r);
+
+      const rs = regionSummen[r]!;
+      rs.eigen += absatz;
+      rs.gesamt += gesamtStk;
+      rs.marketing += marketing;
+      rs.mStar += out.mStar;
+      rs.umsatzEigen += erloes;
+      rs.umsatzGesamt += gesamtStk * out.pBar;
       angebote.push({
         produkt: p, region: r, preis, marketing, nachfrage: out.nachfrage[SPIELER_ID] ?? 0, absatz,
         unbedient: out.unbedient[SPIELER_ID] ?? 0, marktanteil: out.anteile[SPIELER_ID] ?? 0, umsatz: erloes,
@@ -586,7 +653,7 @@ export function simulateQuarter(
   // Abschreibungen
   let afa = 0;
   for (const w of s.werke) {
-    if (w.gebaeudeRestlaufzeit > 0) afa += w.gebaeudeBuchwert / w.gebaeudeRestlaufzeit;
+    if (w.status !== 'bau' && w.gebaeudeRestlaufzeit > 0) afa += w.gebaeudeBuchwert / w.gebaeudeRestlaufzeit;
     for (const l of w.linien) afa += linienAfa(l);
   }
   const hqAfa = Math.min(s.unternehmen.firmensitz.buchwert, s.unternehmen.firmensitz.anschaffung / B.finanzen.abschreibungHqQuartale);
@@ -594,7 +661,7 @@ export function simulateQuarter(
 
   const deckungsbeitrag = umsatz - herstellkostenUmsatz - logistik;
   const ebit =
-    deckungsbeitrag - marketingSumme - feSumme - nbBudget - personalKosten - fgk - vertriebKosten - verwaltung - afa + sonstErtrag - sonstAufwand - rueckrufKosten;
+    deckungsbeitrag - marketingSumme - feSumme - nbBudget - personalKosten - fgk - vertriebKosten - verwaltung - afa + sonstErtrag - sonstAufwand - rueckrufKosten - expansionsAufwand;
   const zinsen = zinsDarlehen + zinsKontokorrent;
   const ebt = ebit - zinsen;
   let steuern = 0;
@@ -609,7 +676,7 @@ export function simulateQuarter(
   const guv: GuV = {
     umsatz, herstellkosten: herstellkostenUmsatz, logistik, deckungsbeitrag, marketing: marketingSumme, fe: feSumme,
     nachhaltigkeit: nbBudget, marktforschung: 0, fertigungsgemeinkosten: fgk, personal: personalKosten, vertrieb: vertriebKosten,
-    verwaltung, sonstigeErtraege: sonstErtrag, sonstigerAufwand: sonstAufwand + rueckrufKosten, abschreibungen: afa, ebit, ebitda: ebit + afa,
+    verwaltung, sonstigeErtraege: sonstErtrag, sonstigerAufwand: sonstAufwand + rueckrufKosten + expansionsAufwand, abschreibungen: afa, ebit, ebitda: ebit + afa,
     zinsen, ebt, steuern, ueberschuss,
   };
 
@@ -623,7 +690,7 @@ export function simulateQuarter(
   const hireFireTrain = sum(werkRes.map((r) => r.hireFireTrain));
   const periodenKosten =
     sum(werkRes.map((r) => r.energie + r.linienFix + r.wartung + r.schicht)) + nacharbeitGesamt + lagerKosten + logistik +
-    marketingSumme + feSumme + nbBudget + vertriebKosten + verwaltung + rueckrufKosten;
+    marketingSumme + feSumme + nbBudget + vertriebKosten + verwaltung + rueckrufKosten + expansionsAufwand;
   const operativAuszahlung = auszahlungMaterial + laborCash + hireFireTrain + periodenKosten + zinsen + steuern;
   const regTilgung = sum(fin.kredite.map((k) => Math.min(k.tilgung, k.restbetrag)));
   const dividende = dec.finanzen.dividende;
@@ -646,7 +713,7 @@ export function simulateQuarter(
   fin.gewinnruecklagen += ueberschuss - dividende;
 
   for (const w of s.werke) {
-    if (w.gebaeudeRestlaufzeit > 0) {
+    if (w.status !== 'bau' && w.gebaeudeRestlaufzeit > 0) {
       w.gebaeudeBuchwert -= w.gebaeudeBuchwert / w.gebaeudeRestlaufzeit;
       w.gebaeudeRestlaufzeit -= 1;
       if (w.gebaeudeRestlaufzeit === 0) w.gebaeudeBuchwert = 0;
@@ -719,17 +786,22 @@ export function simulateQuarter(
     );
     reg.marktanteil = rs.gesamt > 0 ? rs.eigen / rs.gesamt : 0;
     if (r === reihenfolge[0] && bekanntheitBonus > 0) reg.bekanntheit = clamp(reg.bekanntheit + bekanntheitBonus, 0.001, 0.95);
-    for (const p of produkte) {
+  }
+  for (const r of alleRegionen) {
+    for (const p of PRODUKT_IDS) {
       const out = outs[r]?.[p];
       const z = s.markt[r]?.[p];
-      if (!out || !z) continue;
-      const alt = z.anteile[SPIELER_ID] ?? 0;
-      s.spielerAnteilDelta[p] = (out.anteile[SPIELER_ID] ?? 0) - alt;
+      if (!z) continue;
+      z.tRest *= 1 + B.restmarkt.technikWachstumProQuartal;
+      if (!out) continue;
+      if (r === 'DE' && produkte.includes(p)) {
+        const alt = z.anteile[SPIELER_ID] ?? 0;
+        s.spielerAnteilDelta[p] = (out.anteile[SPIELER_ID] ?? 0) - alt;
+      }
       z.anteile = out.anteile;
       z.durchschnittspreis = out.pBar;
       z.tBar = out.tBar;
       z.volumen = out.volumen;
-      z.tRest *= 1 + B.restmarkt.technikWachstumProQuartal;
     }
   }
 
@@ -739,7 +811,8 @@ export function simulateQuarter(
     ? sum(produkte.map((p) => (umweltProdukt[p] ?? 0) * (verkauft[p] ?? 0))) / gewichtUmsatz
     : sum(produkte.map((p) => umweltProdukt[p] ?? 0)) / Math.max(1, produkte.length);
   const nbStern = Math.max(B.nachhaltigkeit.nbSternAnteil * umsatz, B.nachhaltigkeit.nbSternMin);
-  const nZiel = B.nachhaltigkeit.umweltfaktor * uUnt + B.nachhaltigkeit.budgetMax * (1 - Math.exp(-nbBudget / nbStern));
+  const deltaWerke = sum(s.werke.filter((w) => (w.status ?? 'aktiv') === 'aktiv').map((w) => WERK_STANDORTE[w.standort ?? 'DE']?.nachhaltigkeit ?? 0));
+  const nZiel = B.nachhaltigkeit.umweltfaktor * uUnt + B.nachhaltigkeit.budgetMax * (1 - Math.exp(-nbBudget / nbStern)) + deltaWerke;
   const nNeu = clamp(s.unternehmen.nachhaltigkeit + B.nachhaltigkeit.anpassung * (nZiel - s.unternehmen.nachhaltigkeit), 0, 100);
   const qMittel = gewichtUmsatz > 0
     ? sum(produkte.map((p) => (qP[p] ?? 1) * (verkauft[p] ?? 0))) / gewichtUmsatz
@@ -756,9 +829,8 @@ export function simulateQuarter(
     const plan = plaene[prof.id];
     if (!k) continue;
     if (k.status === 'aktiv' && plan && kProd[prof.id]) {
-      const kr = kRegion[prof.id] ?? { eigen: 0, gesamt: 1, marketing: 0, mStar: 1, absatz: {} };
       const wasAktiv = k.status === 'aktiv';
-      buchungKonkurrent(k, plan, kProd[prof.id], kr.absatz, kr.gesamt > 0 ? kr.eigen / kr.gesamt : 0, kr.mStar > 0 ? kr.marketing / kr.mStar : 0);
+      buchungKonkurrent(k, plan, kProd[prof.id], kRegion[prof.id] ?? {});
       if (wasAktiv && (k.status as string) === 'pleite') meldungen.push(`${k.name} ist insolvent!`);
     }
     konkurrenzBericht.push({
@@ -809,14 +881,22 @@ export function simulateQuarter(
   }
 
   // Marktanteil gesamt (umsatzbasiert)
-  const sumEigen = sum(regionen.map((r) => regionSummen[r]!.umsatzEigen));
-  const sumGesamt = sum(regionen.map((r) => regionSummen[r]!.umsatzGesamt));
+  // Marktanteil Deutschland (umsatzbasiert) – Grundlage für den Europa-Meilenstein
+  const sumEigen = regionSummen.DE?.umsatzEigen ?? 0;
+  const sumGesamt = regionSummen.DE?.umsatzGesamt ?? 0;
   const marktanteil = sumGesamt > 0 ? sumEigen / sumGesamt : 0;
 
   s.kpiHistorie.push({
     quartal: t, umsatz, ebit, ueberschuss, kasse: cash, marktanteil, unternehmenswert: uw.eigenkapitalwert,
     image: s.unternehmen.image, absatz: sum(produkte.map((p) => verkauft[p] ?? 0)),
   });
+
+  // ------------------------------------------------------------ Expansion abschließen, Freischaltungen
+  meldungen.push(...schliesseExpansionAb(s, t));
+  const freischaltungen = zufall ? pruefeFreischaltungen(s) : [];
+  for (const f of freischaltungen) {
+    meldungen.push(f.art === 'region' ? `Meilenstein erreicht: ${REGIONEN[f.id as RegionId].name} ist freigeschaltet!` : `Neues Produkt verfügbar: ${PRODUKTE[f.id as ProductId].name}.`);
+  }
 
   // ------------------------------------------------------------ Nächstes Quartal
   s.letzteEntscheidungen = dec;
@@ -855,13 +935,13 @@ export function simulateQuarter(
     vorfaelle,
     zeitung: null,
     neueErfolge: [],
+    freischaltungen,
   };
   if (zufall) report.neueErfolge = pruefeErfolge(s, report);
   if (zufall) {
     report.zeitung = erzeugeZeitung(s, report, opts.vorherBericht ?? null);
     s.zeitung = report.zeitung;
   }
-  void KONKURRENZ_PRODUKTE;
   void sachanlagen;
   void uUndMengen;
   return { nextState: s, report };

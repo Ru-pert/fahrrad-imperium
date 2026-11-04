@@ -13,6 +13,7 @@ export interface EntscheidungsJson {
   nachhaltigkeitsbudget: number;
   finanzen: { darlehenNeu: number; tilgungExtra: number; dividende: number };
   firmensitz: { kaufen: string[] };
+  expansion: { maerkteBetreten: RegionId[]; produkteEinfuehren: ProductId[]; werkeBauen: string[] };
   begruendung?: string;
 }
 
@@ -47,6 +48,7 @@ export function entscheidungenAlsJson(d: Decisions, begruendung?: string): Entsc
     nachhaltigkeitsbudget: Math.round(d.nachhaltigkeitsbudget),
     finanzen: { ...d.finanzen },
     firmensitz: { kaufen: [...d.firmensitz.kaufen] },
+    expansion: { maerkteBetreten: [...(d.expansion?.maerkteBetreten ?? [])], produkteEinfuehren: [...(d.expansion?.produkteEinfuehren ?? [])], werkeBauen: [...(d.expansion?.werkeBauen ?? [])] },
     ...(begruendung ? { begruendung } : {}),
   };
 }

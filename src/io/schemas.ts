@@ -33,6 +33,9 @@ export const entscheidungsSchema = z.object({
     .object({ darlehenNeu: zahl.optional(), tilgungExtra: zahl.optional(), dividende: zahl.optional() })
     .optional(),
   firmensitz: z.object({ kaufen: z.array(z.string()).optional() }).optional(),
+  expansion: z
+    .object({ maerkteBetreten: z.array(z.string()).optional(), produkteEinfuehren: z.array(z.string()).optional(), werkeBauen: z.array(z.string()).optional(), uebernahmen: z.array(z.unknown()).optional() })
+    .optional(),
   begruendung: z.string().optional(),
 });
 
@@ -40,7 +43,7 @@ export type EntscheidungsEingabe = z.infer<typeof entscheidungsSchema>;
 
 /** Bekannte Schlüssel je Ebene – alles andere wird mit Warnung ignoriert */
 export const BEKANNT = {
-  oben: ['format', 'version', 'quartal', 'produkte', 'werke', 'lieferanten', 'nachhaltigkeitsbudget', 'finanzen', 'firmensitz', 'begruendung'],
+  oben: ['format', 'version', 'quartal', 'produkte', 'werke', 'lieferanten', 'nachhaltigkeitsbudget', 'finanzen', 'firmensitz', 'expansion', 'begruendung'],
   produkt: ['produktion', 'fe', 'maerkte'],
   markt: ['preis', 'marketing'],
   werk: ['linienKaufen', 'linienVerkaufen', 'neueLinien', 'wartung', 'personalAenderung', 'schulungProKopf', 'halleErweitern'],
@@ -58,6 +61,5 @@ export const SPAETERE_FELDER: Record<string, string> = {
   ausschreibungen: 'Ausschreibungen',
   prognose: 'Absatzprognose',
   marktforschung: 'Marktforschung',
-  expansion: 'Expansion',
   boerse: 'Börse',
 };

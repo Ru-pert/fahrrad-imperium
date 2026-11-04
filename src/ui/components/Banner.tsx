@@ -139,7 +139,8 @@ export function CockpitBanner({ state, bericht }: { state: GameState; bericht: Q
         {/* Fahrer nach Umsatz aufgereiht */}
         {[...teilnehmer].sort((a, b) => b.umsatz - a.umsatz).map((t, rang) => {
           // Reihenfolge nach Umsatz; Abstand wächst mit dem Umsatzunterschied
-          const x = 1020 - rang * 140 - (bericht ? (1 - t.umsatz / max) * 60 : 0);
+          const abstand = Math.min(140, 620 / Math.max(1, teilnehmer.length - 1));
+          const x = 1040 - rang * abstand - (bericht ? (1 - t.umsatz / max) * 20 : 0);
           const y = 160 - (rang % 2) * 6;
           return <Fahrer key={t.id} farbe={t.farbe} x={x} y={y} skala={t.id === 'du' ? 1.15 : 0.95} animiert={animiert} name={t.id === 'du' ? 'Du' : t.name} />;
         })}

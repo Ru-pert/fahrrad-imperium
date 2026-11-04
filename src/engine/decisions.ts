@@ -7,6 +7,7 @@ import { clamp, quartalLabel } from './util';
 import { kreditlimit, sachanlagen, schuldenGesamt } from './finance';
 import { referenzPreis } from './market';
 import { ereignisEffekte } from './events';
+import { einstellungsLimit } from './expansion';
 
 import { KOMPONENTEN, hallenPlaetze } from './production';
 export { KOMPONENTEN };
@@ -61,6 +62,7 @@ export function standardEntscheidungen(state: GameState): Decisions {
   }
   alt.finanzen = { darlehenNeu: 0, tilgungExtra: 0, dividende: 0 };
   alt.firmensitz = { kaufen: [] };
+  alt.expansion = { maerkteBetreten: [], produkteEinfuehren: [], werkeBauen: [] };
   // Fehlende Felder für aktive Produkte/Regionen auffüllen
   for (const p of aktiveProdukte(state)) {
     alt.preis[p] ??= {};
@@ -107,14 +109,18 @@ export function normalisiere(state: GameState, eingabe: Decisions): Normalisiert
       dec.preis[p]![r] = clamp(preis, lo, hi);
       dec.marketing[p]![r] = Math.max(0, dec.marketing[p]![r] ?? 0);
     }
-    for (const w of state.werke) dec.produktion[p]![w.id] = Math.max(0, Math.round(dec.produktion[p]![w.id] ?? 0));
+    for (const w of state.werke) dec.produktion[p]![w.id] = (w.status ?? 'aktiv') === 'bau' ? 0 : Math.max(0, Math.round(dec.produktion[p]![w.id] ?? 0));
     dec.fe[p] = Math.max(0, dec.fe[p] ?? 0);
   }
 
   for (const w of state.werke) {
     const e = (dec.werke[w.id] ??= leereWerkEntscheidung(w, START.entscheidungen.schulung));
+    if ((w.status ?? 'aktiv') === 'bau') {
+      Object.assign(e, { personalAenderung: 0, linienKaufen: [], linienVerkaufen: [], halleErweitern: false });
+      continue;
+    }
     e.schulungProKopf = clamp(e.schulungProKopf ?? 0, 0, BALANCE.personal.schulungMax);
-    const maxPlus = Math.floor(w.mitarbeitende * BALANCE.personal.maxEinstellung * ereignisEffekte(state).einstellung);
+    const maxPlus = einstellungsLimit(w, ereignisEffekte(state).einstellung);
     const maxMinus = Math.floor(w.mitarbeitende * BALANCE.personal.maxEntlassung);
     const aend = Math.round(e.personalAenderung ?? 0);
     if (aend > maxPlus) warn.push(`Personal ${w.name}: Einstellung von ${aend} übersteigt das Limit von +${maxPlus}.`);

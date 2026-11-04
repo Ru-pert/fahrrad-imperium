@@ -247,12 +247,12 @@ describe('Produktion', () => {
     const r2 = simulateQuarter(s, d2).report;
     expect(report.guv.fertigungsgemeinkosten - r2.guv.fertigungsgemeinkosten).toBeGreaterThan(20_000);
   });
-  it('Einstellungen sind auf +50 %, Entlassungen auf −20 % begrenzt', () => {
+  it('Einstellungen sind auf +50 % (mindestens 20), Entlassungen auf −20 % begrenzt', () => {
     const s = neu();
     const d = standardEntscheidungen(s);
     d.werke['DE-1'].personalAenderung = 100;
     const r = simulateQuarter(s, d);
-    expect(r.report.werke[0].mitarbeitende).toBe(36);
+    expect(r.report.werke[0].mitarbeitende).toBe(44);
     expect(r.report.warnungen.some((w) => w.includes('Limit'))).toBe(true);
   });
   it('Teurere Lieferanten erhöhen Herstellkosten und Qualität', () => {
@@ -445,5 +445,61 @@ describe('Firmensitz', () => {
     expect(s.unternehmen.firmensitz.extras).toEqual(['brunnen', 'espressobar']);
     expect(r.report.kapitalfluss.investitionen).toBeCloseTo(-(50_000 + 20_000 + 50_000), 6);
     expect(Math.abs(r.report.bilanz.aktiva - r.report.bilanz.passiva)).toBeLessThan(0.01);
+  });
+});
+
+describe('Expansion', () => {
+  const reich = (seed = 31) => {
+    const s = neu(seed);
+    s.finanzen.kasse += 30_000_000;
+    s.finanzen.kapitalruecklage += 30_000_000;
+    return s;
+  };
+  it('Markteintritt: Europa ist ab dem Folgequartal aktiv und verkauft', () => {
+    let s = reich();
+    s.regionen.EU!.freigeschaltet = true;
+    let d = standardEntscheidungen(s);
+    d.expansion = { maerkteBetreten: ['EU'], produkteEinfuehren: [], werkeBauen: [] };
+    let r = simulateQuarter(s, d);
+    expect(r.report.guv.sonstigerAufwand).toBeGreaterThanOrEqual(2_000_000);
+    expect(Math.abs(r.report.bilanz.aktiva - r.report.bilanz.passiva)).toBeLessThan(0.01);
+    s = r.nextState;
+    expect(s.regionen.EU!.aktiv).toBe(true);
+    d = standardEntscheidungen(s);
+    expect(d.preis.stadtrad!.EU).toBeGreaterThan(0);
+    d.marketing.stadtrad!.EU = 50_000;
+    r = simulateQuarter(s, d);
+    const eu = r.report.angebote.find((a) => a.region === 'EU' && a.produkt === 'stadtrad')!;
+    expect(eu.nachfrage).toBeGreaterThan(0);
+    // Bei Knappheit wird anteilig zur Nachfrage verteilt – auch der neue Markt bekommt Ware
+    expect(eu.absatz).toBeGreaterThan(0);
+  });
+  it('Produkteinführung mit Vorlauf und Werksbau mit Bauzeit, Bilanz bleibt ausgeglichen', () => {
+    let s = reich();
+    s.produkteVerfuegbar = ['mountainbike'];
+    let d = standardEntscheidungen(s);
+    d.expansion = { maerkteBetreten: [], produkteEinfuehren: ['mountainbike'], werkeBauen: ['PL'] };
+    for (let i = 0; i < 3; i++) {
+      const r = simulateQuarter(s, d);
+      expect(Math.abs(r.report.bilanz.aktiva - r.report.bilanz.passiva)).toBeLessThan(0.01);
+      s = r.nextState;
+      if (i === 0) {
+        expect(s.produkte.mountainbike?.freigeschaltet).toBe(true);
+        expect(s.werke.find((w) => w.standort === 'PL')?.status).toBe('bau');
+      }
+      d = standardEntscheidungen(s);
+    }
+    const pl = s.werke.find((w) => w.standort === 'PL')!;
+    expect(pl.status).toBe('aktiv');
+    d.werke[pl.id].linienKaufen = [{ typ: 'B', anzahl: 2 }];
+    d.werke[pl.id].personalAenderung = 20;
+    const r = simulateQuarter(s, d);
+    expect(r.nextState.werke.find((w) => w.id === pl.id)!.mitarbeitende).toBeGreaterThan(15);
+  });
+  it('Standardbot erschließt mehrere Regionen und überlebt 60 Quartale', () => {
+    const { state } = spiele(neu(5), 60, bot);
+    expect(state.spielende).toBeNull();
+    expect(state.regionen.EU!.aktiv).toBe(true);
+    expect(state.regionen.NA!.freigeschaltet).toBe(true);
   });
 });

@@ -16,10 +16,9 @@ import { referenzPreis, technikAusStock } from './market';
 import { lernkurve } from './production';
 import { clamp, saison, stk } from './util';
 
-/** Segmente, in denen Konkurrenten in Stufe 1 aktiv sind. */
-export const KONKURRENZ_PRODUKTE: ProductId[] = ['stadtrad', 'ebike'];
-
 export const profilVon = (id: string) => KONKURRENTEN.find((k) => k.id === id)!;
+export const konkurrentProdukte = (k: KonkurrentZustand): ProductId[] => Object.keys(k.produkte) as ProductId[];
+export const konkurrentRegionen = (k: KonkurrentZustand): RegionId[] => k.regionen ?? ['DE'];
 
 function effizienzFaktor(state: GameState): number {
   // Leicht: Effizienz −10 % → Kosten höher; Schwer: +10 % → Kosten niedriger
@@ -31,7 +30,7 @@ export function stueckHk(k: KonkurrentZustand, p: ProductId, kum: number, effizi
   const cfg = PRODUKTE[p];
   const material = cfg.material * BALANCE.produktion.materialFaktor * LIEFERANTEN[k.lieferant].kosten * lk;
   const lohn = cfg.montageStunden * lk * KB.lohnProStunde;
-  return (material + lohn) * effizienz;
+  return (material + lohn) * effizienz * (profilVon(k.id).kostenFaktor ?? 1);
 }
 
 /** Entscheidungsregeln der Konkurrenz (9): Plan für das Quartal `state.quartal`, vor der Spielereingabe. */
@@ -39,36 +38,48 @@ export function planKonkurrenten(state: GameState, rng: Rng): Record<string, Kon
   const plaene: Record<string, KonkurrentPlan> = {};
   const t = state.quartal;
   const schwierig = BALANCE.schwierigkeit[state.einstellungen.schwierigkeit];
+  const spielerJahresumsatz = state.kpiHistorie.slice(-4).reduce((s, k) => s + k.umsatz, 0);
+  const spielerRegionen = (Object.keys(state.regionen) as RegionId[]).filter((r) => state.regionen[r]?.aktiv);
   for (const profil of KONKURRENTEN) {
     const k = state.konkurrenten[profil.id];
     if (!k || k.status === 'pleite') continue;
     const plan: KonkurrentPlan = { produkte: {}, neueLinien: 0 };
     const umsatzGesamt = Math.max(k.letzterUmsatz, 1);
-    for (const p of KONKURRENZ_PRODUKTE) {
-      const pz = k.produkte[p];
-      const mz = state.markt.DE?.[p];
-      if (!pz || !mz) continue;
-      const ref = referenzPreis('DE', p);
-      let preis = profil.preisFaktor * mz.durchschnittspreis * (1 + rng.range(-KB.rauschen, KB.rauschen));
-      if (profil.preisSprung > 0) preis *= 1 + rng.range(-profil.preisSprung, profil.preisSprung);
-      const delta = state.spielerAnteilDelta[p] ?? 0;
-      const reagiert = rng.chance(clamp(profil.aggressivitaet * schwierig.reaktion, 0, 0.95));
-      const senkung = rng.range(KB.senkungMin, KB.senkungMax);
-      if (delta > 0 && reagiert) preis *= 1 - senkung;
-      preis = clamp(preis, 0.5 * ref, 3 * ref);
-
-      const umsatzProdukt = Math.max(pz.letzterAbsatz * pz.letzterPreis, 1);
-      const anteilUmsatz = umsatzProdukt / umsatzGesamt;
-      const marketing = Math.max(KB.mindestMarketing, profil.marketingAnteil * umsatzGesamt * profil.start.marketingSplit[p] * (1 + rng.range(-KB.rauschen, KB.rauschen)));
-      const fe = profil.feAnteil * umsatzGesamt * clamp(anteilUmsatz, 0, 1) * (1 + rng.range(-KB.rauschen, KB.rauschen));
-
+    const reaktionAktiv = !profil.reaktionAbUmsatz || spielerJahresumsatz >= profil.reaktionAbUmsatz;
+    for (const p of konkurrentProdukte(k)) {
+      const pz = k.produkte[p]!;
+      const eintrag: KonkurrentPlanProdukt = { preis: {}, marketing: {}, fe: 0, produktion: 0 };
+      let prognoseGesamt = 0;
+      let umsatzProdukt = 0;
       const wachstum = (1 + PRODUKTE[p].wachstum) * (saison(t) / saison(t - 1));
-      const prognose = pz.letzterAbsatz * wachstum * (1 + rng.range(-KB.rauschen, KB.rauschen));
-      const produktion = Math.max(0, stk(prognose * KB.produktionsAufschlag - pz.lager));
-      const eintrag: KonkurrentPlanProdukt = { preis: { DE: preis }, marketing: { DE: marketing }, fe, produktion };
+      for (const r of konkurrentRegionen(k)) {
+        const mz = state.markt[r]?.[p];
+        if (!mz) continue;
+        const ref = referenzPreis(r, p);
+        let preis = profil.preisFaktor * mz.durchschnittspreis * (1 + rng.range(-KB.rauschen, KB.rauschen));
+        if (profil.preisSprung > 0) preis *= 1 + rng.range(-profil.preisSprung, profil.preisSprung);
+        const delta = state.spielerAnteilDelta[p] ?? 0;
+        const reagiert = rng.chance(clamp(profil.aggressivitaet * schwierig.reaktion, 0, 0.95));
+        const senkung = rng.range(KB.senkungMin, KB.senkungMax);
+        if (reaktionAktiv && delta > 0 && reagiert && spielerRegionen.includes(r)) preis *= 1 - senkung * (profil.reaktionAbUmsatz ? 1.5 : 1);
+        eintrag.preis[r] = clamp(preis, 0.5 * ref, 3 * ref);
+
+        const absatz = pz.absatzR?.[r] ?? 0;
+        const umsatzR = absatz * (pz.preisR?.[r] ?? preis);
+        umsatzProdukt += umsatzR;
+        eintrag.marketing[r] = Math.max(KB.mindestMarketing, profil.marketingAnteil * umsatzR * (1 + rng.range(-KB.rauschen, KB.rauschen)));
+        prognoseGesamt += absatz * wachstum;
+      }
+      eintrag.fe = Math.min(KB.feMaxProProdukt, profil.feAnteil * umsatzProdukt) * (1 + rng.range(-KB.rauschen, KB.rauschen));
+      const prognose = prognoseGesamt * (1 + rng.range(-KB.rauschen, KB.rauschen));
+      eintrag.produktion = Math.max(0, stk(prognose * KB.produktionsAufschlag - pz.lager));
       plan.produkte[p] = eintrag;
     }
-    if (k.letzteAuslastung > KB.ausbauAuslastung && k.kasse > KB.linienKosten * (1.2 - 0.6 * profil.expansionsRisiko)) plan.neueLinien = 1;
+    void umsatzGesamt;
+    // Ausbau bei hoher Auslastung; große Hersteller proportional zu ihrer Größe, aber nur wenn profitabel
+    const neu = Math.max(1, Math.round(k.linien * 0.03));
+    const vorsichtig = profil.zielAnteil ? k.letztesEbit > 0 && k.kasse > neu * KB.linienKosten * 3 : true;
+    if (vorsichtig && k.letzteAuslastung > KB.ausbauAuslastung && k.kasse > KB.linienKosten * neu * (1.2 - 0.6 * profil.expansionsRisiko)) plan.neueLinien = neu;
     plaene[profil.id] = plan;
   }
   return plaene;
@@ -85,14 +96,14 @@ export function produziereKonkurrent(state: GameState, k: KonkurrentZustand, pla
   const eff = effizienzFaktor(state);
   const kapazitaet = k.linien * KB.linieStunden;
   let noetig = 0;
-  for (const p of KONKURRENZ_PRODUKTE) {
+  for (const p of konkurrentProdukte(k)) {
     const pp = plan.produkte[p];
     const pz = k.produkte[p];
     if (pp && pz) noetig += pp.produktion * PRODUKTE[p].montageStunden * lernkurve(pz.kumMenge);
   }
   const faktor = noetig > kapazitaet && noetig > 0 ? kapazitaet / noetig : 1;
   const out: KonkurrentProduktion = { produziert: {}, kosten: 0, stunden: 0 };
-  for (const p of KONKURRENZ_PRODUKTE) {
+  for (const p of konkurrentProdukte(k)) {
     const pp = plan.produkte[p];
     const pz = k.produkte[p];
     if (!pp || !pz) continue;
@@ -110,25 +121,33 @@ export function produziereKonkurrent(state: GameState, k: KonkurrentZustand, pla
   return out;
 }
 
-export function konkurrentAnbieter(k: KonkurrentZustand, plan: KonkurrentPlan, p: ProductId, region: RegionId): Anbieter | null {
+/** Angebot eines Konkurrenten in einem Segment; `kapazitaet` = noch verfügbares Lager */
+export function konkurrentAnbieter(k: KonkurrentZustand, plan: KonkurrentPlan, p: ProductId, region: RegionId, verfuegbar: number): Anbieter | null {
   const pz = k.produkte[p];
   const pp = plan.produkte[p];
-  if (!pz || !pp || k.status === 'pleite') return null;
+  if (!pz || !pp || k.status === 'pleite' || !konkurrentRegionen(k).includes(region)) return null;
+  const preis = pp.preis[region];
+  if (!preis) return null;
   return {
     id: k.id,
-    preis: pp.preis[region] ?? 0,
+    preis,
     marketing: pp.marketing[region] ?? 0,
     bekanntheit: k.bekanntheit[region] ?? 0.01,
     technik: technikAusStock(pz.fe),
     qualitaet: k.qualitaet,
     image: k.image,
-    kapazitaet: pz.lager,
+    kapazitaet: verfuegbar,
+    staerke: k.staerke?.[`${region}:${p}`] ?? 1,
   };
 }
 
-export interface KonkurrentErgebnis {
-  umsatz: number;
-  ebit: number;
+export interface KonkurrentRegionErgebnis {
+  absatz: Partial<Record<ProductId, number>>;
+  preis: Partial<Record<ProductId, number>>;
+  marketing: number;
+  mStar: number;
+  eigen: number;
+  gesamt: number;
 }
 
 /** Vereinfachte Finanzrechnung und Zustandsfortschreibung eines Konkurrenten. */
@@ -136,28 +155,36 @@ export function buchungKonkurrent(
   k: KonkurrentZustand,
   plan: KonkurrentPlan,
   produktion: KonkurrentProduktion,
-  absatz: Partial<Record<ProductId, number>>,
-  anteilRegion: number,
-  mStarVerhaeltnis: number,
-): KonkurrentErgebnis {
+  regionen: Partial<Record<RegionId, KonkurrentRegionErgebnis>>,
+): { umsatz: number; ebit: number } {
   let umsatz = 0;
   let cogs = 0;
   let marketing = 0;
   let fe = 0;
-  for (const p of KONKURRENZ_PRODUKTE) {
-    const pz = k.produkte[p];
+  for (const p of konkurrentProdukte(k)) {
+    const pz = k.produkte[p]!;
     const pp = plan.produkte[p];
-    if (!pz || !pp) continue;
-    const verkauft = Math.min(absatz[p] ?? 0, pz.lager);
-    const preis = pp.preis.DE ?? 0;
-    umsatz += verkauft * preis;
+    if (!pp) continue;
+    let verkauft = 0;
+    let erloes = 0;
+    pz.absatzR = {};
+    pz.preisR = {};
+    for (const [r, e] of Object.entries(regionen) as [RegionId, KonkurrentRegionErgebnis][]) {
+      const a = Math.min(e.absatz[p] ?? 0, pz.lager - verkauft);
+      if (a <= 0 && !(p in e.absatz)) continue;
+      pz.absatzR[r] = a;
+      pz.preisR[r] = e.preis[p] ?? 0;
+      verkauft += a;
+      erloes += a * (e.preis[p] ?? 0);
+    }
+    umsatz += erloes;
     cogs += verkauft * pz.hk;
     pz.lager -= verkauft;
     pz.letzterAbsatz = verkauft;
-    pz.letzterPreis = preis;
-    pz.letztesMarketing = pp.marketing.DE ?? 0;
+    pz.letzterPreis = verkauft > 0 ? erloes / verkauft : pz.letzterPreis;
+    pz.letztesMarketing = Object.values(pp.marketing).reduce((s, x) => s + (x ?? 0), 0);
     pz.letzteProduktion = produktion.produziert[p] ?? 0;
-    marketing += pp.marketing.DE ?? 0;
+    marketing += pz.letztesMarketing;
     fe += pp.fe;
     pz.fe = (1 - BALANCE.technik.veralterung) * pz.fe + pp.fe;
   }
@@ -168,24 +195,27 @@ export function buchungKonkurrent(
   let capex = 0;
   k.linien += k.linienImBau;
   k.linienImBau = 0;
-  if (plan.neueLinien > 0 && k.kasse > KB.linienKosten) {
+  if (plan.neueLinien > 0 && k.kasse > KB.linienKosten * plan.neueLinien) {
     k.linienImBau = plan.neueLinien;
     capex = plan.neueLinien * KB.linienKosten;
   }
   k.kasse += umsatz - produktion.kosten - logistik - marketing - fe - fix - steuer - capex;
   k.letzterUmsatz = umsatz;
   k.letztesEbit = ebit;
-  const lagerWert = KONKURRENZ_PRODUKTE.reduce((s, p) => s + (k.produkte[p] ? k.produkte[p]!.lager * k.produkte[p]!.hk : 0), 0);
+  const lagerWert = konkurrentProdukte(k).reduce((s, p) => s + k.produkte[p]!.lager * k.produkte[p]!.hk, 0);
   k.bilanzsumme = Math.max(0, k.kasse) + k.linien * KB.linienKosten * 0.6 + lagerWert;
 
-  // Markenbekanntheit (5.4)
+  // Markenbekanntheit je Region (5.4)
   const B = BALANCE.marke;
-  const b0 = k.bekanntheit.DE ?? 0.01;
-  k.bekanntheit.DE = clamp(
-    b0 * (1 - B.vergessen) + (1 - b0) * (B.werbewirkung * (1 - Math.exp(-B.werbeSkala * mStarVerhaeltnis)) + B.mundpropaganda * anteilRegion),
-    0.001,
-    0.95,
-  );
+  const profil = profilVon(k.id);
+  for (const [r, e] of Object.entries(regionen) as [RegionId, KonkurrentRegionErgebnis][]) {
+    // Etablierte Marken (kalibrierte Großhersteller) halten ihre Bekanntheit im Gleichgewicht
+    if (profil.zielAnteil?.[r] !== undefined) continue;
+    const b0 = k.bekanntheit[r] ?? 0.01;
+    const verh = e.mStar > 0 ? e.marketing / e.mStar : 0;
+    const anteil = e.gesamt > 0 ? e.eigen / e.gesamt : 0;
+    k.bekanntheit[r] = clamp(b0 * (1 - B.vergessen) + (1 - b0) * (B.werbewirkung * (1 - Math.exp(-B.werbeSkala * verh)) + B.mundpropaganda * anteil), 0.001, 0.95);
+  }
   if (k.kasse < 0) k.pleiteZaehler += 1;
   else k.pleiteZaehler = 0;
   if (k.pleiteZaehler >= KB.pleiteQuartale) k.status = 'pleite';
@@ -194,17 +224,20 @@ export function buchungKonkurrent(
 
 export function neuerKonkurrent(profilId: string): KonkurrentZustand {
   const profil = profilVon(profilId);
+  const gross = !!profil.zielAnteil;
   const produkte: Partial<Record<ProductId, KonkurrentProduktZustand>> = {};
-  for (const p of KONKURRENZ_PRODUKTE) {
+  for (const p of profil.produkte) {
     produkte[p] = {
-      fe: profil.start.feStock[p],
-      kumMenge: KB.startKumProduktion,
+      fe: profil.start.feStock[p] ?? KB.feStockStandard,
+      kumMenge: gross ? KB.startKumGross : KB.startKumProduktion,
       lager: 0,
       hk: 0,
       letzterAbsatz: 0,
       letzterPreis: 0,
       letztesMarketing: 0,
       letzteProduktion: 0,
+      absatzR: {},
+      preisR: {},
     };
   }
   return {
@@ -214,10 +247,10 @@ export function neuerKonkurrent(profilId: string): KonkurrentZustand {
     status: 'aktiv',
     pleiteZaehler: 0,
     kasse: profil.start.kasse,
-    linien: profil.start.linien,
+    linien: profil.start.linien ?? 2,
     linienImBau: 0,
     produkte,
-    bekanntheit: { [profil.heimat]: profil.start.bekanntheit },
+    bekanntheit: { ...profil.start.bekanntheit },
     image: profil.start.image,
     qualitaet: LIEFERANTEN[profil.lieferant].qualitaet,
     lieferant: profil.lieferant,
@@ -225,5 +258,7 @@ export function neuerKonkurrent(profilId: string): KonkurrentZustand {
     letztesEbit: 0,
     letzteAuslastung: 0.7,
     bilanzsumme: 0,
+    regionen: [...profil.regionen],
+    staerke: {},
   };
 }

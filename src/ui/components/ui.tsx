@@ -17,7 +17,7 @@ const ICONS: Record<string, LucideIcon> = {
   energie: L.Zap, zins: L.Percent, streik: L.Megaphone, stahl: L.Anvil, boom: L.Rocket, gesetz: L.Scale, praemie: L.HandCoins,
   sport: L.Medal, lasten: L.Package, fachkraft: L.UserX, schnee: L.Snowflake, bluete: L.Flower2, laub: L.Leaf,
   ereignis: L.Zap, info: L.Info, lager: L.Boxes, testsieg: L.Award, rueckruf: L.Wrench, viral: L.Smartphone, qualitaet: L.ShieldCheck,
-  rakete: L.Rocket, stern: L.Star, schloss: L.Lock, austausch: L.MessagesSquare, ziel: L.Target, kopieren: L.Copy, vorlesen: L.Volume2, kalender: L.CalendarDays,
+  rakete: L.Rocket, stern: L.Star, schloss: L.Lock, austausch: L.MessagesSquare, expansion: L.Globe2, ziel: L.Target, kopieren: L.Copy, vorlesen: L.Volume2, kalender: L.CalendarDays,
 };
 
 export function Icon({ name, className = 'h-5 w-5' }: { name: string; className?: string }) {

@@ -2,8 +2,9 @@ import { motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Konfetti, RechenAnimation } from './Effekte';
 import { Abzeichen } from './Abzeichen';
+import { Weltkarte } from './Weltkarte';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ERFOLGE, PRODUKTE, SPIELER_ID, quartalLabel, type ProductId, type QuarterReport } from '../../engine';
+import { ERFOLGE, PRODUKTE, REGIONEN, SPIELER_ID, quartalLabel, type RegionId, type ProductId, type QuarterReport } from '../../engine';
 import { useGame } from '../../store/gameStore';
 import { eurKompakt, fmt0, fmt2, pct } from '../format';
 import { AnimatedNumber, Icon, IconBadge } from './ui';
@@ -178,14 +179,14 @@ export function Auswertung() {
   const frueher = historie.filter((h) => h.report.quartal < bericht.quartal).map((h) => h.report);
   const rekordUmsatz = frueher.length > 0 && bericht.guv.umsatz > Math.max(...frueher.map((r) => r.guv.umsatz));
   const wiederGewinn = frueher.length > 0 && bericht.guv.ebit > 0 && frueher[frueher.length - 1].guv.ebit <= 0;
-  const feier = frisch && !state.spielende && (rekordUmsatz || wiederGewinn || (bericht.neueErfolge?.length ?? 0) > 0);
+  const feier = frisch && !state.spielende && (rekordUmsatz || wiederGewinn || (bericht.neueErfolge?.length ?? 0) > 0 || (bericht.freischaltungen?.length ?? 0) > 0);
   const { jetzt, vorher } = daten;
   const titelZeitraum =
     zeitraum === 'jahr' && daten.periode.length > 1
       ? `${quartalLabel(daten.periode[0].quartal)} – ${quartalLabel(daten.periode[daten.periode.length - 1].quartal)}`
       : quartalLabel(bericht.quartal);
   const platz = daten.rangliste.findIndex((r) => r.eigen) + 1;
-  const weiter = (ziel: 'zeitung' | 'cockpit' | 'bericht') => {
+  const weiter = (ziel: 'zeitung' | 'cockpit' | 'bericht' | 'expansion') => {
     schliessen();
     gehe(ziel);
   };
@@ -205,6 +206,24 @@ export function Auswertung() {
         {feier && (
           <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.5, type: 'spring' }} className="mx-auto w-fit rounded-full bg-amber-100 px-4 py-1.5 text-sm font-bold text-amber-900">
             {rekordUmsatz ? '🏆 Rekordumsatz!' : wiederGewinn ? '🎉 Zurück in den schwarzen Zahlen!' : '⭐ Neuer Erfolg freigeschaltet!'}
+          </motion.div>
+        )}
+        {(bericht.freischaltungen?.length ?? 0) > 0 && (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }} className="card overflow-hidden p-4">
+            <div className="mb-2 text-center">
+              {bericht.freischaltungen.filter((f) => f.art === 'region').map((f) => (
+                <div key={f.id} className="text-2xl font-black text-brand-700 dark:text-brand-500">🌍 {REGIONEN[f.id as RegionId].name} freigeschaltet!</div>
+              ))}
+              {bericht.freischaltungen.filter((f) => f.art === 'produkt').map((f) => (
+                <div key={f.id} className="mt-1 flex items-center justify-center gap-2 text-lg font-bold"><BikeIcon produkt={f.id as ProductId} className="h-7 w-11" /> Neues Produkt verfügbar: {PRODUKTE[f.id as ProductId].name}</div>
+              ))}
+            </div>
+            {bericht.freischaltungen.some((f) => f.art === 'region') && (
+              <Weltkarte state={state} leuchten={bericht.freischaltungen.filter((f) => f.art === 'region').map((f) => f.id as RegionId)} kompakt />
+            )}
+            <div className="mt-3 flex justify-center">
+              <button className="btn-primary" onClick={() => weiter('expansion')}>Zur Expansion <Icon name="chevron" className="h-4 w-4" /></button>
+            </div>
           </motion.div>
         )}
         {bericht.neueErfolge?.length > 0 && (

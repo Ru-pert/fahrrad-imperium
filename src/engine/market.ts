@@ -14,6 +14,8 @@ export interface Anbieter {
   image: number;
   /** Maximal lieferbare Menge in diesem Segment (Lager + Produktion) */
   kapazitaet: number;
+  /** Kalibrierte Stärke (Händlernetz, Präsenz) – Faktor auf die Attraktivität */
+  staerke?: number;
 }
 
 export interface SegmentInput {
@@ -108,7 +110,8 @@ function attraktivitaeten(inp: SegmentInput, volumen: number, pBar: number, tBar
       werbung *
       Math.pow(x.qualitaet, B.kappa) *
       (1 + B.imageSpanne * ((x.image - 50) / 50)) *
-      marktfaehigkeit(index);
+      marktfaehigkeit(index) *
+      (x.staerke ?? 1);
   }
   return { a, mStar, ti };
 }
@@ -199,7 +202,9 @@ export function kalibriereSegment(
   spielerId: string,
   tRestStart: number,
   zielAnteil: number,
-): { zustand: MarktSegmentZustand; ergebnis: SegmentOutput } {
+  /** Zielanteile weiterer Anbieter (deren Stärke wird kalibriert) */
+  ziele: Record<string, number> = {},
+): { zustand: MarktSegmentZustand; ergebnis: SegmentOutput; staerke: Record<string, number> } {
   const ref = referenzPreis(region, produkt);
   let zustand: MarktSegmentZustand = {
     a0Start: 1,
@@ -210,9 +215,16 @@ export function kalibriereSegment(
     volumen: startVolumen(region, produkt),
   };
   let out = berechneSegment({ region, produkt, t: 0, anbieter, zustand });
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 14; i++) {
+    const n = out.a[spielerId] / zielAnteil;
+    for (const x of anbieter) {
+      const ziel = ziele[x.id];
+      if (ziel === undefined || !(out.a[x.id] > 0)) continue;
+      x.staerke = (x.staerke ?? 1) * ((ziel * n) / out.a[x.id]);
+      out.a[x.id] = ziel * n;
+    }
     const aSum = Object.values(out.a).reduce((s, x) => s + x, 0);
-    const a0 = out.a[spielerId] / zielAnteil - aSum;
+    const a0 = n - aSum;
     zustand = { ...zustand, a0Start: Math.max(a0, 1e-9), anteile: out.anteile };
     out = berechneSegment({ region, produkt, t: 0, anbieter, zustand });
   }
@@ -223,7 +235,9 @@ export function kalibriereSegment(
     tBar: out.tBar,
     volumen: out.volumen,
   };
-  return { zustand, ergebnis: out };
+  const staerke: Record<string, number> = {};
+  for (const x of anbieter) if (ziele[x.id] !== undefined) staerke[x.id] = x.staerke ?? 1;
+  return { zustand, ergebnis: out, staerke };
 }
 
 export { clamp };
