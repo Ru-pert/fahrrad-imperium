@@ -10,7 +10,7 @@ import { BikeIcon, PRODUKT_FARBE } from './BikeIcon';
 import { NumberField } from './ui';
 
 const SP = 230;
-const ZE = 120;
+const ZE = 150;
 const R = 38;
 
 /** Kleine Kurve: erwartete Marktentwicklung eines Segments in den nächsten 40 Quartalen */
@@ -96,7 +96,7 @@ export function Forschungsbaum({ state, d, aendere }: { state: GameState; d: Dec
   const [auswahl, setAuswahl] = useState<string>(() => status.find((s) => s.offen && !s.fertig)?.projekt.id ?? FORSCHUNG[0].id);
   const pos = (spalte: number, zeile: number) => [80 + spalte * SP, 70 + zeile * ZE] as const;
   const breite = 80 + 2 * SP + 140;
-  const hoehe = 70 + 2 * ZE + 90;
+  const hoehe = 70 + 2 * ZE + 100;
   const start = pos(0, 1);
   const st = status.find((s) => s.projekt.id === auswahl)!;
   const budget = d.forschung?.[auswahl] ?? 0;

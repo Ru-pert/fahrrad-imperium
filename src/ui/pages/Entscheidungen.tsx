@@ -29,6 +29,7 @@ import { HebelPanel, HebelZeile } from '../components/Hebel';
 import { useHebel, type HebelWirkung } from '../hebel';
 import { LinienVerwaltung, WerksAnsicht } from '../components/Werk';
 import { Forschungsbaum } from '../components/Forschungsbaum';
+import { FinanzSzene, LieferketteSzene, MarketingSzene, PreisSzene, TeamSzene } from '../components/Szenen';
 import { KapazitaetsGrafik, PersonalErklaerung, TechnikVergleich } from '../components/Erklaer';
 
 type AendereFn = (fn: (d: Decisions) => void) => void;
@@ -245,7 +246,7 @@ function Personal({ state, d, aendere, vorschau, hebel }: Ctx) {
         const maxMinus = Math.floor(w.mitarbeitende * 0.2);
         return (
           <Card key={w.id} titel={`Werk ${w.name}`}>
-            <div className="muted mb-2 text-sm tnum">{w.mitarbeitende} Mitarbeitende · Motivation {w.motivation.toFixed(2).replace('.', ',')} · Kompetenz {w.kompetenz.toFixed(2).replace('.', ',')}</div>
+            <TeamSzene state={state} d={d} werkId={w.id} />
             <NumberField
               label="Einstellen (+) / Entlassen (−)"
               value={e.personalAenderung}
@@ -450,9 +451,9 @@ interface Schritt {
   render: (c: Ctx) => ReactNode;
 }
 const SCHRITTE: Schritt[] = [
-  { id: 'preise', icon: 'preis', farbe: '#0d9488', titel: 'Preise', render: (c) => <Preise {...c} /> },
+  { id: 'preise', icon: 'preis', farbe: '#0d9488', titel: 'Preise', render: (c) => <><PreisSzene state={c.state} d={c.d} vorschau={c.vorschau} /><Preise {...c} /></> },
   { id: 'produktion', icon: 'produktion', farbe: '#475569', titel: 'Produktion', render: (c) => <Produktion {...c} /> },
-  { id: 'marketing', icon: 'marketing', farbe: '#db2777', titel: 'Marketing', render: (c) => <Marketing {...c} /> },
+  { id: 'marketing', icon: 'marketing', farbe: '#db2777', titel: 'Marketing', render: (c) => <><MarketingSzene state={c.state} d={c.d} vorschau={c.vorschau} /><Marketing {...c} /></> },
   {
     id: 'fe', icon: 'fe', farbe: '#7c3aed', titel: 'Forschung & Entwicklung',
     render: (c) => (
@@ -466,8 +467,8 @@ const SCHRITTE: Schritt[] = [
   },
   { id: 'personal', icon: 'personal', farbe: '#2563eb', titel: 'Personal', render: (c) => <Personal {...c} /> },
   { id: 'werk', icon: 'werk', farbe: '#b45309', titel: 'Werk & Linien', render: (c) => <WerkBereich {...c} /> },
-  { id: 'lieferkette', icon: 'lieferkette', farbe: '#0891b2', titel: 'Lieferkette', render: (c) => <Lieferkette {...c} /> },
-  { id: 'finanzen', icon: 'geld', farbe: '#16a34a', titel: 'Finanzen', render: (c) => <FinanzenBereich {...c} /> },
+  { id: 'lieferkette', icon: 'lieferkette', farbe: '#0891b2', titel: 'Lieferkette', render: (c) => <><LieferketteSzene state={c.state} d={c.d} /><Lieferkette {...c} /></> },
+  { id: 'finanzen', icon: 'geld', farbe: '#16a34a', titel: 'Finanzen', render: (c) => <><FinanzSzene state={c.state} d={c.d} /><FinanzenBereich {...c} /></> },
 ];
 
 export function Entscheidungen() {
@@ -507,7 +508,7 @@ export function Entscheidungen() {
           </div>
           <div className="grid gap-4 xl:grid-cols-2">
             {SCHRITTE.map((s) => (
-              <div key={s.id} className={s.id === 'werk' || s.id === 'fe' ? 'xl:col-span-2' : ''}>
+              <div key={s.id} className={['werk', 'fe', 'marketing', 'lieferkette', 'finanzen'].includes(s.id) ? 'xl:col-span-2' : ''}>
                 <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><IconBadge name={s.icon} farbe={s.farbe} groesse="sm" /><span className="muted">{s.titel}</span></h2>
                 {s.render(ctx)}
               </div>
