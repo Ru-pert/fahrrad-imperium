@@ -1,4 +1,5 @@
 import { klang } from '../ui/klang';
+import { trageInBestenlisteEin } from './bestenliste';
 import { create } from 'zustand';
 import {
   neuesSpiel,
@@ -29,6 +30,10 @@ interface Store {
   hinweise: Hinweis[];
   dunkel: boolean;
   reduziert: boolean;
+  /** Endabrechnung, die gerade gezeigt wird */
+  endabrechnung: import('../engine/spielziel').Wertung | null;
+  zeigeEndabrechnung: (w: import('../engine/spielziel').Wertung | null) => void;
+  weiterspielen: () => void;
   /** Region, die die Markt-Seite beim Öffnen zeigt */
   marktRegion: RegionId | null;
   zeigeMarkt: (r: RegionId) => void;
@@ -87,6 +92,16 @@ export const useGame = create<Store>((set, get) => ({
   dunkel: document.documentElement.classList.contains('dark'),
   reduziert: lsGet('fi-reduced') === '1',
   marktRegion: null,
+  endabrechnung: null,
+  zeigeEndabrechnung(w) {
+    set({ endabrechnung: w });
+  },
+  weiterspielen() {
+    const { state } = get();
+    if (!state) return;
+    set({ state: { ...state, endlos: true }, endabrechnung: null });
+    void get().speichereSlot('auto', 'Autosave');
+  },
   zeigeMarkt(r) {
     set({ marktRegion: r });
     get().gehe('markt');
@@ -153,7 +168,9 @@ export const useGame = create<Store>((set, get) => ({
       entwurf: standardEntscheidungen(nextState),
       frischerBericht: report,
       auswertungFrisch: true,
+      endabrechnung: report.endwertung ?? null,
     });
+    if (report.endwertung) trageInBestenlisteEin(nextState, report.endwertung);
     void get().speichereSlot('auto', 'Autosave');
     return report;
   },

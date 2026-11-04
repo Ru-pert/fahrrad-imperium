@@ -52,6 +52,9 @@ export function beraterTipps(state: GameState, vorschau: QuarterReport | null, b
     const [r, p] = zuf[0].split(':') as [RegionId, keyof typeof PRODUKTE];
     t.push({ stimmung: 'warn', text: `Die Kundschaft für dein ${PRODUKTE[p]?.name ?? 'Rad'} in ${REGIONEN[r]?.name ?? r} ist unzufrieden (${fmt0(zuf[1])} von 100). Keine weiteren Preiserhöhungen – besser Qualität und Liefertreue!` });
   }
+  if (bericht && (bericht.guv.koordination ?? 0) > 0.08 * bericht.guv.umsatz) t.push({ stimmung: 'info', text: `Dein Imperium wird träge: Koordination kostet schon ${eurKompakt(bericht.guv.koordination ?? 0)} im Quartal. Jedes weitere Werk, jeder Markt und jedes Produkt muss sich lohnen.` });
+  const rest = 60 - state.quartal;
+  if (!state.endwertung && rest > 0 && rest <= 4) t.unshift({ stimmung: 'info', text: `Endspurt! Noch ${rest} Quartal${rest > 1 ? 'e' : ''} bis zur Endabrechnung. Jetzt zählen Unternehmenswert, Weltrang und Image.` });
   const bereit = (['EU', 'NA', 'AS', 'RW'] as RegionId[]).filter((r) => state.regionen[r]?.freigeschaltet && !state.regionen[r]?.aktiv);
   if (bereit.length) t.push({ stimmung: 'info', text: `${REGIONEN[bereit[0]].name} wartet auf dich! Der Markteintritt kostet ${eurKompakt(REGIONEN[bereit[0]].eintritt)}.`, ziel: 'expansion', zielText: 'Zur Expansion' });
   const forscht = Object.values(state.letzteEntscheidungen?.forschung ?? {}).some((x) => (x ?? 0) > 0);

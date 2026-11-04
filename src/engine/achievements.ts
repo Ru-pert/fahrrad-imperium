@@ -49,7 +49,7 @@ export const ERFOLGE: ErfolgDef[] = [
   { id: 'pleitegeier', name: 'Pleitegeier verjagt', bedingung: 'Rettungsangebot angenommen und 4 Quartale überlebt', icon: 'warn', farbe: '#64748b', pruefe: (s) => !!s.finanzen.rettungGenutzt && !s.spielende && s.finanzen.kritischZaehler === 0 && rettungVorMindestens(s, 4) },
   { id: 'milliardaer', name: 'Milliardär', bedingung: 'Jahresumsatz ≥ 1 Mrd. €', icon: 'wert', farbe: '#ca8a04', pruefe: (s) => s.kpiHistorie.slice(-4).reduce((a, k) => a + k.umsatz, 0) >= 1e9 },
   { id: 'marktfuehrer_europa', name: 'Marktführer Europa', bedingung: 'Platz 1 in Europa nach Umsatz', icon: 'testsieg', farbe: '#2563eb', spaeter: true },
-  { id: 'imperator', name: 'Imperator', bedingung: 'Weltmarktführer (4 Quartale Platz 1)', icon: 'testsieg', farbe: '#a16207', spaeter: true },
+  { id: 'imperator', name: 'Imperator', bedingung: 'Weltmarktführer (4 Quartale Platz 1)', icon: 'testsieg', farbe: '#a16207', pruefe: (s) => s.kpiHistorie.length >= 4 && s.kpiHistorie.slice(-4).every((k) => k.weltrang === 1) },
 ];
 
 /** Rettung liegt mindestens n Quartale zurück (gemessen an der Kapitalerhöhung in der Historie nicht verfügbar → über Quartal der Annahme) */

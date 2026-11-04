@@ -14,7 +14,7 @@ Diese Datei hält fest, was umgesetzt ist, wo das Spiel bewusst von der [Spezifi
 | 6 | Expansion: Regionen, Meilensteine, Werke, weitere Konkurrenten, Weltkarte, Weltrangliste | fertig |
 | 7 | Isometrisches Werksgelände, Firmensitz mit Shop | fertig |
 | 8 | Börse, Übernahmen, Marktforschung, Spionage | teilweise – Marktforschung (4 Produkte) und Spionage fertig; Börse und Übernahmen offen |
-| 9 | Erfolge, Animationen, Feinschliff, Balancing | teilweise (Erfolge, Animationen, eigene Symbolsprache, Klänge, Quartalswechsel-Szene, Beraterin, Garage, Startbildschirm; Balancing offen) |
+| 9 | Erfolge, Animationen, Feinschliff, Balancing | größtenteils – Erfolge, Animationen, Symbolsprache, Klänge, Beraterin, Garage; Balancing-Runde 3 mit Spielziel und Endabrechnung |
 
 ## Bewusste Abweichungen von der Spezifikation
 
@@ -39,11 +39,15 @@ Diese Datei hält fest, was umgesetzt ist, wo das Spiel bewusst von der [Spezifi
 - **Rettungsangebot** statt sofortiger Insolvenz (einmalig); ohne Antwort gilt „annehmen“.
 - **Marktforschung** wird sofort angezeigt (Daten des Vorquartals mit Rauschen, geseedet je Quartal), gebucht beim Abschluss; Spionage zeigt `konkurrenzPlaene` exakt, 10 % Planänderung, Entdeckung mit Strafe, Image −15 und Rache-Preisen.
 
-## Balancing-Stand (Standard-Bot, `src/engine/bot.ts`)
+## Balancing-Stand (Runde 3, `src/engine/config/spielziel.ts`)
 
-- E-Bike erforscht ≈ Q7, weitere Produkte bis ≈ Q16; Features ab ≈ Q12, Fluxkompensator ≈ Q39.
-- Europa ≈ Q7–Q20 (je nach Verlauf), Nordamerika ≈ Q15–Q20, Asien ≈ Q24–Q33, Rest der Welt ≈ Q36–Q44.
-- Offen: Margen bei großer Skalierung zu hoch; Weltmarktführerschaft gegen Golden Spoke kaum erreichbar; „Alles maximal“ führt zur Pleite (gewollt).
+- **Koordinationskosten** (GuV-Zeile „Koordination“): +1,2 % vom Umsatz je weiteres Werk, +1,4 % je weitere Region, +0,7 % je weiteres Produkt, max. 14 %.
+- **Preiskampf:** Erreicht der Spieler die Hälfte des Umsatzes eines Konkurrenten, senkt dieser in den Spielermärkten dauerhaft die Preise (−5 %) und wirbt 30 % mehr.
+- **Feature-Nachbau:** nach 4 Quartalen 60 % der Wirkung (Technik, positive Qualität/Nachfrage) für alle Konkurrenten.
+- **Golden Spoke** startet kleiner (Zielanteile AS 14 %, RW 5,5 %, NA/EU 2,2 %) und altert ab Q8: Stärke ×0,975/Q (min. 0,3), Linien ×0,985/Q, kein Ausbau. Ergebnis: GS ≈ 1,1–1,3 Mrd. €/Q am Ende, der Standard-Bot erreicht ≈ 40 % davon (Platz 2) – ein starker Spieler kann GS überholen.
+- **Bot-Ergebnisse (60 Q):** EBIT-Marge spät 10–19 % (vorher 30–40 %), Kasse 0,3–0,8 Mrd. € (vorher bis 2 Mrd.).
+- **Spielziel:** Endabrechnung nach 60 Quartalen (oder bei Insolvenz ×0,4): Unternehmenswert (log, bis 350), Weltrang (bis 250), Regionen (25 je), Erfolge (5 je, max. 100), Image/Nachhaltigkeit (bis 100). Stufen: Garagenbastler 0, Werkstattmeister 200, Fahrradfabrikant 350, Branchengröße 500, Konzernlenker 640, Fahrrad-Kaiser 800. Bot ≈ 660–680 (Konzernlenker), Nichtstun ≈ 130–160. Danach Weiterspielen ohne Wertung möglich; Bestenliste lokal im Browser.
+- Erfolg **Imperator** (4 Quartale Weltrang 1) ist erreichbar; der Weltrang steht in `kpiHistorie[].weltrang`.
 
 ## Wichtige Dateien
 

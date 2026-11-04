@@ -1,5 +1,6 @@
 /** Forschung & Entwicklung neuer Produkte (Forschungsbaum). */
 import { FORSCHUNG, FORSCHUNG_BALANCE, type ForschungsProjekt } from './config/research';
+import { KONKURRENZ_DRUCK } from './config/spielziel';
 import { FEATURES, FEATURE_BALANCE, type FeatureProjekt, type FeatureWirkung } from './config/features';
 import { PRODUKTE } from './config/products';
 import { herstellkosten, lernkurve } from './production';
@@ -62,6 +63,22 @@ export function featureWirkung(s: GameState, p: ProductId): Required<Pick<Featur
     material *= 1 + (f.wirkung.material ?? 0);
   }
   return { technik, qualitaet, nachfrage, material };
+}
+
+/** Was die Konkurrenz von deinen Features nachgebaut hat (nach einigen Quartalen, abgeschwächt) */
+export function nachbauWirkung(s: GameState, p: ProductId, t: number): { technik: number; qualitaet: number; nachfrage: number } {
+  const K = KONKURRENZ_DRUCK;
+  let technik = 0;
+  let qualitaet = 0;
+  let nachfrage = 1;
+  for (const f of FEATURES) {
+    const fertig = s.forschung?.[f.id]?.fertigIm;
+    if (fertig === undefined || t - fertig < K.nachbauNachQuartalen || !f.fuer.includes(p)) continue;
+    technik += K.nachbauAnteil * (f.wirkung.technik ?? 0);
+    qualitaet += K.nachbauAnteil * Math.max(0, f.wirkung.qualitaet ?? 0);
+    nachfrage *= 1 + K.nachbauAnteil * Math.max(0, f.wirkung.nachfrage ?? 0);
+  }
+  return { technik, qualitaet, nachfrage };
 }
 
 /** Unternehmensweite Wirkungen fertiger Features (Image, Nachhaltigkeit) */
