@@ -63,6 +63,7 @@ import { clamp, stk, sum } from './util';
 import { SPIELER_ID } from './util';
 import { ereignisEffekte, naechsteEreignisse, ereignisDef } from './events';
 import { erzeugeZeitung } from './zeitung';
+import { forscheQuartal, normalisiereForschung } from './forschung';
 import { normalisiereExpansion, pruefeFreischaltungen, schliesseExpansionAb, starteExpansion } from './expansion';
 import { pruefeErfolge } from './achievements';
 import { VORFAELLE } from './config/events';
@@ -181,6 +182,13 @@ export function simulateQuarter(
     s.unternehmen.firmensitz.anschaffung += kosten;
     meldungen.push(`Firmensitz ausgebaut: ${HQ_STUFEN[idx].name}`);
   }
+
+  // ------------------------------------------------------------ Forschung
+  const forschungsBudgets = normalisiereForschung(s, dec, warn);
+  dec.forschung = { ...(dec.forschung ?? {}) };
+  for (const id of Object.keys(dec.forschung)) if (!(id in forschungsBudgets)) delete dec.forschung[id];
+  Object.assign(dec.forschung, forschungsBudgets);
+  const forschungsAufwand = sum(Object.values(forschungsBudgets));
 
   // ------------------------------------------------------------ Expansion (Markteintritt, Produkte, Werke)
   const expansion = normalisiereExpansion(s, dec, warn);
@@ -628,7 +636,7 @@ export function simulateQuarter(
 
   // ------------------------------------------------------------ GuV
   const marketingSumme = sum(produkte.flatMap((p) => regionen.map((r) => dec.marketing[p]?.[r] ?? 0)));
-  const feSumme = sum(produkte.map((p) => dec.fe[p] ?? 0));
+  const feSumme = sum(produkte.map((p) => dec.fe[p] ?? 0)) + forschungsAufwand;
   const nbBudget = dec.nachhaltigkeitsbudget;
   const personalKosten = sum(werkRes.map((r) => r.hireFireTrain + r.leer + r.premium));
   const fgk =
@@ -891,11 +899,16 @@ export function simulateQuarter(
     image: s.unternehmen.image, absatz: sum(produkte.map((p) => verkauft[p] ?? 0)),
   });
 
-  // ------------------------------------------------------------ Expansion abschließen, Freischaltungen
+  // ------------------------------------------------------------ Forschung abschließen, Expansion, Freischaltungen
+  const erforscht = forscheQuartal(s, forschungsBudgets, t);
   meldungen.push(...schliesseExpansionAb(s, t));
   const freischaltungen = zufall ? pruefeFreischaltungen(s) : [];
+  for (const p of erforscht) {
+    freischaltungen.push({ art: 'produkt', id: p.produkt });
+    meldungen.push(`Forschung abgeschlossen: ${p.name} – ab sofort kannst du ${PRODUKTE[p.produkt].name}s bauen!`);
+  }
   for (const f of freischaltungen) {
-    meldungen.push(f.art === 'region' ? `Meilenstein erreicht: ${REGIONEN[f.id as RegionId].name} ist freigeschaltet!` : `Neues Produkt verfügbar: ${PRODUKTE[f.id as ProductId].name}.`);
+    if (f.art === 'region') meldungen.push(`Meilenstein erreicht: ${REGIONEN[f.id as RegionId].name} ist freigeschaltet!`);
   }
 
   // ------------------------------------------------------------ Nächstes Quartal

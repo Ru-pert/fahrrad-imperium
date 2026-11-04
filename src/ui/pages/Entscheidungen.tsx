@@ -28,6 +28,7 @@ import { BikeIcon } from '../components/BikeIcon';
 import { HebelPanel, HebelZeile } from '../components/Hebel';
 import { useHebel, type HebelWirkung } from '../hebel';
 import { LinienVerwaltung, WerksAnsicht } from '../components/Werk';
+import { Forschungsbaum } from '../components/Forschungsbaum';
 import { KapazitaetsGrafik, PersonalErklaerung, TechnikVergleich } from '../components/Erklaer';
 
 type AendereFn = (fn: (d: Decisions) => void) => void;
@@ -208,7 +209,7 @@ function Marketing({ state, d, aendere, vorschau, hebel }: Ctx) {
 
 function ForschungEntwicklung({ state, d, aendere, vorschau, hebel }: Ctx) {
   return (
-    <Card titel="F&E-Budget je Quartal">
+    <Card titel="Technik verbessern: F&E-Budget je Produkt" icon="qualitaet" farbe="#7c3aed">
       {aktiveProdukte(state).map((p) => {
         const fe = d.fe[p] ?? 0;
         return (
@@ -452,7 +453,17 @@ const SCHRITTE: Schritt[] = [
   { id: 'preise', icon: 'preis', farbe: '#0d9488', titel: 'Preise', render: (c) => <Preise {...c} /> },
   { id: 'produktion', icon: 'produktion', farbe: '#475569', titel: 'Produktion', render: (c) => <Produktion {...c} /> },
   { id: 'marketing', icon: 'marketing', farbe: '#db2777', titel: 'Marketing', render: (c) => <Marketing {...c} /> },
-  { id: 'fe', icon: 'fe', farbe: '#7c3aed', titel: 'F&E', render: (c) => <ForschungEntwicklung {...c} /> },
+  {
+    id: 'fe', icon: 'fe', farbe: '#7c3aed', titel: 'Forschung & Entwicklung',
+    render: (c) => (
+      <div className="space-y-3">
+        <Card titel="Labor: neue Produkte erforschen" icon="fe" farbe="#7c3aed">
+          <Forschungsbaum state={c.state} d={c.d} aendere={c.aendere} />
+        </Card>
+        <ForschungEntwicklung {...c} />
+      </div>
+    ),
+  },
   { id: 'personal', icon: 'personal', farbe: '#2563eb', titel: 'Personal', render: (c) => <Personal {...c} /> },
   { id: 'werk', icon: 'werk', farbe: '#b45309', titel: 'Werk & Linien', render: (c) => <WerkBereich {...c} /> },
   { id: 'lieferkette', icon: 'lieferkette', farbe: '#0891b2', titel: 'Lieferkette', render: (c) => <Lieferkette {...c} /> },
@@ -496,7 +507,7 @@ export function Entscheidungen() {
           </div>
           <div className="grid gap-4 xl:grid-cols-2">
             {SCHRITTE.map((s) => (
-              <div key={s.id} className={s.id === 'werk' ? 'xl:col-span-2' : ''}>
+              <div key={s.id} className={s.id === 'werk' || s.id === 'fe' ? 'xl:col-span-2' : ''}>
                 <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide"><IconBadge name={s.icon} farbe={s.farbe} groesse="sm" /><span className="muted">{s.titel}</span></h2>
                 {s.render(ctx)}
               </div>

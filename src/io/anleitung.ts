@@ -29,6 +29,7 @@ ENTSCHEIDUNGS-JSON (format "fahrrad-imperium/entscheidungen", version 1):
   "nachhaltigkeitsbudget": <€>,
   "finanzen": { "darlehenNeu": <€ bis freiesKreditlimit>, "tilgungExtra": <€>, "dividende": <€ ≤ Gewinnrücklagen> },
   "firmensitz": { "kaufen": [ "<nächste Stufe oder Extra-id>" ] },
+  "forschung": { "<projekt-id>": <€ je Quartal> },
   "expansion": { "maerkteBetreten": [ "EU" | "NA" | "AS" | "RW" ], "produkteEinfuehren": [ "<produkt-id>" ], "werkeBauen": [ "DE" | "PL" | "US" | "MX" | "VN" | "BR" ] },
   "begruendung": "<1–3 Sätze>"
 }
@@ -40,7 +41,8 @@ WERTEBEREICHE UND REGELN
   Kapazität = min(Maschinenstunden, Personalstunden × 1,15). Überstunden (über Personalstunden) kosten +50 % Lohn, 20.000 € Schichtkosten, Qualität −0,03.
 - Neue Linien: Bauzeit 1 Quartal, max. 4 je Quartal, nur auf freien Hallenplätzen; Halle erweitern erst, wenn alle Plätze belegt (5 Mio. €).
 - Gesperrte Bereiche stehen in optionen.gesperrt (Komplexitätsstufe) – Werte dort werden ignoriert.
-- Expansion: nur freigeschaltete Regionen/Produkte (siehe optionen). Markteintritt kostet einmalig (EU 2 Mio., NA 15 Mio., AS 40 Mio., RW 100 Mio. €), Verkauf ab Folgequartal. Produkteinführung 500.000 €, 1 Quartal Vorlauf. Werke: 2–3 Quartale Bauzeit, starten leer (Linien kaufen, Personal einstellen).
+- Forschung: Neue Produkte entstehen nur über Forschungsprojekte (optionen.forschung: Kosten, Mindestdauer, Voraussetzungen). Das Budget läuft weiter, bis es geändert wird; fertig, wenn Kosten erreicht UND Mindestdauer vorbei. Märkte entwickeln sich unterschiedlich (optionen.marktTrends).
+- Expansion: nur freigeschaltete Regionen (siehe optionen). Markteintritt kostet einmalig (EU 2 Mio., NA 15 Mio., AS 40 Mio., RW 100 Mio. €), Verkauf ab Folgequartal. Produkteinführung 500.000 €, 1 Quartal Vorlauf. Werke: 2–3 Quartale Bauzeit, starten leer (Linien kaufen, Personal einstellen).
 - Darlehen: 8 Quartale lineare Tilgung, Zins = konditionen.darlehenszinsNeu. Kontokorrent (12 %) springt automatisch ein.
 
 WIRKUNGEN (kurz)

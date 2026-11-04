@@ -3,7 +3,7 @@ import { KONKURRENTEN, KONKURRENT_BALANCE as KB } from './config/competitors';
 import { LINIENTYPEN, PRODUKTE, PRODUKT_IDS, STARTPRODUKTE } from './config/products';
 import { REGION_IDS } from './config/markets';
 import { Rng } from './rng';
-import type { GameState, Kredit, Linie, Schwierigkeit, Werk } from './types';
+import type { GameState, Kredit, Linie, ProductId, Schwierigkeit, Werk } from './types';
 import { konkurrentProdukte, neuerKonkurrent, planKonkurrenten, profilVon, stueckHk } from './competitors';
 import { startEntscheidungen } from './decisions';
 import { baueBilanz } from './finance';
@@ -18,6 +18,8 @@ export interface NeuesSpielOptionen {
   schwierigkeit: Schwierigkeit;
   profi: boolean;
   seed: number;
+  /** Produkte im Programm beim Start (Standard: nur Stadtrad; neue Produkte kommen über die Forschung) */
+  startProdukte?: ProductId[];
 }
 
 export { SPIELER_ID } from './util';
@@ -56,7 +58,9 @@ export function neuesSpiel(opt: NeuesSpielOptionen): GameState {
   };
 
   const produkte: GameState['produkte'] = {};
-  for (const p of STARTPRODUKTE) {
+  const startProdukte = opt.startProdukte ?? STARTPRODUKTE;
+  const startAnteil = startProdukte.length > 1 ? BALANCE.restmarkt.startAnteil : START.anteilNurStadtrad;
+  for (const p of startProdukte) {
     const lk = lernkurve(START.kumProduktion);
     const hk = herstellkosten(p, werk, 1, lk).hk;
     produkte[p] = {
@@ -112,7 +116,7 @@ export function neuesSpiel(opt: NeuesSpielOptionen): GameState {
       kritischZaehler: 0,
     },
     regionen: Object.fromEntries(
-      REGION_IDS.map((r) => [r, r === 'DE' ? { aktiv: true, freigeschaltet: true, aktivSeit: 0, bekanntheit: START.bekanntheit, marktanteil: BALANCE.restmarkt.startAnteil } : { aktiv: false, freigeschaltet: false, bekanntheit: 0, marktanteil: 0 }]),
+      REGION_IDS.map((r) => [r, r === 'DE' ? { aktiv: true, freigeschaltet: true, aktivSeit: 0, bekanntheit: START.bekanntheit, marktanteil: startAnteil } : { aktiv: false, freigeschaltet: false, bekanntheit: 0, marktanteil: 0 }]),
     ),
     regionenReihenfolge: ['DE'],
     produkteVerfuegbar: [],
@@ -123,7 +127,7 @@ export function neuesSpiel(opt: NeuesSpielOptionen): GameState {
     konkurrenzPlaene: {},
     konkurrenzVorquartal: {},
     spielerAnteilDelta: {},
-    letzteEntscheidungen: startEntscheidungen(),
+    letzteEntscheidungen: startEntscheidungen(startProdukte),
     ebitdaHistorie: [...START.historieEbitda],
     umsatzHistorie: [...START.historieUmsatz],
     ebitHistorie: START.historieEbitda.map((x) => x * 0.5),
@@ -150,7 +154,7 @@ export function neuesSpiel(opt: NeuesSpielOptionen): GameState {
       const ref = referenzPreis(r, p);
       const v0 = startVolumen(r, p);
       const e = START.entscheidungen;
-      const istStart = r === 'DE' && (p === 'stadtrad' || p === 'ebike');
+      const istStart = r === 'DE' && startProdukte.includes(p);
       const spieler: Anbieter = {
         id: SPIELER_ID,
         preis: istStart ? e.preis[p as 'stadtrad' | 'ebike'] : ref,
@@ -181,7 +185,7 @@ export function neuesSpiel(opt: NeuesSpielOptionen): GameState {
           kapazitaet: 1e12,
         });
       }
-      const kal = kalibriereSegment(r, p, anbieter, SPIELER_ID, BALANCE.restmarkt.technikStart[p], BALANCE.restmarkt.startAnteil, ziele);
+      const kal = kalibriereSegment(r, p, anbieter, SPIELER_ID, BALANCE.restmarkt.technikStart[p], istStart ? startAnteil : BALANCE.restmarkt.startAnteil, ziele);
       // Der Spieler ist nur in DE mit seinen Startprodukten am Markt
       if (!istStart) {
         const { [SPIELER_ID]: _weg, ...rest } = kal.zustand.anteile;

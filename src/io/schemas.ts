@@ -36,6 +36,7 @@ export const entscheidungsSchema = z.object({
   expansion: z
     .object({ maerkteBetreten: z.array(z.string()).optional(), produkteEinfuehren: z.array(z.string()).optional(), werkeBauen: z.array(z.string()).optional(), uebernahmen: z.array(z.unknown()).optional() })
     .optional(),
+  forschung: z.record(z.string(), zahl).optional(),
   begruendung: z.string().optional(),
 });
 
@@ -43,7 +44,7 @@ export type EntscheidungsEingabe = z.infer<typeof entscheidungsSchema>;
 
 /** Bekannte Schlüssel je Ebene – alles andere wird mit Warnung ignoriert */
 export const BEKANNT = {
-  oben: ['format', 'version', 'quartal', 'produkte', 'werke', 'lieferanten', 'nachhaltigkeitsbudget', 'finanzen', 'firmensitz', 'expansion', 'begruendung'],
+  oben: ['format', 'version', 'quartal', 'produkte', 'werke', 'lieferanten', 'nachhaltigkeitsbudget', 'finanzen', 'firmensitz', 'expansion', 'forschung', 'begruendung'],
   produkt: ['produktion', 'fe', 'maerkte'],
   markt: ['preis', 'marketing'],
   werk: ['linienKaufen', 'linienVerkaufen', 'neueLinien', 'wartung', 'personalAenderung', 'schulungProKopf', 'halleErweitern'],

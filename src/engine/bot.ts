@@ -3,6 +3,7 @@ import { LINIENTYPEN, PRODUKTE } from './config/products';
 import { REGIONEN, WERK_STANDORTE } from './config/markets';
 import { aktiveProdukte, aktiveRegionen, standardEntscheidungen } from './decisions';
 import { einstellungsLimit, werkBaubar } from './expansion';
+import { alleProjekte } from './forschung';
 import { kreditlimit, schuldenGesamt } from './finance';
 import { referenzPreis } from './market';
 import { hallenPlaetze, lernkurve } from './production';
@@ -108,11 +109,18 @@ export function botEntscheidungen(state: GameState, letzter: QuarterReport | nul
         kasse -= REGIONEN[r].eintritt;
       }
     }
-    for (const p of state.produkteVerfuegbar ?? []) {
-      if (!state.produkte[p] && kasse > 2_000_000) {
-        ex.produkteEinfuehren.push(p);
-        kasse -= 500_000;
-      }
+    // Forschung: nacheinander die offenen Projekte finanzieren
+    const reihenfolge = ['elektro', 'federung', 'lastenrahmen', 'emtb', 'leichtbau'];
+    d.forschung = {};
+    let projekte = 0;
+    for (const id of reihenfolge) {
+      const st = alleProjekte(state).find((x) => x.projekt.id === id)!;
+      if (st.fertig || !st.offen || st.investiert >= st.projekt.kosten) continue;
+      const budget = Math.min(st.projekt.kosten / st.projekt.mindestQuartale, st.projekt.kosten - st.investiert);
+      if (kasse < budget + 400_000 || projekte >= (kasse > 5_000_000 ? 2 : 1)) break;
+      d.forschung[id] = Math.round(budget);
+      kasse -= budget;
+      projekte++;
     }
     const u4 = state.kpiHistorie.slice(-4).reduce((s, k) => s + k.umsatz, 0);
     const alleHallenVoll = aktiveWerke.every((w) => w.linien.length >= hallenPlaetze(w));

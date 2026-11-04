@@ -272,6 +272,8 @@ export interface GameState {
   zeitung: Zeitung | null;
   /** Erreichte Erfolge */
   erfolge?: { id: string; quartal: number }[];
+  /** Forschungsprojekte: investiertes Budget, Quartale mit Forschung, Abschlussquartal */
+  forschung?: Record<string, { investiert: number; quartale: number; fertigIm?: number }>;
 }
 
 // ------------------------------------------------------------ Entscheidungen
@@ -299,6 +301,8 @@ export interface Decisions {
   finanzen: { darlehenNeu: number; tilgungExtra: number; dividende: number };
   firmensitz: { kaufen: string[] };
   expansion?: { maerkteBetreten: RegionId[]; produkteEinfuehren: ProductId[]; werkeBauen: string[] };
+  /** Forschungsbudget je Projekt und Quartal */
+  forschung?: Record<string, number>;
 }
 
 // ---------------------------------------------------------------- Bericht

@@ -4,7 +4,7 @@ import { entscheidungenAlsJson } from './decisionsJson';
 import { extrahiereJson, importiereEntscheidungen } from './importDecisions';
 import { lagebericht } from './exportState';
 
-const spiel = (profi = false) => neuesSpiel({ firmenname: 'Test GmbH', farbe: '#000', schwierigkeit: 'normal', profi, seed: 9 });
+const spiel = (profi = false) => neuesSpiel({ firmenname: 'Test GmbH', farbe: '#000', schwierigkeit: 'normal', profi, seed: 9, startProdukte: ['stadtrad', 'ebike'] });
 
 describe('Austausch mit Claude', () => {
   it('erkennt JSON mit Codezäunen und Begleittext', () => {

@@ -205,6 +205,11 @@ export const START = {
   vertriebDE: 4,
   planungsqualitaet: 60,
   /** Standardentscheidungen des ersten Quartals */
+  /** Startanteil im Stadtrad-Segment, wenn nur das Stadtrad im Programm ist (Forschungs-Modus) */
+  anteilNurStadtrad: 0.0075,
+  /** Startproduktion Stadtrad im Forschungs-Modus */
+  produktionNurStadtrad: 2100,
+  marketingNurStadtrad: 40_000,
   entscheidungen: {
     preis: { stadtrad: 650, ebike: 2800 },
     marketing: { stadtrad: 30_000, ebike: 80_000 },

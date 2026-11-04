@@ -23,7 +23,9 @@ import {
   type RegionId,
 } from '../engine';
 import { ratingAufschlag } from '../engine/finance';
-import { produktBedingungen, regionBedingungen, werkBaubar } from '../engine/expansion';
+import { regionBedingungen, werkBaubar } from '../engine/expansion';
+import { alleProjekte } from '../engine/forschung';
+import { segmentWachstum, volumenFaktor } from '../engine/market';
 import { WERK_STANDORTE } from '../engine/config/markets';
 import { ereignisDef } from '../engine/events';
 import { hallenPlaetze } from '../engine/production';
@@ -181,10 +183,11 @@ export function lagebericht(state: GameState, letzter: QuarterReport | null, ent
           },
         ]),
       ),
-      produkteEinfuehrbar: state.produkteVerfuegbar ?? [],
-      produkteGesperrt: PRODUKT_IDS.filter((p) => !state.produkte[p] && !(state.produkteVerfuegbar ?? []).includes(p)).map((p) => ({
-        produkt: p, bedingungen: produktBedingungen(state, p).map((b) => ({ text: b.text, ist: r2(b.ist), ziel: b.ziel })),
+      forschung: alleProjekte(state).map((st) => ({
+        projekt: st.projekt.id, name: st.projekt.name, ergibtProdukt: st.projekt.produkt, kosten: st.projekt.kosten, investiert: r0(st.investiert),
+        quartaleBisher: st.quartale, mindestQuartale: st.projekt.mindestQuartale, voraussetzungen: st.projekt.voraussetzungen, fertig: st.fertig, moeglich: st.offen,
       })),
+      marktTrends: Object.fromEntries(PRODUKT_IDS.map((p) => [p, { trend: PRODUKTE[p].lebenszyklus.text, wachstumDiesesQuartal: r4(segmentWachstum(p, state.quartal)), in10Jahren: r2(volumenFaktor(p, 'DE', state.quartal + 40) / volumenFaktor(p, 'DE', state.quartal)) }])),
       werkStandorte: Object.fromEntries(Object.entries(WERK_STANDORTE).map(([c, st]) => [c, { name: st.name, baukosten: st.baukosten, bauzeit: st.bauzeit, lohnIndex: st.lohnIndex, baubar: werkBaubar(state, c).ok }])),
     },
     vorschauMitEntwurf: {
