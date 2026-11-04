@@ -746,3 +746,115 @@ describe('Balancing und Spielziel', () => {
     expect(s.kpiHistorie[s.kpiHistorie.length - 1].weltrang).toBeGreaterThan(1);
   });
 });
+
+describe('Börse und Übernahmen', () => {
+  const ok = (r: QuarterReport) => {
+    expect(Math.abs(r.bilanz.aktiva - r.bilanz.passiva)).toBeLessThan(1e-3);
+    expect(Math.abs(r.kapitalfluss.gesamt - (r.kapitalfluss.kasseEnde - r.kapitalfluss.kasseAnfang))).toBeLessThan(1e-3);
+  };
+  const gross = () => {
+    const s = neuesSpiel({ firmenname: 'Test GmbH', farbe: '#000', schwierigkeit: 'normal', profi: true, seed: 6 });
+    s.kpiHistorie = [0, 1, 2, 3].map((q) => ({ quartal: q, umsatz: 20_000_000, ebit: 2_000_000, ueberschuss: 1_400_000, kasse: 1e6, marktanteil: 0.01, unternehmenswert: 120_000_000, image: 50, absatz: 1000, weltrang: 5 }));
+    s.finanzen.rating = 'A';
+    s.quartal = 4;
+    return s;
+  };
+
+  it('Börsengang bringt Kapital, macht eine AG und startet den Kurs', async () => {
+    const { fundamentalJeAktie, ipoMoeglich, gruenderAnteil } = await import('./boerse');
+    const s = gross();
+    expect(ipoMoeglich(s)).toBe(true);
+    const d = standardEntscheidungen(s);
+    d.boerse = { ipo: { anteil: 0.25, preis: fundamentalJeAktie(s) } };
+    const r = simulateQuarter(s, d, new Rng(3));
+    expect(r.report.boerse?.ipo?.quote).toBe(1);
+    expect(r.nextState.unternehmen.name).toBe('Test AG');
+    expect(r.nextState.boerse?.notiert).toBe(true);
+    expect(gruenderAnteil(r.nextState)).toBeCloseTo(0.75, 2);
+    expect(r.report.kapitalfluss.kapitalerhoehung).toBeGreaterThan(20_000_000);
+    expect(r.report.neueErfolge).toContain('ding_dong');
+    ok(r.report);
+    // Kapitalerhöhung und Rückkauf im Folgequartal
+    const s2 = r.nextState;
+    const d2 = standardEntscheidungen(s2);
+    d2.boerse = { kapitalerhoehung: 0.1 };
+    const r2 = simulateQuarter(s2, d2, new Rng(4));
+    expect(r2.nextState.boerse!.aktienGesamt).toBeGreaterThan(s2.boerse!.aktienGesamt);
+    ok(r2.report);
+    const d3 = standardEntscheidungen(r2.nextState);
+    d3.boerse = { rueckkauf: 0.05 };
+    const r3 = simulateQuarter(r2.nextState, d3, new Rng(5));
+    expect(r3.nextState.boerse!.aktienGesamt).toBeLessThan(r2.nextState.boerse!.aktienGesamt);
+    expect(r3.nextState.boerse!.verlauf.length).toBeGreaterThanOrEqual(3);
+    ok(r3.report);
+  });
+
+  it('Kleine Konkurrenten lassen sich übernehmen: Werk, Lager, Firmenwert, Integrationskosten', () => {
+    const s = gross();
+    s.finanzen.gezeichnetesKapital += 50_000_000 - s.finanzen.kasse;
+    s.finanzen.kasse = 50_000_000;
+    const werkeVorher = s.werke.length;
+    const d = standardEntscheidungen(s);
+    d.uebernahme = 'drahtesel';
+    const r = simulateQuarter(s, d, new Rng(3));
+    expect(r.report.boerse?.uebernahmen).toEqual(['drahtesel']);
+    expect(r.nextState.werke.length).toBe(werkeVorher + 1);
+    expect(r.nextState.konkurrenten.drahtesel.status).toBe('pleite');
+    expect(r.nextState.integrationKosten).toBeGreaterThan(0);
+    expect(r.report.neueErfolge).toContain('fressen');
+    ok(r.report);
+    // Folgequartal: Integrationskosten werden gebucht, Bilanz bleibt ausgeglichen
+    const r2 = simulateQuarter(r.nextState, standardEntscheidungen(r.nextState), new Rng(4));
+    expect(r2.nextState.integrationKosten ?? 0).toBe(0);
+    ok(r2.report);
+  });
+
+  it('Börsennotierte Konkurrenten: Beteiligung zum Kaufpreis, ab 50 % Übernahme', () => {
+    const s = gross();
+    s.finanzen.gezeichnetesKapital += 3_000_000_000 - s.finanzen.kasse;
+    s.finanzen.kasse = 3_000_000_000;
+    s.kpiHistorie = s.kpiHistorie.map((k) => ({ ...k, umsatz: 2_000_000_000 }));
+    const d = standardEntscheidungen(s);
+    d.boerse = { aktienKauf: [{ konkurrent: 'pedalo', anteil: 0.3 }] };
+    const r = simulateQuarter(s, d, new Rng(3));
+    expect(r.nextState.beteiligungen?.pedalo?.anteil).toBeCloseTo(0.3);
+    expect(r.report.bilanz.finanzanlagen).toBeGreaterThan(0);
+    ok(r.report);
+    const s2 = r.nextState;
+    s2.kpiHistorie = s2.kpiHistorie.map((k) => ({ ...k, umsatz: 2_000_000_000 }));
+    const d2 = standardEntscheidungen(s2);
+    d2.boerse = { aktienKauf: [{ konkurrent: 'pedalo', anteil: 0.25 }] };
+    const r2 = simulateQuarter(s2, d2, new Rng(4));
+    expect(r2.report.boerse?.uebernahmen).toEqual(['pedalo']);
+    expect(r2.nextState.beteiligungen?.pedalo).toBeUndefined();
+    ok(r2.report);
+  });
+
+  it('Regionale Marke zukaufen erhöht die Bekanntheit', () => {
+    const s = gross();
+    s.regionen.EU = { aktiv: true, freigeschaltet: true, bekanntheit: 0.05, marktanteil: 0 };
+    const d = standardEntscheidungen(s);
+    d.markeZukaufen = ['EU'];
+    const r = simulateQuarter(s, d, new Rng(3), { zufall: false });
+    expect(r.nextState.regionen.EU!.bekanntheit).toBeGreaterThan(0.06);
+    ok(r.report);
+  });
+});
+
+describe('Szenarien', () => {
+  it('Jedes Szenario startet ausgeglichen und läuft mit dem Bot', async () => {
+    const { SZENARIEN } = await import('./szenarien');
+    for (const sz of SZENARIEN) {
+      let s = neuesSpiel({ firmenname: 'T', farbe: '#000', schwierigkeit: 'normal', profi: false, seed: 8, szenario: sz.id, startProdukte: sz.startProdukte });
+      let r: QuarterReport | null = null;
+      for (let i = 0; i < 8; i++) {
+        const res = simulateQuarter(s, botEntscheidungen(s, r), undefined, { vorherBericht: r });
+        s = res.nextState;
+        r = res.report;
+        expect(Math.abs(r.bilanz.aktiva - r.bilanz.passiva)).toBeLessThan(1e-3);
+        expect(Math.abs(r.kapitalfluss.gesamt - (r.kapitalfluss.kasseEnde - r.kapitalfluss.kasseAnfang))).toBeLessThan(1e-3);
+      }
+      expect(s.szenario ?? 'frei').toBe(sz.id);
+    }
+  });
+});

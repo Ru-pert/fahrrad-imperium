@@ -20,6 +20,9 @@ export interface EntscheidungsJson {
   ausschreibungen?: { id: string; stueckpreis: number }[];
   marktforschung?: { marktbericht?: RegionId[]; branchenanalyse?: RegionId[]; kundenbefragung?: boolean; spionage?: string[] };
   rettung?: 'annehmen' | 'ablehnen';
+  boerse?: Decisions['boerse'];
+  uebernahme?: string;
+  markeZukaufen?: RegionId[];
   begruendung?: string;
 }
 
@@ -61,6 +64,9 @@ export function entscheidungenAlsJson(d: Decisions, begruendung?: string): Entsc
     ...(d.ausschreibungen?.length ? { ausschreibungen: d.ausschreibungen.map((g) => ({ ...g })) } : {}),
     ...(d.marktforschung && Object.values(d.marktforschung).some((v) => (Array.isArray(v) ? v.length > 0 : !!v)) ? { marktforschung: structuredClone(d.marktforschung) } : {}),
     ...(d.rettung ? { rettung: d.rettung } : {}),
+    ...(d.boerse && Object.keys(d.boerse).length ? { boerse: structuredClone(d.boerse) } : {}),
+    ...(d.uebernahme ? { uebernahme: d.uebernahme } : {}),
+    ...(d.markeZukaufen?.length ? { markeZukaufen: [...d.markeZukaufen] } : {}),
     ...(begruendung ? { begruendung } : {}),
   };
 }

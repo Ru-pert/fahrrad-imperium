@@ -143,10 +143,10 @@ function Weltbuehne() {
   };
   const waehle = (r: RegionId) => (state.regionen[r]?.aktiv ? zeigeMarkt(r) : gehe('expansion'));
   return (
-    <section className="card relative overflow-hidden p-0">
-      <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
+    <section data-tour="imperium" className="card relative overflow-hidden p-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-2 pt-3">
         <h2 className="flex items-center gap-2 text-base font-semibold"><IconBadge name="expansion" farbe="#2563eb" groesse="sm" />Dein Imperium</h2>
-        <div className="muted flex items-center gap-3 text-xs">
+        <div className="muted hidden items-center gap-3 text-xs sm:flex">
           <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: state.unternehmen.farbe }} /> deine Märkte</span>
           <span className="flex items-center gap-1"><span className="inline-block h-0 w-4 border-t-2 border-dashed" style={{ borderColor: state.unternehmen.farbe }} /> Lieferrouten</span>
           <span className="flex items-center gap-1"><span className="h-2.5 w-2.5" style={{ background: '#d97706', clipPath: 'polygon(0 0, 100% 50%, 0 100%)' }} /> Konkurrenz</span>
@@ -155,7 +155,7 @@ function Weltbuehne() {
       </div>
       <div className="relative">
         <Weltkarte state={state} routen fahnen hoehe={400} onAuswahl={waehle} />
-        <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-2">
+        <div className="pointer-events-none flex flex-wrap gap-2 p-3 sm:absolute sm:bottom-3 sm:left-3 sm:p-0">
           {aktive.map((r) => {
             const d = proRegion(r);
             return (
@@ -167,7 +167,7 @@ function Weltbuehne() {
           })}
         </div>
         {(naechste || offen.length > 0) && (
-          <div className="absolute bottom-3 right-3 w-72 rounded-xl bg-white/90 p-3 shadow-md ring-1 ring-black/5 backdrop-blur dark:bg-slate-900/85">
+          <div className="m-3 mt-0 rounded-xl sm:absolute sm:bottom-3 sm:right-3 sm:m-0 sm:w-72 bg-white/90 p-3 shadow-md ring-1 ring-black/5 backdrop-blur dark:bg-slate-900/85">
             {offen.length > 0 ? (
               <div className="text-sm">
                 <div className="font-semibold text-amber-700 dark:text-amber-400">Bereit zum Markteintritt</div>

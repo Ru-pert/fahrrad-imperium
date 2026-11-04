@@ -13,8 +13,8 @@ import {
 } from '../engine';
 import { istSpielstand, laden, speichern, type HistorieEintrag, type Spielstand } from './saveSlots';
 
-export type Seite = 'cockpit' | 'zeitung' | 'bericht' | 'entscheidungen' | 'markt' | 'expansion' | 'finanzen' | 'werke' | 'garage' | 'marktforschung' | 'firmensitz' | 'erfolge' | 'austausch' | 'einstellungen';
-export const SEITEN: Seite[] = ['cockpit', 'zeitung', 'bericht', 'entscheidungen', 'markt', 'expansion', 'finanzen', 'werke', 'garage', 'marktforschung', 'firmensitz', 'erfolge', 'austausch', 'einstellungen'];
+export type Seite = 'cockpit' | 'zeitung' | 'bericht' | 'entscheidungen' | 'markt' | 'expansion' | 'finanzen' | 'werke' | 'garage' | 'marktforschung' | 'boerse' | 'firmensitz' | 'erfolge' | 'austausch' | 'einstellungen';
+export const SEITEN: Seite[] = ['cockpit', 'zeitung', 'bericht', 'entscheidungen', 'markt', 'expansion', 'finanzen', 'werke', 'garage', 'marktforschung', 'boerse', 'firmensitz', 'erfolge', 'austausch', 'einstellungen'];
 
 interface Hinweis {
   id: number;
@@ -30,6 +30,10 @@ interface Store {
   hinweise: Hinweis[];
   dunkel: boolean;
   reduziert: boolean;
+  /** Aktueller Schritt der Einführung (null = aus) */
+  tutorialSchritt: number | null;
+  starteTutorial: () => void;
+  setzeTutorial: (n: number | null) => void;
   /** Endabrechnung, die gerade gezeigt wird */
   endabrechnung: import('../engine/spielziel').Wertung | null;
   zeigeEndabrechnung: (w: import('../engine/spielziel').Wertung | null) => void;
@@ -93,6 +97,20 @@ export const useGame = create<Store>((set, get) => ({
   reduziert: lsGet('fi-reduced') === '1',
   marktRegion: null,
   endabrechnung: null,
+  tutorialSchritt: null,
+  starteTutorial() {
+    set({ tutorialSchritt: 0 });
+  },
+  setzeTutorial(n) {
+    if (n === null) {
+      try {
+        localStorage.setItem('fi-tutorial-fertig', '1');
+      } catch {
+        /* egal */
+      }
+    }
+    set({ tutorialSchritt: n });
+  },
   zeigeEndabrechnung(w) {
     set({ endabrechnung: w });
   },

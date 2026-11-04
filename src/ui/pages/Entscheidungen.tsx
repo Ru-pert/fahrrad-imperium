@@ -98,7 +98,7 @@ interface Ctx {
 function Preise({ state, d, aendere, vorschau, hebel }: Ctx) {
   const regionen = aktiveRegionen(state);
   return (
-    <Card titel={<span className="flex items-center gap-1">Verkaufspreise <Info titel="Preise">Der <strong>Referenzpreis</strong> ist der typische Ladenpreis eines Modells in der Region. Unter dem Marktdurchschnitt steigt die Nachfrage – bei günstigen Rädern stärker als bei teuren –, dafür sinkt die Marge. Mehr als das Dreifache des Referenzpreises ist nicht erlaubt. Der Balken zeigt, welchen Teil der geschätzten Nachfrage du liefern kannst. Das Gesicht zeigt die Kundenzufriedenheit: Preiserhöhungen senken sie!</Info></span>} icon="preis" farbe="#0d9488">
+    <Card titel={<span className="flex items-center gap-1">Verkaufspreise <Info titel="Preise">Der <strong>Referenzpreis</strong> ist der typische Ladenpreis eines Modells in der Region. Unter dem Marktdurchschnitt steigt die Nachfrage – bei günstigen Rädern stärker als bei teuren –, dafür sinkt die Marge. Mehr als das Dreifache des Referenzpreises ist nicht erlaubt. Der Balken zeigt, welchen Teil der geschätzten Nachfrage du liefern kannst. Das Gesicht zeigt die Kundenzufriedenheit: Preiserhöhungen senken sie!</Info></span>} icon="preis" farbe="#0d9488" tour="preise">
       <div className="overflow-x-auto">
         <table className="w-full border-separate border-spacing-y-1 text-sm">
           <thead>
@@ -616,7 +616,7 @@ export function Entscheidungen() {
             </div>
           </div>
           <RettungsBanner state={state} d={entwurf} aendere={aendere} />
-          <div className="sticky top-[70px] z-20 -mx-1 rounded-2xl border border-[var(--line)] bg-[var(--card)]/90 p-1.5 shadow-sm backdrop-blur" role="tablist" aria-label="Bereiche">
+          <div data-tour="bereiche" className="sticky top-[70px] z-20 -mx-1 rounded-2xl border border-[var(--line)] bg-[var(--card)]/90 p-1.5 shadow-sm backdrop-blur" role="tablist" aria-label="Bereiche">
             <div className="grid grid-cols-5 gap-1 2xl:grid-cols-9">
               {SCHRITTE.map((s, i) => {
                 const aktiv = i === bereich;
@@ -657,11 +657,11 @@ export function Entscheidungen() {
         </div>
         <aside className="space-y-4 xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto xl:pb-4">
           <div className="card p-3"><Beraterin state={state} vorschau={vorschau} bericht={letzterBericht} kompakt /></div>
-          <Card titel="Live-Vorschau" icon="cockpit">
+          <Card titel="Live-Vorschau" icon="cockpit" tour="vorschau">
             <Vorschau vorschau={vorschau} />
             <button className="btn-primary mt-3 w-full" onClick={bestaetigen} disabled={!!state.spielende}>Quartal abschließen</button>
           </Card>
-          <Card titel="Was bringt welcher Hebel?" icon="ziel" farbe="#7c3aed">
+          <Card titel="Was bringt welcher Hebel?" icon="ziel" farbe="#7c3aed" tour="hebel">
             <HebelPanel hebel={hebel} />
           </Card>
         </aside>

@@ -20,8 +20,11 @@ export interface NeuesSpielOptionen {
   seed: number;
   /** Produkte im Programm beim Start (Standard: nur Stadtrad; neue Produkte kommen über die Forschung) */
   startProdukte?: ProductId[];
+  /** Szenario (siehe szenarien.ts) */
+  szenario?: string;
 }
 
+import { SZENARIEN } from './szenarien';
 export { SPIELER_ID } from './util';
 import { SPIELER_ID } from './util';
 export const STAND_VERSION = 1;
@@ -224,6 +227,11 @@ export function neuesSpiel(opt: NeuesSpielOptionen): GameState {
   state.konkurrenzPlaene = planKonkurrenten(state, rng);
   state.konkurrenzVorquartal = structuredClone(state.konkurrenzPlaene);
   state.rngState = rng.getState();
+  const sz = SZENARIEN.find((x) => x.id === opt.szenario);
+  if (sz && sz.id !== 'frei') {
+    state.szenario = sz.id;
+    sz.anwenden?.(state);
+  }
   state.zeitung = erzeugeStartZeitung(state);
   return state;
 }

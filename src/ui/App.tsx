@@ -9,6 +9,7 @@ import { Badge, Icon, Toasts } from './components/ui';
 import { Auswertung } from './components/Auswertung';
 import { GaragenSzene } from './components/Startbild';
 import { Endabrechnung } from './components/Endabrechnung';
+import { Tutorial } from './components/Tutorial';
 import { Cockpit } from './pages/Cockpit';
 import { Bericht } from './pages/Bericht';
 import { Zeitung } from './pages/Zeitung';
@@ -19,6 +20,7 @@ import { Finanzen } from './pages/Finanzen';
 import { Werke } from './pages/Werke';
 import { Garage } from './pages/Garage';
 import { Marktforschung } from './pages/Marktforschung';
+import { Boerse, IpoFeier } from './pages/Boerse';
 import { Firmensitz } from './pages/Firmensitz';
 import { Erfolge } from './pages/Erfolge';
 import { Austausch } from './pages/Austausch';
@@ -35,6 +37,7 @@ const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
   { id: 'werke', label: 'Werke', kurz: 'Werke', icon: 'werke' },
   { id: 'garage', label: 'Garage', kurz: 'Garage', icon: 'rad' },
   { id: 'marktforschung', label: 'Marktforschung', kurz: 'Forschung', icon: 'ziel' },
+  { id: 'boerse', label: 'Börse & Übernahmen', kurz: 'Börse', icon: 'wert' },
   { id: 'firmensitz', label: 'Firmensitz', kurz: 'Firmensitz', icon: 'firmensitz' },
   { id: 'erfolge', label: 'Erfolge', kurz: 'Erfolge', icon: 'erfolge' },
   { id: 'austausch', label: 'Mit Claude planen', kurz: 'Claude', icon: 'austausch' },
@@ -43,7 +46,7 @@ const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
 const GRUPPEN: { titel: string; seiten: Seite[] }[] = [
   { titel: 'Überblick', seiten: ['cockpit', 'zeitung', 'bericht'] },
   { titel: 'Steuern', seiten: ['entscheidungen', 'austausch'] },
-  { titel: 'Unternehmen', seiten: ['markt', 'marktforschung', 'expansion', 'finanzen', 'werke', 'garage', 'firmensitz'] },
+  { titel: 'Unternehmen', seiten: ['markt', 'marktforschung', 'expansion', 'boerse', 'finanzen', 'werke', 'garage', 'firmensitz'] },
   { titel: 'Spiel', seiten: ['erfolge', 'einstellungen'] },
 ];
 const JAHRESZEIT = [
@@ -66,6 +69,7 @@ function Seiteninhalt({ seite }: { seite: Seite }) {
     case 'werke': return <Werke />;
     case 'garage': return <Garage />;
     case 'marktforschung': return <Marktforschung />;
+    case 'boerse': return <Boerse />;
     case 'firmensitz': return <Firmensitz />;
     case 'erfolge': return <Erfolge />;
     case 'austausch': return <Austausch />;
@@ -124,7 +128,7 @@ function Kopfzeile() {
             </div>
           ))}
         </div>
-        <button className="btn-primary ml-auto shadow-md shadow-brand-600/25" onClick={klick} disabled={!!state.spielende}>
+        <button data-tour="abschliessen" className="btn-primary ml-auto shadow-md shadow-brand-600/25" onClick={klick} disabled={!!state.spielende}>
           <span className="hidden sm:inline">Quartal abschließen</span>
           <span className="sm:hidden">Abschließen</span>
           <Icon name="chevron" className="h-4 w-4" />
@@ -301,6 +305,8 @@ export function App() {
       <MobilNav />
       <Auswertung />
       <Endabrechnung />
+      <IpoFeier />
+      <Tutorial />
       <Toasts />
     </div>
   );

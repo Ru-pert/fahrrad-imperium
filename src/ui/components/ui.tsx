@@ -141,9 +141,9 @@ export function Fortschritt({ label, wert, ziel, format }: { label: string; wert
   );
 }
 
-export function Card({ titel, children, aktion, className = '', icon, farbe }: { titel?: ReactNode; children: ReactNode; aktion?: ReactNode; className?: string; icon?: string; farbe?: string }) {
+export function Card({ titel, children, aktion, className = '', icon, farbe, tour }: { titel?: ReactNode; children: ReactNode; aktion?: ReactNode; className?: string; icon?: string; farbe?: string; tour?: string }) {
   return (
-    <section className={`card p-4 transition-shadow hover:shadow-md ${className}`}>
+    <section data-tour={tour} className={`card p-4 transition-shadow hover:shadow-md ${className}`}>
       {(titel || aktion) && (
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-base font-semibold">{icon && <IconBadge name={icon} farbe={farbe} groesse="sm" />}{titel}</h2>

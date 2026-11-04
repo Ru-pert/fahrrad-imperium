@@ -77,6 +77,9 @@ export function standardEntscheidungen(state: GameState): Decisions {
   alt.ausschreibungen = [];
   alt.marktforschung = {};
   delete alt.rettung;
+  delete alt.boerse;
+  delete alt.uebernahme;
+  delete alt.markeZukaufen;
   // Abgeschlossene Forschung braucht kein Budget mehr
   if (alt.forschung) alt.forschung = Object.fromEntries(Object.entries(alt.forschung).filter(([id]) => state.forschung?.[id]?.fertigIm === undefined));
   // Fehlende Felder für aktive Produkte/Regionen auffüllen

@@ -211,6 +211,16 @@ export function erzeugeZeitung(state: GameState, report: QuarterReport, vorher: 
       titel: `In stillem Gedenken an ${firma}`,
       text: `${firma} hat den Kampf gegen Kontokorrent und Kassenebbe verloren. Hinterlassen werden ${de0(report.produkte.reduce((s, p) => s + p.lagerEnde, 0))} Räder im Lager und ein Firmenschild in der Garage. Prof. Speiche: „Zu wenig Marge, zu viel Hoffnung.“ Wer mag, lädt einen früheren Spielstand und tritt erneut an.`,
     });
+  } else if (report.boerse?.ipo) {
+    sonderausgabe = 'Börsenausgabe';
+    schlagzeile = `Ding Dong! ${firma} läutet die Börsenglocke`;
+    unterzeile = `${report.boerse.ipo.aktien.toLocaleString('de-DE')} Aktien zu ${report.boerse.ipo.preis.toFixed(2).replace('.', ',')} € – Prof. Speiche kauft sich eine Aktie und rahmt sie ein.`;
+  } else if ((report.boerse?.uebernahmen.length ?? 0) > 0) {
+    const id = report.boerse!.uebernahmen[0];
+    const name = state.konkurrenten[id]?.name ?? id;
+    sonderausgabe = 'Übernahme';
+    schlagzeile = `Fressen und gefressen werden: ${firma} schluckt ${name}`;
+    unterzeile = `Werke, Personal und Marke von ${name} gehören jetzt zu ${firma}. Die Integration dürfte zwei Quartale holpern.`;
   } else if (report.endwertung) {
     sonderausgabe = 'Jubiläumsausgabe';
     schlagzeile = `15 Jahre ${firma}: ${report.endwertung.stufe}!`;

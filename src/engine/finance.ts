@@ -80,7 +80,8 @@ export function unternehmenswert(s: GameState, nettoschulden: number): { ev: num
     const k = clamp(B.basisMultiplikator + B.wachstumsFaktor * g + B.imageFaktor * (s.unternehmen.image - 50), B.min, B.max);
     ev = e * k;
   }
-  return { ev, eigenkapitalwert: ev - nettoschulden };
+  const beteiligungen = sum(Object.values(s.beteiligungen ?? {}).map((b) => b.buchwert));
+  return { ev, eigenkapitalwert: ev - nettoschulden + beteiligungen };
 }
 
 export function baueBilanz(s: GameState): Bilanz {
@@ -88,12 +89,16 @@ export function baueBilanz(s: GameState): Bilanz {
   const fertig = sum(Object.values(s.produkte).map((p) => (p ? p.lager.stueck * p.lager.hk : 0)));
   const material = sum(Object.values(s.produkte).map((p) => (p ? p.materialWert : 0)));
   const sach = sachanlagen(s);
-  const aktiva = sach + fertig + material + f.forderungen + f.kasse;
+  const finanzanlagen = sum(Object.values(s.beteiligungen ?? {}).map((b) => b.buchwert));
+  const geschaeftswert = f.geschaeftswert ?? 0;
+  const aktiva = sach + finanzanlagen + geschaeftswert + fertig + material + f.forderungen + f.kasse;
   const darlehen = sum(f.kredite.map((k) => k.restbetrag));
   const eigenkapital = f.gezeichnetesKapital + f.kapitalruecklage + f.gewinnruecklagen;
   const passiva = eigenkapital + darlehen + f.kontokorrent + f.verbindlichkeiten;
   return {
     sachanlagen: sach,
+    finanzanlagen,
+    geschaeftswert,
     vorraeteFertig: fertig,
     vorraeteMaterial: material,
     forderungen: f.forderungen,

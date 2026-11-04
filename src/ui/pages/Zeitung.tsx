@@ -94,11 +94,11 @@ function Blatt({ z }: { z: ZeitungTyp }) {
 
       {/* Schlagzeile */}
       <div className="border-b border-current py-5 text-center">
-        <h2 className="text-5xl font-black leading-tight">{z.schlagzeile}</h2>
-        {z.unterzeile && <p className="mt-2 text-xl italic">{z.unterzeile}</p>}
+        <h2 className="text-3xl font-black leading-tight sm:text-5xl">{z.schlagzeile}</h2>
+        {z.unterzeile && <p className="mt-2 text-base italic sm:text-xl">{z.unterzeile}</p>}
       </div>
 
-      <div className="grid grid-cols-[1fr_300px] gap-8 pt-5">
+      <div className="grid gap-8 pt-5 lg:grid-cols-[1fr_300px]">
         <div>
           {haupt && (
             <section className="mb-5">
@@ -150,7 +150,7 @@ function Blatt({ z }: { z: ZeitungTyp }) {
           </div>
         </div>
 
-        <aside className="space-y-6 border-l border-current pl-6">
+        <aside className="space-y-6 border-t border-current pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
           <Kasten titel="Testmagazin „Rad & Tat“">
             {z.testmagazin.map((t) => (
               <div key={t.produkt} className="mb-4">

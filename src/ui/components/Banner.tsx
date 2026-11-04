@@ -180,9 +180,9 @@ export function CockpitBanner({ state, bericht }: { state: GameState; bericht: Q
           );
         })}
       </svg>
-      <div className="absolute left-5 top-4 max-w-[45%] rounded-xl bg-white/80 px-4 py-3 shadow-sm backdrop-blur dark:bg-slate-900/80">
+      <div className="relative border-t border-[var(--line)] bg-white/90 px-4 py-3 dark:bg-slate-900/80 sm:absolute sm:left-5 sm:top-4 sm:max-w-[45%] sm:rounded-xl sm:border-0 sm:shadow-sm sm:backdrop-blur">
         <div className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">{quartalLabel(state.quartal)} · {s.name}</div>
-        <div className="text-2xl font-black leading-tight">{state.unternehmen.name}</div>
+        <div className="text-xl font-black leading-tight sm:text-2xl">{state.unternehmen.name}</div>
         <div className="text-sm">Saison: {s.text}</div>
         {bericht && (
           <div className="mt-1 text-sm">

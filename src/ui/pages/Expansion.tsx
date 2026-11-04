@@ -254,10 +254,10 @@ export function Expansion() {
           {rangliste.map((z, i) => {
             const max = Math.max(1, rangliste[0].umsatz);
             return (
-              <div key={z.id} className={`grid grid-cols-[32px_220px_1fr_110px] items-center gap-3 rounded-lg px-2 py-1 text-sm ${z.eigen ? 'bg-brand-50 font-semibold dark:bg-brand-900/20' : ''}`}>
+              <div key={z.id} className={`grid grid-cols-[24px_minmax(0,1fr)_96px] items-center gap-2 sm:grid-cols-[32px_220px_1fr_110px] sm:gap-3 rounded-lg px-2 py-1 text-sm ${z.eigen ? 'bg-brand-50 font-semibold dark:bg-brand-900/20' : ''}`}>
                 <span className="tnum muted">{i + 1}.</span>
                 <span className="flex items-center gap-2 truncate"><span className="h-3 w-3 shrink-0 rounded-full" style={{ background: z.farbe }} />{z.name}{z.pleite ? ' (insolvent)' : ''}</span>
-                <div className="h-3 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+                <div className="hidden h-3 overflow-hidden rounded-full bg-black/5 sm:block dark:bg-white/10">
                   <motion.div className="h-full rounded-full" style={{ background: z.farbe }} initial={{ width: 0 }} animate={{ width: `${Math.max(0.5, (z.umsatz / max) * 100)}%` }} transition={{ duration: 0.8, delay: i * 0.05 }} />
                 </div>
                 <span className="tnum text-right">{eurKompakt(z.umsatz)}</span>

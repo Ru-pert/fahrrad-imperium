@@ -28,6 +28,8 @@ import { ereignisEffekte } from '../engine/events';
 import { einstellungsLimit, werkBaubar } from '../engine/expansion';
 import { alleFeatures, alleProjekte } from '../engine/forschung';
 import { REGION_IDS } from '../engine/config/markets';
+import { boerseVon, ipoBedingungen, ipoMoeglich, istBoersennotiert, uebernahmeMoeglich } from '../engine/boerse';
+import { BOERSE } from '../engine/config/boerse';
 import { BEKANNT, SPAETERE_FELDER, entscheidungsSchema } from './schemas';
 
 export interface Aenderung {
@@ -135,6 +137,12 @@ export function flach(state: GameState, d: Decisions): Map<string, string> {
   for (const a of state.angebote?.ausschreibungen ?? []) m.set(`Gebot ${a.behoerde}`, `${de(d.ausschreibungen?.find((x) => x.id === a.id)?.stueckpreis ?? 0)} €`);
   const mf = d.marktforschung ?? {};
   m.set('Marktforschung', [...(mf.marktbericht ?? []).map((r) => `Marktbericht ${r}`), ...(mf.branchenanalyse ?? []).map((r) => `Branchenanalyse ${r}`), ...(mf.kundenbefragung ? ['Kundenbefragung'] : []), ...(mf.spionage ?? []).map((k) => `Spionage ${k}`)].join(', ') || '–');
+  if (d.boerse?.ipo) m.set('Börsengang', `${Math.round(d.boerse.ipo.anteil * 100)} % neue Aktien zu ${d.boerse.ipo.preis} €`);
+  if (d.boerse?.kapitalerhoehung) m.set('Kapitalerhöhung', `${Math.round(d.boerse.kapitalerhoehung * 100)} %`);
+  if (d.boerse?.rueckkauf) m.set('Aktienrückkauf', `${Math.round(d.boerse.rueckkauf * 100)} %`);
+  for (const k of d.boerse?.aktienKauf ?? []) m.set(`Aktienkauf ${k.konkurrent}`, `${Math.round(k.anteil * 100)} %`);
+  if (d.uebernahme) m.set('Übernahme', d.uebernahme);
+  if (d.markeZukaufen?.length) m.set('Marke zukaufen', d.markeZukaufen.join(', '));
   if (state.rettungsangebot) m.set('Rettungsangebot', d.rettung === 'ablehnen' ? 'ablehnen' : 'annehmen');
   return m;
 }
@@ -437,6 +445,48 @@ export function importiereEntscheidungen(text: string, state: GameState, basis: 
     if (!state.rettungsangebot) warn.push('Es liegt kein Rettungsangebot vor – „rettung“ wird ignoriert.');
     else d.rettung = e.rettung;
   }
+
+  // Börse, Übernahmen, Marken
+  if (e.boerse) {
+    const b: NonNullable<Decisions['boerse']> = {};
+    const bz = boerseVon(state);
+    if (e.boerse.ipo) {
+      if (bz.notiert) warn.push('Börsengang: Du bist bereits börsennotiert – „ipo“ wird ignoriert.');
+      else if (!ipoMoeglich(state)) fehler.push(`Börsengang noch nicht möglich: ${ipoBedingungen(state).filter((x) => !x.erfuellt).map((x) => x.text).join('; ')}.`);
+      else if (e.boerse.ipo.anteil < BOERSE.ipo.anteilMin || e.boerse.ipo.anteil > BOERSE.ipo.anteilMax) fehler.push(`Börsengang: Anteil neuer Aktien muss zwischen ${BOERSE.ipo.anteilMin} und ${BOERSE.ipo.anteilMax} liegen.`);
+      else b.ipo = { anteil: e.boerse.ipo.anteil, preis: e.boerse.ipo.preis };
+    }
+    if (e.boerse.kapitalerhoehung) {
+      if (!bz.notiert) fehler.push('Kapitalerhöhung erst nach dem Börsengang.');
+      else if (e.boerse.kapitalerhoehung > BOERSE.kapitalerhoehung.max) fehler.push(`Kapitalerhöhung: höchstens ${BOERSE.kapitalerhoehung.max * 100} % neue Aktien je Quartal.`);
+      else b.kapitalerhoehung = e.boerse.kapitalerhoehung;
+    }
+    if (e.boerse.rueckkauf) {
+      if (!bz.notiert) fehler.push('Aktienrückkauf erst nach dem Börsengang.');
+      else if (e.boerse.rueckkauf > BOERSE.rueckkauf.max) fehler.push(`Rückkauf: höchstens ${BOERSE.rueckkauf.max * 100} % der Aktien je Quartal.`);
+      else b.rueckkauf = e.boerse.rueckkauf;
+    }
+    if (e.boerse.aktienKauf?.length) {
+      b.aktienKauf = [];
+      for (const k of e.boerse.aktienKauf) {
+        if (!istBoersennotiert(k.konkurrent) || state.konkurrenten[k.konkurrent]?.status !== 'aktiv') fehler.push(`Aktienkauf: „${k.konkurrent}“ ist nicht börsennotiert oder nicht aktiv.`);
+        else if (!(k.anteil > 0) || k.anteil > 1) fehler.push(`Aktienkauf ${k.konkurrent}: Anteil muss zwischen 0 und 1 liegen.`);
+        else b.aktienKauf.push({ konkurrent: k.konkurrent, anteil: k.anteil });
+      }
+    }
+    d.boerse = b;
+  }
+  if (e.uebernahme) {
+    const m = uebernahmeMoeglich(state, e.uebernahme);
+    if (istBoersennotiert(e.uebernahme)) fehler.push(`${e.uebernahme} ist börsennotiert – Übernahme nur über „boerse.aktienKauf“ (über 50 %).`);
+    else if (!m.ok) fehler.push(`Übernahme ${e.uebernahme}: ${m.grund}.`);
+    else d.uebernahme = e.uebernahme;
+  }
+  if (e.markeZukaufen?.length) d.markeZukaufen = e.markeZukaufen.filter((r) => {
+    const ok = (REGION_IDS as string[]).includes(r) && r !== 'DE' && !!state.regionen[r as RegionId]?.aktiv;
+    if (!ok) fehler.push(`Marke zukaufen: Region „${r}“ ist keine aktive Auslandsregion.`);
+    return ok;
+  }) as RegionId[];
 
   // Kapazität je Werk (nicht still kürzen, sondern melden)
   if (!fehler.length) {
