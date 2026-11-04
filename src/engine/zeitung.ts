@@ -216,6 +216,10 @@ export function erzeugeZeitung(state: GameState, report: QuarterReport, vorher: 
     sonderausgabe = 'Neue Märkte';
     schlagzeile = pick([`Tor nach ${REGIONEN[r].name} aufgestoßen: ${firma} darf expandieren`, `${firma} greift nach ${REGIONEN[r].name}`, `Grenzenlos radeln: ${REGIONEN[r].name} wartet auf ${firma}`]);
     unterzeile = `Der Meilenstein ist geschafft. Der Markteintritt kostet ${(REGIONEN[r].eintritt / 1e6).toLocaleString('de-DE')} Mio. € – Prof. Speiche rät: „Erst Kapazität, dann Koffer packen.“`;
+  } else if (report.vorfaelle.some((v) => v.art === 'spionage')) {
+    sonderausgabe = 'Skandal';
+    schlagzeile = `James Bond auf dem Klapprad: ${firma} beim Schnüffeln erwischt`;
+    unterzeile = report.vorfaelle.find((v) => v.art === 'spionage')!.text;
   } else if (pleiten.length) {
     schlagzeile = `Pleite! ${pleiten[0].name} rollt ins Aus`;
     unterzeile = 'Die Konkurrenz lichtet sich – Kunden suchen neue Hersteller.';
@@ -294,7 +298,10 @@ export function erzeugeZeitung(state: GameState, report: QuarterReport, vorher: 
   if (stufe) artikel.push(stufe);
 
   // Kurzmeldungen
-  for (const v of report.vorfaelle) kurz.push(v.text);
+  for (const v of report.vorfaelle) if (v.art !== 'spionage' || sonderausgabe !== 'Skandal') kurz.push(v.text);
+  for (const g of state.angebote?.grossabnehmer ?? []) kurz.push(`Großkunde gesucht: ${g.kunde} will bis zu ${de0(g.hoechstmenge)} ${PRODUKTE[g.produkt].name}s zu je ${de0(g.preis)} € abnehmen (${REGIONEN[g.region].name}).`);
+  for (const a of state.angebote?.ausschreibungen ?? []) kurz.push(`Ausschreibung: ${a.behoerde} sucht ${de0(a.menge)} ${PRODUKTE[a.produkt].name}s (Mindest-Technikindex ${a.minTechnikindex}). Das niedrigste Gebot gewinnt.`);
+  for (const x of report.sonderabsatz ?? []) if (x.art === 'ausschreibung') kurz.push(x.text);
   const tm = testmagazin(state, report);
   for (const t of tm) {
     const top = t.eintraege[0];

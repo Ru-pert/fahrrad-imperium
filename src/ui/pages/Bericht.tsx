@@ -6,6 +6,7 @@ import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, gruppiereWarnungen, pct } from '../format';
 import { Aufklapper, Card, Icon, Info, KpiTile, RegionMarke, Warnung } from '../components/ui';
 import { BikeIcon, PRODUKT_FARBE } from '../components/BikeIcon';
+import { Zufriedenheit } from '../components/Tiefe';
 import { useLetzterBericht } from '../hooks';
 
 /** Balken: Wie viel der Nachfrage konnte geliefert werden? */
@@ -87,7 +88,7 @@ export function Bericht() {
         <KpiTile icon="kasse" label="Kasse" wert={bericht.bilanz.kasse} vorher={vorher?.bilanz.kasse} verlauf={verlauf((r) => r.bilanz.kasse)} format={eurKompakt} farbe="#16a34a" hinweis={`Rating ${bericht.kennzahlen.rating} · Kreditlimit ${eurKompakt(bericht.kennzahlen.kreditlimit)}`} />
       </div>
 
-      <Card icon="rad" titel={<span className="flex items-center gap-1">Absatz je Produkt{mehrereRegionen ? ' und Markt' : ''} <Info titel="Lieferquote">Der Balken zeigt, welchen Teil der Nachfrage du bedienen konntest. Unbediente Nachfrage wandert zur Konkurrenz ab – unter 80 % wird er rot: Mehr Produktion oder Kapazität würde sich lohnen.</Info></span>}>
+      <Card icon="rad" titel={<span className="flex items-center gap-1">Absatz je Produkt{mehrereRegionen ? ' und Markt' : ''} <Info titel="Lieferquote">Der Balken zeigt, welchen Teil der Nachfrage du bedienen konntest. Unbediente Nachfrage wandert zur Konkurrenz ab – unter 80 % wird er rot: Mehr Produktion oder Kapazität würde sich lohnen. Fehlmengen und Preiserhöhungen drücken außerdem die Kundenzufriedenheit.</Info></span>}>
         <table className="tnum w-full text-sm">
           <thead>
             <tr className="muted text-left text-xs">
@@ -97,6 +98,7 @@ export function Bericht() {
               <th className="px-2 text-right font-medium">Absatz</th>
               <th className="px-2 font-medium">Lieferquote</th>
               <th className="px-2 text-right font-medium">Anteil</th>
+              <th className="px-2 text-center font-medium">Zufriedenheit</th>
               <th className="pl-2 text-right font-medium">Umsatz</th>
             </tr>
           </thead>
@@ -110,6 +112,7 @@ export function Bericht() {
                   <td className="px-2 text-right font-semibold">{fmt0(absatz)}</td>
                   <td className="px-2"><Lieferquote absatz={absatz} nachfrage={nachfrage} farbe={PRODUKT_FARBE[p]} /></td>
                   <td className="px-2" />
+                  <td className="px-2 text-center">{zeilen.length === 1 && zeilen[0].zufriedenheit !== undefined ? <Zufriedenheit wert={zeilen[0].zufriedenheit} klein /> : null}</td>
                   <td className="pl-2 text-right font-semibold">{eurKompakt(umsatz)}</td>
                 </tr>
                 {(mehrereRegionen ? zeilen : []).map((a) => (
@@ -120,12 +123,13 @@ export function Bericht() {
                     <td className="px-2 text-right">{fmt0(a.absatz)}</td>
                     <td className="px-2"><Lieferquote absatz={a.absatz} nachfrage={a.nachfrage} farbe={PRODUKT_FARBE[p]} /></td>
                     <td className="muted px-2 text-right">{pct(a.marktanteil, 2)}</td>
+                    <td className="px-2 text-center">{a.zufriedenheit !== undefined && <Zufriedenheit wert={a.zufriedenheit} klein />}</td>
                     <td className="pl-2 text-right">{eurKompakt(a.umsatz)}</td>
                   </tr>
                 ))}
                 {!mehrereRegionen && zeilen[0] && (
                   <tr className="text-[13px]">
-                    <td className="muted pb-2 pl-11 text-xs" colSpan={7}>Preis {eur(zeilen[0].preis)} · Marktanteil {pct(zeilen[0].marktanteil, 2)}</td>
+                    <td className="muted pb-2 pl-11 text-xs" colSpan={8}>Preis {eur(zeilen[0].preis)} · Marktanteil {pct(zeilen[0].marktanteil, 2)}</td>
                   </tr>
                 )}
               </Fragment>
@@ -133,6 +137,31 @@ export function Bericht() {
           </tbody>
         </table>
       </Card>
+
+      {((bericht.sonderabsatz?.length ?? 0) > 0 || (bericht.einkauf?.some((e) => e.bestellt > 0) ?? false) || (bericht.spionage?.length ?? 0) > 0) && (
+        <Card icon="nachfrage" farbe="#6366f1" titel="Aufträge, Einkauf und Geheimdienst">
+          <ul className="space-y-1.5 text-sm">
+            {(bericht.sonderabsatz ?? []).map((x) => (
+              <li key={x.id} className="flex items-start gap-2">
+                <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white ${x.art === 'ausschreibung' && !x.gewonnen ? 'bg-rose-500' : 'bg-emerald-500'}`}>{x.art === 'ausschreibung' && !x.gewonnen ? '✕' : '✓'}</span>
+                {x.text}
+              </li>
+            ))}
+            {(bericht.einkauf ?? []).filter((e) => e.bestellt > 0).map((e) => (
+              <li key={e.produkt} className="flex items-start gap-2">
+                <Icon name="lager" className="mt-0.5 h-5 w-5 shrink-0 text-cyan-600" />
+                Einkauf {PRODUKTE[e.produkt].name}: {fmt0(e.bestellt)} Sets mit {pct(e.rabatt, 0)} Rabatt bestellt – {e.ersparnis >= 0 ? 'gespart' : 'Mehrkosten'} {eurKompakt(Math.abs(e.ersparnis))}, Materiallager jetzt {fmt0(e.lagerEnde)} Sets.
+              </li>
+            ))}
+            {(bericht.spionage ?? []).map((x) => (
+              <li key={x.konkurrent} className="flex items-start gap-2">
+                <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white ${x.erwischt ? 'bg-rose-500' : 'bg-slate-700'}`}>{x.erwischt ? '!' : '✓'}</span>
+                {x.erwischt ? `Spionage bei ${state.konkurrenten[x.konkurrent]?.name} aufgeflogen – Strafe ${eurKompakt(x.strafe)}, Image −15.` : `Spionage bei ${state.konkurrenten[x.konkurrent]?.name} blieb unentdeckt.`}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card icon="bericht" titel={<span className="flex items-center gap-1">Branchenbericht <Info titel="Branchenbericht">Umsatz und EBIT aller Hersteller im letzten Quartal. Preise, Budgets und Marktanteile der Konkurrenz gibt es nur über Marktforschung (spätere Ausbaustufe).</Info></span>}>
         <div className="space-y-1.5">

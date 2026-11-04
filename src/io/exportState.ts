@@ -25,6 +25,8 @@ import {
 import { ratingAufschlag } from '../engine/finance';
 import { regionBedingungen, werkBaubar } from '../engine/expansion';
 import { alleFeatures, alleProjekte } from '../engine/forschung';
+import { branchenanalyse, kundenbefragung, marktbericht, spionageAkte, spionageRisiko, zufriedenheitVon } from '../engine/tiefe';
+import { EINKAUF, MARKTFORSCHUNG } from '../engine/config/tiefe';
 import { EPOCHEN } from '../engine/config/features';
 import { segmentWachstum, volumenFaktor } from '../engine/market';
 import { WERK_STANDORTE } from '../engine/config/markets';
@@ -163,8 +165,35 @@ export function lagebericht(state: GameState, letzter: QuarterReport | null, ent
       kontokorrent: BALANCE.finanzen.kontokorrentZins,
       darlehenLaufzeitQuartale: BALANCE.finanzen.darlehenLaufzeit,
     },
+    kundenzufriedenheit: Object.fromEntries(regionen.map((r) => [r, Object.fromEntries(produkte.map((p) => [p, r2(zufriedenheitVon(state, r, p))]))])),
+    offeneAngebote: {
+      grossabnehmer: (state.angebote?.grossabnehmer ?? []).map((g) => ({ id: g.id, kunde: g.kunde, region: g.region, produkt: g.produkt, festpreis: g.preis, hoechstmenge: g.hoechstmenge })),
+      ausschreibungen: (state.angebote?.ausschreibungen ?? []).map((a) => ({ id: a.id, behoerde: a.behoerde, region: a.region, produkt: a.produkt, menge: a.menge, minTechnikindex: a.minTechnikindex })),
+      hinweis: 'Großabnehmer: Festpreis, sofortige Zahlung, keine Logistik, Lieferung vor dem Markt. Ausschreibung: niedrigstes Gebot gewinnt (Konkurrenz bietet etwa 55–75 % des Ø-Marktpreises), Zahlung im Folgequartal.',
+    },
+    ergebnisseSonderabsatz: (letzter?.sonderabsatz ?? []).map((x) => ({ id: x.id, art: x.art, menge: x.menge, preis: x.preis, gewonnen: x.gewonnen, konkurrenzGebot: x.konkurrenzGebot })),
+    materiallager: Object.fromEntries(produkte.map((p) => [p, state.produkte[p]?.materialSets ?? 0])),
+    rettungsangebot: state.rettungsangebot ? { kapital: state.rettungsangebot.kapital, anteilInvestor: state.rettungsangebot.anteil, hinweis: 'Ablehnen beendet das Spiel (Insolvenz).' } : null,
+    investorAnteil: state.finanzen.investorAnteil ?? 0,
+    marktforschungGekauft: (() => {
+      const mf = entwurf.marktforschung ?? {};
+      return {
+        marktberichte: (mf.marktbericht ?? []).map((r) => marktbericht(state, r)),
+        branchenanalysen: (mf.branchenanalyse ?? []).map((r) => branchenanalyse(state, r)),
+        kundenbefragung: mf.kundenbefragung ? kundenbefragung(state) : null,
+        spionage: (mf.spionage ?? []).map((id) => spionageAkte(state, id)),
+        hinweis: 'Geschätzte Werte (Rauschen siehe „genauigkeit“), Stand Vorquartal; Spionage = exakte Pläne für das kommende Quartal.',
+      };
+    })(),
     saison: { naechstesQuartal: SAISON_TEXT[state.quartal % 4], faktor: saison(state.quartal) },
     optionen: {
+      einkaufStaffeln: EINKAUF.staffeln.map((x) => ({ abMenge: x.ab, rabatt: x.rabatt })),
+      marktforschung: {
+        marktbericht: { preisJeRegion: MARKTFORSCHUNG.marktbericht.preis, inhalt: 'Volumen, Ø-Preise, Marktanteile aller Anbieter', genauigkeit: '±15 % Anteile, ±8 % Preise' },
+        branchenanalyse: { preisJeRegion: MARKTFORSCHUNG.branchenanalyse.preis, inhalt: 'Preise, Werbung, F&E, Kapazität je Konkurrent', genauigkeit: '±5 % Preise, ±15 % Budgets' },
+        kundenbefragung: { preis: MARKTFORSCHUNG.kundenbefragung.preis, inhalt: 'Preis-/Werbe-/Techniksensitivität, eigene Zufriedenheit', genauigkeit: '±20 %' },
+        spionage: { preisJeKonkurrent: MARKTFORSCHUNG.spionage.preis, entdeckungsrisiko: r2(spionageRisiko(state)), folgen: 'Strafe 750.000 €, Image −15, Konkurrent senkt 2 Quartale die Preise', konkurrenten: Object.values(state.konkurrenten).filter((k) => k.status === 'aktiv').map((k) => k.id) },
+      },
       komplexitaetsStufe: stufe,
       gesperrt: stufe < 2 ? ['lieferanten', 'wartung', 'linientypen A/C', 'linienVerkaufen', 'nachhaltigkeitsbudget'] : stufe < 3 ? ['linientypen A/C', 'linienVerkaufen', 'nachhaltigkeitsbudget'] : [],
       naechsterMeilenstein: `Europa: Umsatz 4Q ${(umsatz4Q / 1e6).toLocaleString('de-DE', { maximumFractionDigits: 1 })} / 10 Mio. € und Marktanteil DE ${(anteilDE * 100).toLocaleString('de-DE', { maximumFractionDigits: 2 })} / 1 %`,

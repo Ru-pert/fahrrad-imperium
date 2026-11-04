@@ -93,6 +93,12 @@ export interface Finanzen {
   ratingScore: number;
   /** Anzahl Quartale in Folge mit Kontokorrent über Limit / negativem Eigenkapital */
   kritischZaehler: number;
+  /** Rettungsangebot bereits angenommen (nur einmal möglich) */
+  rettungGenutzt?: boolean;
+  /** Anteil eines Investors nach der Rettung (0–1) */
+  investorAnteil?: number;
+  /** Quartal, in dem die Rettung angenommen wurde */
+  rettungQuartal?: number;
 }
 
 export interface Firmensitz {
@@ -206,7 +212,7 @@ export interface AktivesEreignis {
 }
 
 export interface Vorfall {
-  art: 'rueckruf' | 'testsieg' | 'influencer' | 'lieferantenausfall' | 'stoerung' | 'pleite';
+  art: 'rueckruf' | 'testsieg' | 'influencer' | 'lieferantenausfall' | 'stoerung' | 'pleite' | 'spionage';
   firma: string;
   produkt?: ProductId;
   text: string;
@@ -274,6 +280,43 @@ export interface GameState {
   erfolge?: { id: string; quartal: number }[];
   /** Forschungsprojekte: investiertes Budget, Quartale mit Forschung, Abschlussquartal */
   forschung?: Record<string, { investiert: number; quartale: number; fertigIm?: number }>;
+  /** Offene Sonderabsatz-Angebote für das aktuelle Quartal */
+  angebote?: { grossabnehmer: Grossabnehmer[]; ausschreibungen: Ausschreibung[] };
+  /** Rettungsangebot eines Investors (statt sofortiger Insolvenz) */
+  rettungsangebot?: { quartal: number; kapital: number; anteil: number } | null;
+  /** Quartale, in denen spioniert wurde (für das Entdeckungsrisiko) */
+  spionageQuartale?: number[];
+  /** Konkurrenten, die nach einer entdeckten Spionage Preise senken: id → bis einschließlich Quartal */
+  rache?: Record<string, number>;
+}
+
+export interface Grossabnehmer {
+  id: string;
+  kunde: string;
+  region: RegionId;
+  produkt: ProductId;
+  /** Festpreis je Stück */
+  preis: number;
+  hoechstmenge: number;
+}
+
+export interface Ausschreibung {
+  id: string;
+  behoerde: string;
+  region: RegionId;
+  produkt: ProductId;
+  menge: number;
+  minTechnikindex: number;
+  /** Bestes Konkurrenzgebot (verdeckt – nicht in Oberfläche/Export zeigen) */
+  konkurrenzGebot: number;
+}
+
+export interface MarktforschungKauf {
+  marktbericht?: RegionId[];
+  branchenanalyse?: RegionId[];
+  kundenbefragung?: boolean;
+  /** IDs der ausspionierten Konkurrenten */
+  spionage?: string[];
 }
 
 // ------------------------------------------------------------ Entscheidungen
@@ -303,6 +346,15 @@ export interface Decisions {
   expansion?: { maerkteBetreten: RegionId[]; produkteEinfuehren: ProductId[]; werkeBauen: string[] };
   /** Forschungsbudget je Projekt und Quartal */
   forschung?: Record<string, number>;
+  /** Vorausbestellte Material-Sets je Produkt (Mengenrabatt) */
+  einkauf?: PerProduct<number>;
+  /** Liefermengen an Großabnehmer je Angebot */
+  grossabnehmer?: { angebotId: string; menge: number }[];
+  /** Gebote für Ausschreibungen (Stückpreis) */
+  ausschreibungen?: { id: string; stueckpreis: number }[];
+  marktforschung?: MarktforschungKauf;
+  /** Antwort auf ein Rettungsangebot */
+  rettung?: 'annehmen' | 'ablehnen';
 }
 
 // ---------------------------------------------------------------- Bericht
@@ -364,6 +416,8 @@ export interface Kapitalfluss {
   tilgung: number;
   kontokorrent: number;
   dividende: number;
+  /** Einlage eines Investors (Rettungsangebot) */
+  kapitalerhoehung?: number;
   finanzierung: number;
   gesamt: number;
   kasseAnfang: number;
@@ -373,6 +427,8 @@ export interface Kapitalfluss {
 export interface AngebotBericht {
   produkt: ProductId;
   region: RegionId;
+  /** Kundenzufriedenheit nach dem Quartal (0–100) */
+  zufriedenheit?: number;
   preis: number;
   marketing: number;
   nachfrage: number;
@@ -442,6 +498,22 @@ export interface ProduktBericht {
   qualitaet: number;
 }
 
+export interface SonderabsatzBericht {
+  art: 'grossabnehmer' | 'ausschreibung';
+  id: string;
+  kunde: string;
+  produkt: ProductId;
+  region: RegionId;
+  menge: number;
+  preis: number;
+  umsatz: number;
+  /** Ausschreibung: gewonnen / verloren; Gebote */
+  gewonnen?: boolean;
+  gebot?: number;
+  konkurrenzGebot?: number;
+  text: string;
+}
+
 export interface QuarterReport {
   quartal: number;
   guv: GuV;
@@ -481,6 +553,12 @@ export interface QuarterReport {
   warnungen: string[];
   meldungen: string[];
   vorfaelle: Vorfall[];
+  /** Großabnehmer-Lieferungen und Ausschreibungsergebnisse */
+  sonderabsatz?: SonderabsatzBericht[];
+  /** Material-Einkauf je Produkt */
+  einkauf?: { produkt: ProductId; bestellt: number; ausLager: number; nachgekauft: number; rabatt: number; ersparnis: number; lagerEnde: number }[];
+  /** Spionage-Ergebnisse */
+  spionage?: { konkurrent: string; erwischt: boolean; strafe: number }[];
   zeitung: Zeitung | null;
   /** In diesem Quartal neu erreichte Erfolge */
   neueErfolge: string[];

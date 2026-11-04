@@ -79,4 +79,33 @@ describe('Austausch mit Claude', () => {
     expect(r.ok).toBe(true);
     expect(r.aenderungen).toHaveLength(0);
   });
+  it('importiert Einkauf, Großabnehmer, Ausschreibung und Marktforschung; unbekannte Angebote sind Fehler', () => {
+    const s = spiel(true);
+    s.angebote = {
+      grossabnehmer: [{ id: 'GA-1', kunde: 'Test-Leasing', region: 'DE', produkt: 'stadtrad', preis: 400, hoechstmenge: 300 }],
+      ausschreibungen: [{ id: 'AS-1', behoerde: 'Polizei', region: 'DE', produkt: 'stadtrad', menge: 200, minTechnikindex: 100, konkurrenzGebot: 450 }],
+    };
+    const json = {
+      format: 'fahrrad-imperium/entscheidungen',
+      einkauf: { stadtrad: 5000 },
+      grossabnehmer: [{ angebotId: 'GA-1', menge: 999 }],
+      ausschreibungen: [{ id: 'AS-1', stueckpreis: 430 }],
+      marktforschung: { marktbericht: ['DE'], spionage: ['drahtesel'] },
+    };
+    const r = importiereEntscheidungen(JSON.stringify(json), s, standardEntscheidungen(s));
+    expect(r.ok).toBe(true);
+    expect(r.entscheidungen!.einkauf?.stadtrad).toBe(5000);
+    expect(r.entscheidungen!.grossabnehmer?.[0].menge).toBe(300);
+    expect(r.entscheidungen!.ausschreibungen?.[0].stueckpreis).toBe(430);
+    expect(r.entscheidungen!.marktforschung?.spionage).toEqual(['drahtesel']);
+    // Roundtrip
+    const zurueck = importiereEntscheidungen(JSON.stringify(entscheidungenAlsJson(r.entscheidungen!)), s, standardEntscheidungen(s));
+    expect(zurueck.entscheidungen).toEqual(r.entscheidungen);
+    // Lagebericht verrät das Konkurrenzgebot nicht
+    const lb = JSON.stringify(lagebericht(s, null, r.entscheidungen!, false));
+    expect(lb).not.toContain('konkurrenzGebot');
+    expect(lb).toContain('"spionage":[{"art":"spionage"');
+    const falsch = importiereEntscheidungen(JSON.stringify({ grossabnehmer: [{ angebotId: 'GA-99', menge: 1 }] }), s, standardEntscheidungen(s));
+    expect(falsch.ok).toBe(false);
+  });
 });

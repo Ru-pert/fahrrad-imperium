@@ -30,6 +30,10 @@ ENTSCHEIDUNGS-JSON (format "fahrrad-imperium/entscheidungen", version 1):
   "finanzen": { "darlehenNeu": <€ bis freiesKreditlimit>, "tilgungExtra": <€>, "dividende": <€ ≤ Gewinnrücklagen> },
   "firmensitz": { "kaufen": [ "<nächste Stufe oder Extra-id>" ] },
   "forschung": { "<projekt-id>": <€ je Quartal> },
+  "einkauf": { "<produkt>": <Sets> },
+  "grossabnehmer": [ { "angebotId": "<id>", "menge": <Stück> } ],
+  "ausschreibungen": [ { "id": "<id>", "stueckpreis": <€> } ],
+  "marktforschung": { "marktbericht": [], "branchenanalyse": [], "kundenbefragung": false, "spionage": [] },
   "expansion": { "maerkteBetreten": [ "EU" | "NA" | "AS" | "RW" ], "produkteEinfuehren": [ "<produkt-id>" ], "werkeBauen": [ "DE" | "PL" | "US" | "MX" | "VN" | "BR" ] },
   "begruendung": "<1–3 Sätze>"
 }
@@ -43,6 +47,12 @@ WERTEBEREICHE UND REGELN
 - Gesperrte Bereiche stehen in optionen.gesperrt (Komplexitätsstufe) – Werte dort werden ignoriert.
 - Forschung: Neue Produkte entstehen nur über Forschungsprojekte (optionen.forschung: Kosten, Mindestdauer, Voraussetzungen). Das Budget läuft weiter, bis es geändert wird; fertig, wenn Kosten erreicht UND Mindestdauer vorbei. Märkte entwickeln sich unterschiedlich (optionen.marktTrends).
 - Feature-Forschung (optionen.featureForschung, IDs beginnen mit „f-“): einzelne Ausstattungsmerkmale in 5 Epochen von realistisch bis völlig abgedreht. Budget ebenfalls unter „forschung“. Wirkung ab dem Quartal nach Abschluss, dauerhaft, für alle Produkte in „giltFuer“: technik (+ auf Technik), qualitaet (+ auf Qualität 0,8–1,2), nachfrage (Faktor auf die Attraktivität, 0,05 = +5 %), image/nachhaltigkeit (Punkte), material (Materialkosten, 0,03 = +3 %).
+- Kundenzufriedenheit (kundenzufriedenheit, 0–100 je Markt und Produkt): wirkt mit (Z/50)^0,5 auf die Nachfrage. Steigt mit Qualität, Umweltindex, Image; sinkt bei Preiserhöhungen (−1,5 je 1 %) und Lieferengpässen. Preissprünge also vermeiden!
+- Großabnehmer (offeneAngebote.grossabnehmer): "grossabnehmer": [{ "angebotId": "…", "menge": … }] – bis zur Höchstmenge, Festpreis, Lieferung vor dem Markt.
+- Ausschreibungen (offeneAngebote.ausschreibungen): "ausschreibungen": [{ "id": "…", "stueckpreis": … }] – niedrigstes Gebot gewinnt, Technikindex muss das Minimum erreichen.
+- Einkauf: "einkauf": { "<produkt>": <Sets> } – Vorausbestellung mit Mengenrabatt (optionen.einkaufStaffeln); Überschuss geht ins Materiallager.
+- Marktforschung: "marktforschung": { "marktbericht": ["DE"], "branchenanalyse": [], "kundenbefragung": false, "spionage": ["<konkurrent-id>"] } – Kosten siehe optionen.marktforschung. Bereits gekaufte Berichte stehen in marktforschungGekauft.
+- Rettungsangebot (nur wenn rettungsangebot ≠ null): "rettung": "annehmen" | "ablehnen". Ablehnen = Spielende.
 - Expansion: nur freigeschaltete Regionen (siehe optionen). Markteintritt kostet einmalig (EU 2 Mio., NA 15 Mio., AS 40 Mio., RW 100 Mio. €), Verkauf ab Folgequartal. Produkteinführung 500.000 €, 1 Quartal Vorlauf. Werke: 2–3 Quartale Bauzeit, starten leer (Linien kaufen, Personal einstellen).
 - Darlehen: 8 Quartale lineare Tilgung, Zins = konditionen.darlehenszinsNeu. Kontokorrent (12 %) springt automatisch ein.
 

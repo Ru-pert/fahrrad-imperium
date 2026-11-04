@@ -45,6 +45,13 @@ export function beraterTipps(state: GameState, vorschau: QuarterReport | null, b
     const frueher = historie.slice(0, -1).map((h) => h.report.guv.umsatz);
     if (frueher.length > 0 && bericht.guv.umsatz > Math.max(...frueher)) t.push({ stimmung: 'gut', text: `Rekordumsatz von ${eurKompakt(bericht.guv.umsatz)}! Ich habe zur Feier eine neue Klingel poliert.` });
   }
+  const anfragen = (state.angebote?.grossabnehmer.length ?? 0) + (state.angebote?.ausschreibungen.length ?? 0);
+  if (anfragen > 0) t.push({ stimmung: 'info', text: `${anfragen} Großaufträge warten auf dich – ${state.angebote?.ausschreibungen.length ? 'darunter eine öffentliche Ausschreibung' : 'Festpreise, sofortige Zahlung, keine Logistikkosten'}.`, ziel: 'entscheidungen', zielText: 'Zu den Aufträgen' });
+  const zuf = Object.entries(state.unternehmen.zufriedenheit ?? {}).filter(([k]) => k.includes(':')).sort((a, b) => a[1] - b[1])[0];
+  if (zuf && zuf[1] < 40) {
+    const [r, p] = zuf[0].split(':') as [RegionId, keyof typeof PRODUKTE];
+    t.push({ stimmung: 'warn', text: `Die Kundschaft für dein ${PRODUKTE[p]?.name ?? 'Rad'} in ${REGIONEN[r]?.name ?? r} ist unzufrieden (${fmt0(zuf[1])} von 100). Keine weiteren Preiserhöhungen – besser Qualität und Liefertreue!` });
+  }
   const bereit = (['EU', 'NA', 'AS', 'RW'] as RegionId[]).filter((r) => state.regionen[r]?.freigeschaltet && !state.regionen[r]?.aktiv);
   if (bereit.length) t.push({ stimmung: 'info', text: `${REGIONEN[bereit[0]].name} wartet auf dich! Der Markteintritt kostet ${eurKompakt(REGIONEN[bereit[0]].eintritt)}.`, ziel: 'expansion', zielText: 'Zur Expansion' });
   const forscht = Object.values(state.letzteEntscheidungen?.forschung ?? {}).some((x) => (x ?? 0) > 0);

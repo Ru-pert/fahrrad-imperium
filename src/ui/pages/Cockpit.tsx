@@ -5,6 +5,7 @@ import { ereignisDef } from '../../engine/events';
 import { BikeIcon } from '../components/BikeIcon';
 import { CockpitBanner } from '../components/Banner';
 import { Beraterin } from '../components/Beraterin';
+import { RettungsBanner } from '../components/Tiefe';
 import { Leer } from '../components/Leer';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
@@ -16,6 +17,8 @@ import { useLetzterBericht, usePreview } from '../hooks';
 export function Cockpit() {
   const state = useGame((s) => s.state)!;
   const gehe = useGame((s) => s.gehe);
+  const entwurf = useGame((s) => s.entwurf);
+  const aendere = useGame((s) => s.aendereEntwurf);
   const bericht = useLetzterBericht();
   const vorschau = usePreview();
   const k = state.kpiHistorie;
@@ -31,6 +34,7 @@ export function Cockpit() {
     <div className="space-y-4">
       <h1 className="sr-only">Cockpit</h1>
       <CockpitBanner state={state} bericht={bericht} />
+      {state.rettungsangebot && entwurf && <RettungsBanner state={state} d={entwurf} aendere={aendere} />}
       <Beraterin state={state} vorschau={vorschau} bericht={bericht} />
 
       <Weltbuehne />

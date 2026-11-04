@@ -45,12 +45,17 @@ export const ERFOLGE: ErfolgDef[] = [
   { id: 'globetrotter', name: 'Globetrotter', bedingung: 'Alle Regionen aktiv', icon: 'ziel', farbe: '#0d9488', pruefe: (s) => Object.values(s.regionen).every((r) => r?.aktiv) },
   { id: 'ding_dong', name: 'Ding Dong', bedingung: 'Börsengang', icon: 'stern', farbe: '#7c3aed', spaeter: true },
   { id: 'fressen', name: 'Fressen und gefressen werden', bedingung: 'Erste Übernahme', icon: 'rakete', farbe: '#b91c1c', spaeter: true },
-  { id: 'james_bond', name: 'James Bond auf dem Klapprad', bedingung: 'Bei Spionage erwischt', icon: 'viral', farbe: '#334155', spaeter: true },
-  { id: 'pleitegeier', name: 'Pleitegeier verjagt', bedingung: 'Rettungsangebot angenommen und überlebt', icon: 'warn', farbe: '#64748b', spaeter: true },
+  { id: 'james_bond', name: 'James Bond auf dem Klapprad', bedingung: 'Bei Spionage erwischt', icon: 'viral', farbe: '#334155', pruefe: (_s, r) => (r.spionage ?? []).some((x) => x.erwischt) },
+  { id: 'pleitegeier', name: 'Pleitegeier verjagt', bedingung: 'Rettungsangebot angenommen und 4 Quartale überlebt', icon: 'warn', farbe: '#64748b', pruefe: (s) => !!s.finanzen.rettungGenutzt && !s.spielende && s.finanzen.kritischZaehler === 0 && rettungVorMindestens(s, 4) },
   { id: 'milliardaer', name: 'Milliardär', bedingung: 'Jahresumsatz ≥ 1 Mrd. €', icon: 'wert', farbe: '#ca8a04', pruefe: (s) => s.kpiHistorie.slice(-4).reduce((a, k) => a + k.umsatz, 0) >= 1e9 },
   { id: 'marktfuehrer_europa', name: 'Marktführer Europa', bedingung: 'Platz 1 in Europa nach Umsatz', icon: 'testsieg', farbe: '#2563eb', spaeter: true },
   { id: 'imperator', name: 'Imperator', bedingung: 'Weltmarktführer (4 Quartale Platz 1)', icon: 'testsieg', farbe: '#a16207', spaeter: true },
 ];
+
+/** Rettung liegt mindestens n Quartale zurück (gemessen an der Kapitalerhöhung in der Historie nicht verfügbar → über Quartal der Annahme) */
+function rettungVorMindestens(s: GameState, n: number): boolean {
+  return s.finanzen.rettungQuartal !== undefined && s.quartal - s.finanzen.rettungQuartal >= n;
+}
 
 /** Prüft nach einem Quartal und gibt neu erreichte Erfolge zurück (verändert `s.erfolge`). */
 export function pruefeErfolge(s: GameState, r: QuarterReport): string[] {

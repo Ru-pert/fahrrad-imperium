@@ -15,6 +15,11 @@ export interface EntscheidungsJson {
   firmensitz: { kaufen: string[] };
   expansion: { maerkteBetreten: RegionId[]; produkteEinfuehren: ProductId[]; werkeBauen: string[] };
   forschung: Record<string, number>;
+  einkauf?: Partial<Record<ProductId, number>>;
+  grossabnehmer?: { angebotId: string; menge: number }[];
+  ausschreibungen?: { id: string; stueckpreis: number }[];
+  marktforschung?: { marktbericht?: RegionId[]; branchenanalyse?: RegionId[]; kundenbefragung?: boolean; spionage?: string[] };
+  rettung?: 'annehmen' | 'ablehnen';
   begruendung?: string;
 }
 
@@ -51,6 +56,11 @@ export function entscheidungenAlsJson(d: Decisions, begruendung?: string): Entsc
     firmensitz: { kaufen: [...d.firmensitz.kaufen] },
     expansion: { maerkteBetreten: [...(d.expansion?.maerkteBetreten ?? [])], produkteEinfuehren: [...(d.expansion?.produkteEinfuehren ?? [])], werkeBauen: [...(d.expansion?.werkeBauen ?? [])] },
     forschung: Object.fromEntries(Object.entries(d.forschung ?? {}).filter(([, v]) => (v ?? 0) > 0).map(([k, v]) => [k, Math.round(v ?? 0)])),
+    ...(Object.values(d.einkauf ?? {}).some((v) => (v ?? 0) > 0) ? { einkauf: Object.fromEntries(Object.entries(d.einkauf ?? {}).filter(([, v]) => (v ?? 0) > 0)) } : {}),
+    ...(d.grossabnehmer?.length ? { grossabnehmer: d.grossabnehmer.map((g) => ({ ...g })) } : {}),
+    ...(d.ausschreibungen?.length ? { ausschreibungen: d.ausschreibungen.map((g) => ({ ...g })) } : {}),
+    ...(d.marktforschung && Object.values(d.marktforschung).some((v) => (Array.isArray(v) ? v.length > 0 : !!v)) ? { marktforschung: structuredClone(d.marktforschung) } : {}),
+    ...(d.rettung ? { rettung: d.rettung } : {}),
     ...(begruendung ? { begruendung } : {}),
   };
 }
