@@ -9,7 +9,7 @@ import { PRODUKTE } from './config/products';
 import { sachanlagen } from './finance';
 
 const neu = (seed = 42): GameState =>
-  neuesSpiel({ firmenname: 'Test GmbH', farbe: '#0d9488', schwierigkeit: 'normal', profi: false, seed });
+  neuesSpiel({ firmenname: 'Test GmbH', farbe: '#0d9488', schwierigkeit: 'normal', profi: false, seed, startProdukte: ['stadtrad', 'ebike'] });
 
 function spiele(
   start: GameState,
@@ -125,7 +125,7 @@ describe('Buchhaltung', () => {
     const d = standardEntscheidungen(s);
     d.werke['DE-1'].linienVerkaufen = ['DE-1-L2'];
     // Stufe 3 erforderlich → Profimodus
-    const p = neuesSpiel({ firmenname: 'P', farbe: '#000', schwierigkeit: 'normal', profi: true, seed: 1 });
+    const p = neuesSpiel({ firmenname: 'P', farbe: '#000', schwierigkeit: 'normal', profi: true, seed: 1, startProdukte: ['stadtrad', 'ebike'] });
     const dp = standardEntscheidungen(p);
     dp.werke['DE-1'].linienVerkaufen = ['DE-1-L2'];
     const { report } = simulateQuarter(p, dp);
@@ -256,7 +256,7 @@ describe('Produktion', () => {
     expect(r.report.warnungen.some((w) => w.includes('Limit'))).toBe(true);
   });
   it('Teurere Lieferanten erhöhen Herstellkosten und Qualität', () => {
-    const s = neuesSpiel({ firmenname: 'P', farbe: '#000', schwierigkeit: 'normal', profi: true, seed: 1 });
+    const s = neuesSpiel({ firmenname: 'P', farbe: '#000', schwierigkeit: 'normal', profi: true, seed: 1, startProdukte: ['stadtrad', 'ebike'] });
     const d = standardEntscheidungen(s);
     const d2 = standardEntscheidungen(s);
     d2.lieferanten = { rahmen: 'premium', akku: 'premium', antrieb: 'premium' };
@@ -385,7 +385,7 @@ describe('Ereignisse und Zeitung', () => {
 
 describe('Hallenerweiterung', () => {
   it('ist erst bei voller Halle möglich und bringt 4 Plätze', () => {
-    let s = neuesSpiel({ firmenname: 'P', farbe: '#000', schwierigkeit: 'normal', profi: true, seed: 3 });
+    let s = neuesSpiel({ firmenname: 'P', farbe: '#000', schwierigkeit: 'normal', profi: true, seed: 3, startProdukte: ['stadtrad', 'ebike'] });
     s.finanzen.kasse += 18_500_000;
     s.finanzen.kapitalruecklage += 18_500_000;
     let d = standardEntscheidungen(s);
@@ -474,18 +474,23 @@ describe('Expansion', () => {
     // Bei Knappheit wird anteilig zur Nachfrage verteilt – auch der neue Markt bekommt Ware
     expect(eu.absatz).toBeGreaterThan(0);
   });
-  it('Produkteinführung mit Vorlauf und Werksbau mit Bauzeit, Bilanz bleibt ausgeglichen', () => {
+  it('Forschung führt zum neuen Produkt, Werksbau mit Bauzeit, Bilanz bleibt ausgeglichen', () => {
     let s = reich();
-    s.produkteVerfuegbar = ['mountainbike'];
     let d = standardEntscheidungen(s);
-    d.expansion = { maerkteBetreten: [], produkteEinfuehren: ['mountainbike'], werkeBauen: ['PL'] };
+    d.forschung = { federung: 600_000 };
+    d.expansion = { maerkteBetreten: [], produkteEinfuehren: [], werkeBauen: ['PL'] };
     for (let i = 0; i < 3; i++) {
       const r = simulateQuarter(s, d);
       expect(Math.abs(r.report.bilanz.aktiva - r.report.bilanz.passiva)).toBeLessThan(0.01);
       s = r.nextState;
       if (i === 0) {
-        expect(s.produkte.mountainbike?.freigeschaltet).toBe(true);
+        // voll finanziert, aber Mindestdauer 2 Quartale noch nicht erreicht
+        expect(s.produkte.mountainbike).toBeUndefined();
         expect(s.werke.find((w) => w.standort === 'PL')?.status).toBe('bau');
+      }
+      if (i === 1) {
+        expect(s.produkte.mountainbike?.freigeschaltet).toBe(true);
+        expect(r.report.freischaltungen.some((f) => f.id === 'mountainbike')).toBe(true);
       }
       d = standardEntscheidungen(s);
     }
@@ -501,5 +506,81 @@ describe('Expansion', () => {
     expect(state.spielende).toBeNull();
     expect(state.regionen.EU!.aktiv).toBe(true);
     expect(state.regionen.NA!.freigeschaltet).toBe(true);
+  });
+});
+
+describe('Forschung und Marktlebenszyklen', () => {
+  it('ein neues Spiel startet nur mit dem Stadtrad', () => {
+    const s = neuesSpiel({ firmenname: 'T', farbe: '#000', schwierigkeit: 'normal', profi: false, seed: 1 });
+    expect(Object.keys(s.produkte)).toEqual(['stadtrad']);
+    expect(s.markt.DE!.stadtrad!.anteile[SPIELER_ID]).toBeCloseTo(0.0075, 4);
+  });
+  it('Projekte brauchen Voraussetzungen, Budget und Mindestdauer', () => {
+    let s = neuesSpiel({ firmenname: 'T', farbe: '#000', schwierigkeit: 'normal', profi: false, seed: 1 });
+    let d = standardEntscheidungen(s);
+    d.forschung = { lastenrahmen: 500_000, elektro: 400_000 };
+    let r = simulateQuarter(s, d);
+    expect(r.report.warnungen.some((w) => w.includes('Voraussetzungen'))).toBe(true);
+    expect(r.report.guv.fe).toBeGreaterThanOrEqual(400_000);
+    s = r.nextState;
+    expect(s.forschung?.elektro?.investiert).toBe(400_000);
+    expect(s.forschung?.lastenrahmen).toBeUndefined();
+    // Budget wird übernommen, bis das Projekt fertig ist (1,2 Mio. € in 3 Quartalen)
+    for (let i = 0; i < 2; i++) {
+      d = standardEntscheidungen(s);
+      r = simulateQuarter(s, d);
+      s = r.nextState;
+    }
+    expect(s.produkte.ebike?.freigeschaltet).toBe(true);
+    expect(s.produkte.ebike?.fe).toBeCloseTo(360_000, 0);
+  });
+  it('Segmente entwickeln sich unterschiedlich: Stadtrad schrumpft, E-Bike boomt, Lastenrad kommt später', async () => {
+    const { volumenFaktor } = await import('./market');
+    expect(volumenFaktor('stadtrad', 'DE', 40)).toBeLessThan(1);
+    expect(volumenFaktor('ebike', 'DE', 20)).toBeGreaterThan(1.6);
+    const lastenFrueh = volumenFaktor('lastenrad', 'DE', 12) / volumenFaktor('lastenrad', 'DE', 0);
+    const lastenSpaet = volumenFaktor('lastenrad', 'DE', 32) / volumenFaktor('lastenrad', 'DE', 20);
+    expect(lastenSpaet).toBeGreaterThan(lastenFrueh);
+  });
+});
+
+describe('Feature-Forschung', () => {
+  it('Features wirken nach Abschluss auf Nachfrage, Qualität und Material der passenden Räder', () => {
+    let s = neuesSpiel({ firmenname: 'T', farbe: '#000', schwierigkeit: 'normal', profi: false, seed: 3 });
+    // Voraussetzung fehlt → Warnung
+    let d = standardEntscheidungen(s);
+    d.forschung = { 'f-gps': 100_000, 'f-licht': 250_000, 'f-scheibenbremsen': 350_000 };
+    let r = simulateQuarter(s, d);
+    expect(r.report.warnungen.some((w) => w.includes('GPS') && w.includes('Voraussetzungen'))).toBe(true);
+    s = r.nextState;
+    expect(s.forschung?.['f-licht']?.fertigIm).toBe(0);
+    expect(r.report.freischaltungen.some((f) => f.art === 'feature' && f.id === 'f-licht')).toBe(true);
+    // Scheibenbremsen brauchen 2 Quartale
+    expect(s.forschung?.['f-scheibenbremsen']?.fertigIm).toBeUndefined();
+    d = standardEntscheidungen(s);
+    expect(d.forschung?.['f-licht']).toBeUndefined();
+    r = simulateQuarter(s, d);
+    s = r.nextState;
+    expect(s.forschung?.['f-scheibenbremsen']?.fertigIm).toBe(1);
+
+    // Vergleich mit/ohne Features bei gleichen Entscheidungen
+    const ohne: GameState = structuredClone(s);
+    ohne.forschung = {};
+    const dd = standardEntscheidungen(s);
+    dd.forschung = {};
+    const mit = previewQuarter(s, dd);
+    const basis = previewQuarter(ohne, dd);
+    const a = (x: QuarterReport) => x.angebote.find((y) => y.produkt === 'stadtrad' && y.region === 'DE')!;
+    expect(a(mit).nachfrage).toBeGreaterThan(a(basis).nachfrage * 1.03);
+    expect(a(mit).qualitaet).toBeCloseTo(a(basis).qualitaet + 0.03, 5);
+    expect(mit.produkte.find((p) => p.produkt === 'stadtrad')!.hkProStueck).toBeGreaterThan(basis.produkte.find((p) => p.produkt === 'stadtrad')!.hkProStueck);
+    expect(Math.abs(mit.bilanz.aktiva - mit.bilanz.passiva)).toBeLessThan(1e-6);
+  });
+  it('Feature-Wirkungen gelten nur für passende Produkte', async () => {
+    const { featureWirkung } = await import('./forschung');
+    const s = neuesSpiel({ firmenname: 'T', farbe: '#000', schwierigkeit: 'normal', profi: false, seed: 3 });
+    s.forschung = { 'f-carbon': { investiert: 900_000, quartale: 3, fertigIm: 0 } };
+    expect(featureWirkung(s, 'rennrad').technik).toBeCloseTo(0.15);
+    expect(featureWirkung(s, 'stadtrad').technik).toBe(0);
   });
 });

@@ -33,20 +33,28 @@ export function leereWerkEntscheidung(w: { wartung: Wartung }, schulung: number)
 }
 
 /** Entscheidungen des Startquartals. */
-export function startEntscheidungen(): Decisions {
+export function startEntscheidungen(startProdukte: ProductId[] = ['stadtrad']): Decisions {
   const e = START.entscheidungen;
-  return {
+  const nurStadtrad = startProdukte.length === 1;
+  const d: Decisions = {
     quartal: 0,
-    preis: { stadtrad: { DE: e.preis.stadtrad }, ebike: { DE: e.preis.ebike } },
-    marketing: { stadtrad: { DE: e.marketing.stadtrad }, ebike: { DE: e.marketing.ebike } },
-    produktion: { stadtrad: { [START.werk.id]: e.produktion.stadtrad }, ebike: { [START.werk.id]: e.produktion.ebike } },
-    fe: { stadtrad: e.fe.stadtrad, ebike: e.fe.ebike },
+    preis: {},
+    marketing: {},
+    produktion: {},
+    fe: {},
     werke: { [START.werk.id]: { linienKaufen: [], linienVerkaufen: [], wartung: START.werk.wartung, personalAenderung: 0, schulungProKopf: e.schulung } },
     lieferanten: { rahmen: 'standard', akku: 'standard', antrieb: 'standard' },
     nachhaltigkeitsbudget: 0,
     finanzen: { darlehenNeu: 0, tilgungExtra: 0, dividende: 0 },
     firmensitz: { kaufen: [] },
   };
+  for (const p of startProdukte as ('stadtrad' | 'ebike')[]) {
+    d.preis[p] = { DE: e.preis[p] };
+    d.marketing[p] = { DE: nurStadtrad ? START.marketingNurStadtrad : e.marketing[p] };
+    d.produktion[p] = { [START.werk.id]: nurStadtrad ? START.produktionNurStadtrad : e.produktion[p] };
+    d.fe[p] = e.fe[p];
+  }
+  return d;
 }
 
 /**
@@ -63,6 +71,8 @@ export function standardEntscheidungen(state: GameState): Decisions {
   alt.finanzen = { darlehenNeu: 0, tilgungExtra: 0, dividende: 0 };
   alt.firmensitz = { kaufen: [] };
   alt.expansion = { maerkteBetreten: [], produkteEinfuehren: [], werkeBauen: [] };
+  // Abgeschlossene Forschung braucht kein Budget mehr
+  if (alt.forschung) alt.forschung = Object.fromEntries(Object.entries(alt.forschung).filter(([id]) => state.forschung?.[id]?.fertigIm === undefined));
   // Fehlende Felder für aktive Produkte/Regionen auffüllen
   for (const p of aktiveProdukte(state)) {
     alt.preis[p] ??= {};

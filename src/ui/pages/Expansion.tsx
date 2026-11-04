@@ -2,7 +2,8 @@ import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { PRODUKTE, REGIONEN, quartalLabel, type GameState, type ProductId, type RegionId } from '../../engine';
 import { WERK_STANDORTE } from '../../engine/config/markets';
-import { EXPANSION, produktBedingungen, regionBedingungen, werkBaubar, type Bedingung } from '../../engine/expansion';
+import { EXPANSION, regionBedingungen, werkBaubar, type Bedingung } from '../../engine/expansion';
+import { alleProjekte } from '../../engine/forschung';
 import { useGame } from '../../store/gameStore';
 import { eurKompakt, fmt0, fmt2, pct } from '../format';
 import { BikeIcon } from '../components/BikeIcon';
@@ -63,6 +64,8 @@ export function Expansion() {
   const historie = useGame((s) => s.historie);
   const bericht = useLetzterBericht();
   const [auswahl, setAuswahl] = useState<RegionId | null>(null);
+  const gehe = useGame((s) => s.gehe);
+  const projekte = alleProjekte(state);
   const ex = entwurf.expansion ?? { maerkteBetreten: [], produkteEinfuehren: [], werkeBauen: [] };
   const leuchten = (bericht?.freischaltungen ?? []).filter((f) => f.art === 'region').map((f) => f.id as RegionId);
 
@@ -169,12 +172,11 @@ export function Expansion() {
         </div>
       </Card>
 
-      <Card titel="Neue Produkte" icon="rad">
+      <Card titel="Neue Produkte (über Forschung)" icon="rad">
         <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-4">
           {NEUE_PRODUKTE.map((p) => {
             const pz = state.produkte[p];
-            const verfuegbar = (state.produkteVerfuegbar ?? []).includes(p);
-            const vorgemerkt = ex.produkteEinfuehren.includes(p);
+            const verfuegbar = !!projekte.find((x) => x.projekt.produkt === p && x.offen);
             const cfg = PRODUKTE[p];
             return (
               <div key={p} className={`rounded-xl border-2 p-3 ${pz ? 'border-emerald-400' : verfuegbar ? 'border-amber-400' : 'border-[var(--line)]'}`}>
@@ -188,13 +190,19 @@ export function Expansion() {
                 <div className="muted mt-1 text-xs">Preiselastizität {fmt2(cfg.epsilon)} · Technik-Sensitivität {fmt2(cfg.tau)} · {cfg.montageStunden} Std./Stück</div>
                 <div className="mt-2">
                   {pz ? (
-                    <p className="text-sm font-semibold text-emerald-700">{pz.status === 'vorlauf' ? 'In Entwicklung – ab nächstem Quartal verfügbar' : 'Im Programm'}</p>
-                  ) : verfuegbar ? (
-                    <button className={`btn w-full ${vorgemerkt ? 'bg-brand-600 text-white' : 'border border-[var(--line)]'}`} onClick={() => umschalten('produkteEinfuehren', p)}>
-                      {vorgemerkt ? '✓ Einführung vorgemerkt' : `Einführen (${eurKompakt(EXPANSION.produktEinfuehrung)}, 1 Quartal Entwicklung)`}
-                    </button>
+                    <p className="text-sm font-semibold text-emerald-700">{pz.status === 'vorlauf' ? 'Gerade fertig erforscht – ab nächstem Quartal produzierbar' : 'Im Programm'}</p>
                   ) : (
-                    <Bedingungen liste={produktBedingungen(state, p)} />
+                    (() => {
+                      const st = projekte.find((x) => x.projekt.produkt === p);
+                      if (!st) return null;
+                      return (
+                        <div className="space-y-1">
+                          <Fortschritt label={`Forschung „${st.projekt.name}“`} wert={st.investiert} ziel={st.projekt.kosten} format={eurKompakt} />
+                          <p className="muted text-xs">{st.offen ? `Mindestens ${st.projekt.mindestQuartale} Quartale Entwicklung.` : `🔒 Voraussetzung: ${st.projekt.voraussetzungen.join(', ')}`}</p>
+                          <button className="btn-ghost w-full" onClick={() => gehe('entscheidungen')}>Zum Forschungslabor</button>
+                        </div>
+                      );
+                    })()
                   )}
                 </div>
               </div>

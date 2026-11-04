@@ -12,7 +12,7 @@ import type {
 } from './types';
 import type { Rng } from './rng';
 import type { Anbieter } from './market';
-import { referenzPreis, technikAusStock } from './market';
+import { referenzPreis, segmentWachstum, technikAusStock } from './market';
 import { lernkurve } from './production';
 import { clamp, saison, stk } from './util';
 
@@ -51,7 +51,7 @@ export function planKonkurrenten(state: GameState, rng: Rng): Record<string, Kon
       const eintrag: KonkurrentPlanProdukt = { preis: {}, marketing: {}, fe: 0, produktion: 0 };
       let prognoseGesamt = 0;
       let umsatzProdukt = 0;
-      const wachstum = (1 + PRODUKTE[p].wachstum) * (saison(t) / saison(t - 1));
+      const wachstum = (1 + segmentWachstum(p, t)) * (saison(t) / saison(t - 1));
       for (const r of konkurrentRegionen(k)) {
         const mz = state.markt[r]?.[p];
         if (!mz) continue;

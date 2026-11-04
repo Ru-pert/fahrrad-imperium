@@ -63,6 +63,7 @@ import { clamp, stk, sum } from './util';
 import { SPIELER_ID } from './util';
 import { ereignisEffekte, naechsteEreignisse, ereignisDef } from './events';
 import { erzeugeZeitung } from './zeitung';
+import { featureUnternehmen, featureWirkung, forscheQuartal, normalisiereForschung } from './forschung';
 import { normalisiereExpansion, pruefeFreischaltungen, schliesseExpansionAb, starteExpansion } from './expansion';
 import { pruefeErfolge } from './achievements';
 import { VORFAELLE } from './config/events';
@@ -181,6 +182,16 @@ export function simulateQuarter(
     s.unternehmen.firmensitz.anschaffung += kosten;
     meldungen.push(`Firmensitz ausgebaut: ${HQ_STUFEN[idx].name}`);
   }
+
+  // ------------------------------------------------------------ Forschung
+  const forschungsBudgets = normalisiereForschung(s, dec, warn);
+  dec.forschung = { ...(dec.forschung ?? {}) };
+  for (const id of Object.keys(dec.forschung)) if (!(id in forschungsBudgets)) delete dec.forschung[id];
+  Object.assign(dec.forschung, forschungsBudgets);
+  const forschungsAufwand = sum(Object.values(forschungsBudgets));
+  // Wirkungen bereits erforschter Features je Produkt
+  const fw = Object.fromEntries(PRODUKT_IDS.map((p) => [p, featureWirkung(s, p)])) as Record<ProductId, ReturnType<typeof featureWirkung>>;
+  const fwU = featureUnternehmen(s);
 
   // ------------------------------------------------------------ Expansion (Markteintritt, Produkte, Werke)
   const expansion = normalisiereExpansion(s, dec, warn);
@@ -346,7 +357,7 @@ export function simulateQuarter(
     for (const p of produkte) {
       const q = qty[p] ?? 0;
       if (q <= 0) continue;
-      const hk = herstellkosten(p, w, lf[p], lk[p], eff.material(p));
+      const hk = herstellkosten(p, w, lf[p], lk[p], eff.material(p) * fw[p].material);
       prodMenge[p] = (prodMenge[p] ?? 0) + q;
       prodKostenMat[p] = (prodKostenMat[p] ?? 0) + q * hk.material;
       prodKostenLohn[p] = (prodKostenLohn[p] ?? 0) + q * hk.lohn;
@@ -392,8 +403,8 @@ export function simulateQuarter(
     const mengen = werkRes.map((r) => r.qty[p] ?? 0);
     const summeMenge = sum(mengen);
     const standortMalus = summeMenge > 0 ? sum(werkRes.map((r, i) => mengen[i] * (WERK_STANDORTE[r.werk.standort ?? 'DE']?.qualitaet ?? 0))) / summeMenge : 0;
-    qP[p] = clamp(qualitaet(p, dec.lieferanten, schulungMittel, maxUeberstd) + standortMalus, B.qualitaet.min, B.qualitaet.max);
-    tP[p] = technikAusStock(s.produkte[p]!.fe);
+    qP[p] = clamp(qualitaet(p, dec.lieferanten, schulungMittel, maxUeberstd) + standortMalus + fw[p].qualitaet, B.qualitaet.min, B.qualitaet.max);
+    tP[p] = technikAusStock(s.produkte[p]!.fe) + fw[p].technik;
   }
 
   // ------------------------------------------------------------ Konkurrenz produziert
@@ -445,6 +456,7 @@ export function simulateQuarter(
     qualitaet: qP[p]!,
     image: s.unternehmen.image,
     kapazitaet,
+    staerke: fw[p].nachfrage,
   });
   // Kontingente: bei Knappheit wird die Ware anteilig zur Nachfrage auf die Märkte verteilt
   const kontingent: Record<string, number> = {};
@@ -628,7 +640,7 @@ export function simulateQuarter(
 
   // ------------------------------------------------------------ GuV
   const marketingSumme = sum(produkte.flatMap((p) => regionen.map((r) => dec.marketing[p]?.[r] ?? 0)));
-  const feSumme = sum(produkte.map((p) => dec.fe[p] ?? 0));
+  const feSumme = sum(produkte.map((p) => dec.fe[p] ?? 0)) + forschungsAufwand;
   const nbBudget = dec.nachhaltigkeitsbudget;
   const personalKosten = sum(werkRes.map((r) => r.hireFireTrain + r.leer + r.premium));
   const fgk =
@@ -812,12 +824,12 @@ export function simulateQuarter(
     : sum(produkte.map((p) => umweltProdukt[p] ?? 0)) / Math.max(1, produkte.length);
   const nbStern = Math.max(B.nachhaltigkeit.nbSternAnteil * umsatz, B.nachhaltigkeit.nbSternMin);
   const deltaWerke = sum(s.werke.filter((w) => (w.status ?? 'aktiv') === 'aktiv').map((w) => WERK_STANDORTE[w.standort ?? 'DE']?.nachhaltigkeit ?? 0));
-  const nZiel = B.nachhaltigkeit.umweltfaktor * uUnt + B.nachhaltigkeit.budgetMax * (1 - Math.exp(-nbBudget / nbStern)) + deltaWerke;
+  const nZiel = B.nachhaltigkeit.umweltfaktor * uUnt + B.nachhaltigkeit.budgetMax * (1 - Math.exp(-nbBudget / nbStern)) + deltaWerke + fwU.nachhaltigkeit;
   const nNeu = clamp(s.unternehmen.nachhaltigkeit + B.nachhaltigkeit.anpassung * (nZiel - s.unternehmen.nachhaltigkeit), 0, 100);
   const qMittel = gewichtUmsatz > 0
     ? sum(produkte.map((p) => (qP[p] ?? 1) * (verkauft[p] ?? 0))) / gewichtUmsatz
     : sum(produkte.map((p) => qP[p] ?? 1)) / Math.max(1, produkte.length);
-  const iZiel = B.image.basis + B.image.nachhaltigkeitsFaktor * nNeu + (B.image.qualitaetsFaktor * (qMittel - 0.8)) / 0.4 + hqImageBonus(s);
+  const iZiel = B.image.basis + B.image.nachhaltigkeitsFaktor * nNeu + (B.image.qualitaetsFaktor * (qMittel - 0.8)) / 0.4 + hqImageBonus(s) + fwU.image;
   s.unternehmen.image = clamp(s.unternehmen.image + B.image.anpassung * (iZiel - s.unternehmen.image) + imageSchock, 0, 100);
   s.unternehmen.nachhaltigkeit = nNeu;
   s.unternehmen.umweltindex = uUnt;
@@ -891,11 +903,18 @@ export function simulateQuarter(
     image: s.unternehmen.image, absatz: sum(produkte.map((p) => verkauft[p] ?? 0)),
   });
 
-  // ------------------------------------------------------------ Expansion abschließen, Freischaltungen
+  // ------------------------------------------------------------ Forschung abschließen, Expansion, Freischaltungen
+  const erforscht = forscheQuartal(s, forschungsBudgets, t);
   meldungen.push(...schliesseExpansionAb(s, t));
   const freischaltungen = zufall ? pruefeFreischaltungen(s) : [];
+  for (const f of erforscht.features) freischaltungen.push({ art: 'feature', id: f.id });
+  for (const f of erforscht.features) meldungen.push(`Feature erforscht: ${f.name} – „${f.slogan}“. Wirkt ab dem nächsten Quartal.`);
+  for (const p of erforscht.produkte) {
+    freischaltungen.push({ art: 'produkt', id: p.produkt });
+    meldungen.push(`Forschung abgeschlossen: ${p.name} – ab sofort kannst du ${PRODUKTE[p.produkt].name}s bauen!`);
+  }
   for (const f of freischaltungen) {
-    meldungen.push(f.art === 'region' ? `Meilenstein erreicht: ${REGIONEN[f.id as RegionId].name} ist freigeschaltet!` : `Neues Produkt verfügbar: ${PRODUKTE[f.id as ProductId].name}.`);
+    if (f.art === 'region') meldungen.push(`Meilenstein erreicht: ${REGIONEN[f.id as RegionId].name} ist freigeschaltet!`);
   }
 
   // ------------------------------------------------------------ Nächstes Quartal

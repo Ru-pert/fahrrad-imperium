@@ -14,6 +14,7 @@ export interface EntscheidungsJson {
   finanzen: { darlehenNeu: number; tilgungExtra: number; dividende: number };
   firmensitz: { kaufen: string[] };
   expansion: { maerkteBetreten: RegionId[]; produkteEinfuehren: ProductId[]; werkeBauen: string[] };
+  forschung: Record<string, number>;
   begruendung?: string;
 }
 
@@ -49,6 +50,7 @@ export function entscheidungenAlsJson(d: Decisions, begruendung?: string): Entsc
     finanzen: { ...d.finanzen },
     firmensitz: { kaufen: [...d.firmensitz.kaufen] },
     expansion: { maerkteBetreten: [...(d.expansion?.maerkteBetreten ?? [])], produkteEinfuehren: [...(d.expansion?.produkteEinfuehren ?? [])], werkeBauen: [...(d.expansion?.werkeBauen ?? [])] },
+    forschung: Object.fromEntries(Object.entries(d.forschung ?? {}).filter(([, v]) => (v ?? 0) > 0).map(([k, v]) => [k, Math.round(v ?? 0)])),
     ...(begruendung ? { begruendung } : {}),
   };
 }

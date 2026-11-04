@@ -8,6 +8,8 @@ import { ERFOLGE, PRODUKTE, REGIONEN, SPIELER_ID, quartalLabel, type RegionId, t
 import { useGame } from '../../store/gameStore';
 import { eurKompakt, fmt0, fmt2, pct } from '../format';
 import { AnimatedNumber, Icon, IconBadge } from './ui';
+import { FeatureBild } from './FeatureBild';
+import { FEATURES } from '../../engine/config/features';
 import { BikeIcon, PRODUKT_FARBE } from './BikeIcon';
 import { Donut } from './charts';
 
@@ -186,7 +188,7 @@ export function Auswertung() {
       ? `${quartalLabel(daten.periode[0].quartal)} – ${quartalLabel(daten.periode[daten.periode.length - 1].quartal)}`
       : quartalLabel(bericht.quartal);
   const platz = daten.rangliste.findIndex((r) => r.eigen) + 1;
-  const weiter = (ziel: 'zeitung' | 'cockpit' | 'bericht' | 'expansion') => {
+  const weiter = (ziel: 'zeitung' | 'cockpit' | 'bericht' | 'expansion' | 'entscheidungen') => {
     schliessen();
     gehe(ziel);
   };
@@ -217,12 +219,29 @@ export function Auswertung() {
               {bericht.freischaltungen.filter((f) => f.art === 'produkt').map((f) => (
                 <div key={f.id} className="mt-1 flex items-center justify-center gap-2 text-lg font-bold"><BikeIcon produkt={f.id as ProductId} className="h-7 w-11" /> Neues Produkt verfügbar: {PRODUKTE[f.id as ProductId].name}</div>
               ))}
+              {bericht.freischaltungen.filter((f) => f.art === 'feature').map((f) => {
+                const ft = FEATURES.find((x) => x.id === f.id);
+                if (!ft) return null;
+                return (
+                  <div key={f.id} className="mt-2 flex items-center justify-center gap-3">
+                    <FeatureBild bild={ft.bild} className="h-12 w-12" />
+                    <div className="text-left">
+                      <div className="text-lg font-bold">Feature erforscht: {ft.name}</div>
+                      <div className="text-sm italic text-slate-600 dark:text-slate-300">„{ft.slogan}“ – wirkt ab dem nächsten Quartal</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             {bericht.freischaltungen.some((f) => f.art === 'region') && (
               <Weltkarte state={state} leuchten={bericht.freischaltungen.filter((f) => f.art === 'region').map((f) => f.id as RegionId)} kompakt />
             )}
             <div className="mt-3 flex justify-center">
-              <button className="btn-primary" onClick={() => weiter('expansion')}>Zur Expansion <Icon name="chevron" className="h-4 w-4" /></button>
+              {bericht.freischaltungen.some((f) => f.art !== 'feature') ? (
+                <button className="btn-primary" onClick={() => weiter('expansion')}>Zur Expansion <Icon name="chevron" className="h-4 w-4" /></button>
+              ) : (
+                <button className="btn-primary" onClick={() => weiter('entscheidungen')}>Zu den Entscheidungen <Icon name="chevron" className="h-4 w-4" /></button>
+              )}
             </div>
           </motion.div>
         )}

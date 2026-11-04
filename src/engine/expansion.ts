@@ -74,8 +74,8 @@ export function produktBedingungen(s: GameState, p: ProductId): Bedingung[] {
 }
 
 /** Prüft nach dem Quartal, ob neue Regionen oder Produkte freigeschaltet werden. */
-export function pruefeFreischaltungen(s: GameState): { art: 'region' | 'produkt'; id: string }[] {
-  const neu: { art: 'region' | 'produkt'; id: string }[] = [];
+export function pruefeFreischaltungen(s: GameState): { art: 'region' | 'produkt' | 'feature'; id: string }[] {
+  const neu: { art: 'region' | 'produkt' | 'feature'; id: string }[] = [];
   for (const r of REGION_IDS) {
     const reg = s.regionen[r];
     if (!reg || reg.freigeschaltet) continue;
@@ -85,15 +85,7 @@ export function pruefeFreischaltungen(s: GameState): { art: 'region' | 'produkt'
       neu.push({ art: 'region', id: r });
     }
   }
-  s.produkteVerfuegbar ??= [];
-  for (const p of PRODUKT_IDS) {
-    if (s.produkte[p] || s.produkteVerfuegbar.includes(p)) continue;
-    const bed = produktBedingungen(s, p);
-    if (bed.length && bed.every((x) => x.erfuellt)) {
-      s.produkteVerfuegbar.push(p);
-      neu.push({ art: 'produkt', id: p });
-    }
-  }
+  // Neue Produkte entstehen über den Forschungsbaum (siehe forschung.ts)
   return neu;
 }
 
@@ -118,14 +110,8 @@ export function normalisiereExpansion(s: GameState, dec: Decisions, warn: string
     }
     return true;
   });
-  const produkte = [...new Set(e.produkteEinfuehren ?? [])].filter((p) => {
-    if (s.produkte[p]) return false;
-    if (!(s.produkteVerfuegbar ?? []).includes(p)) {
-      warn.push(`${PRODUKTE[p].name} ist noch nicht freigeschaltet.`);
-      return false;
-    }
-    return true;
-  });
+  if ((e.produkteEinfuehren ?? []).length) warn.push('Neue Produkte entstehen über die Forschung (Bereich F&E) – „produkteEinfuehren“ wird ignoriert.');
+  const produkte: ProductId[] = [];
   const werke: string[] = [];
   for (const code of e.werkeBauen ?? []) {
     const ok = werkBaubar(s, code);

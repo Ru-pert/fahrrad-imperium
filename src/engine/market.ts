@@ -79,6 +79,31 @@ export function startVolumen(region: RegionId, produkt: ProductId): number {
   return (r.startvolumen * r.mix[produkt]) / 100;
 }
 
+/** Wachstum eines Segments im Quartal t (Lebenszyklus) */
+export function segmentWachstum(p: ProductId, t: number): number {
+  const L = PRODUKTE[p].lebenszyklus;
+  let g = L.basis;
+  if (L.boom) g += L.boom.hoehe * Math.exp(-(((t - L.boom.mitte) / L.boom.breite) ** 2));
+  if (L.welle) g += L.welle.amplitude * Math.sin((2 * Math.PI * t) / L.welle.periode);
+  return g;
+}
+
+const faktorCache = new Map<string, number[]>();
+/** Volumenfaktor eines Segments relativ zum Start (Produkt der Wachstumsraten bis t) */
+export function volumenFaktor(p: ProductId, region: RegionId, t: number): number {
+  const key = `${p}:${region}`;
+  let reihe = faktorCache.get(key);
+  if (!reihe) {
+    reihe = [1];
+    faktorCache.set(key, reihe);
+  }
+  while (reihe.length <= t) {
+    const i = reihe.length - 1;
+    reihe.push(reihe[i] * (1 + segmentWachstum(p, i) + REGIONEN[region].zusatzwachstum));
+  }
+  return reihe[Math.max(0, t)];
+}
+
 export function a0Aktuell(a0Start: number, t: number): number {
   return a0Start * Math.pow(1 - BALANCE.restmarkt.schrumpfungProQuartal, t);
 }
@@ -139,14 +164,12 @@ function durchschnitte(inp: SegmentInput) {
 
 /** Berechnet Nachfrage, Lieferung und Marktanteile eines Segments (5.1–5.3). */
 export function berechneSegment(inp: SegmentInput): SegmentOutput {
-  const p = PRODUKTE[inp.produkt];
-  const reg = REGIONEN[inp.region];
   const ref = referenzPreis(inp.region, inp.produkt);
   const { pBar, tBar } = durchschnitte(inp);
   const v0 = startVolumen(inp.region, inp.produkt);
   const volumen =
     v0 *
-    Math.pow(1 + p.wachstum + reg.zusatzwachstum, inp.t) *
+    volumenFaktor(inp.produkt, inp.region, inp.t) *
     saison(inp.t) *
     (inp.eventFaktor ?? 1) *
     Math.pow(pBar / ref, -BALANCE.marktPreisElastizitaet);

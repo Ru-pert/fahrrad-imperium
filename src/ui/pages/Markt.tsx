@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { PRODUKTE, REGIONEN, SPIELER_ID, aktiveProdukte, aktiveRegionen, quartalLabel, referenzPreis, type ProductId, type RegionId } from '../../engine';
+import { PRODUKTE, PRODUKT_IDS, REGIONEN, SPIELER_ID, aktiveProdukte, aktiveRegionen, quartalLabel, referenzPreis, type ProductId, type RegionId } from '../../engine';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
 import { Donut, LinienDiagramm } from '../components/charts';
 import { Card, Tabelle, Tabs } from '../components/ui';
+import { BikeIcon } from '../components/BikeIcon';
+import { Lebenszyklus } from '../components/Forschungsbaum';
 import { useLetzterBericht } from '../hooks';
 
 export function Markt() {
@@ -37,6 +39,17 @@ export function Markt() {
       </div>
       {regionen.length > 1 && <Tabs<RegionId> wert={r} optionen={regionen.map((x) => ({ id: x, label: REGIONEN[x].name }))} onChange={setR} />}
       <Tabs wert={p} optionen={produkte.map((x) => ({ id: x, label: PRODUKTE[x].name }))} onChange={setP} />
+      <Card titel="Wie entwickeln sich die Fahrradmärkte? (nächste 10 Jahre)" icon="markt">
+        <div className="grid gap-4 md:grid-cols-3">
+          {PRODUKT_IDS.map((x) => (
+            <div key={x} className={`rounded-xl border p-3 ${produkte.includes(x) ? 'border-[var(--line)]' : 'border-dashed border-slate-300'}`}>
+              <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><BikeIcon produkt={x} className="h-6 w-9" />{PRODUKTE[x].name}{!produkte.includes(x) && <span className="muted text-xs font-normal">(noch nicht im Programm)</span>}</div>
+              <Lebenszyklus produkt={x} ab={state.quartal} breite={260} hoehe={60} />
+              <div className="muted text-xs">{PRODUKTE[x].lebenszyklus.text}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {!bericht || !seg ? (
         <Card>
