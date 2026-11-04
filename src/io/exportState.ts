@@ -27,6 +27,8 @@ import { regionBedingungen, werkBaubar } from '../engine/expansion';
 import { alleFeatures, alleProjekte } from '../engine/forschung';
 import { branchenanalyse, kundenbefragung, marktbericht, spionageAkte, spionageRisiko, zufriedenheitVon } from '../engine/tiefe';
 import { EINKAUF, MARKTFORSCHUNG } from '../engine/config/tiefe';
+import { KOMPLEXITAET, SPIELZIEL } from '../engine/config/spielziel';
+import { restQuartaleBisZiel, wertung } from '../engine/spielziel';
 import { EPOCHEN } from '../engine/config/features';
 import { segmentWachstum, volumenFaktor } from '../engine/market';
 import { WERK_STANDORTE } from '../engine/config/markets';
@@ -165,6 +167,19 @@ export function lagebericht(state: GameState, letzter: QuarterReport | null, ent
       kontokorrent: BALANCE.finanzen.kontokorrentZins,
       darlehenLaufzeitQuartale: BALANCE.finanzen.darlehenLaufzeit,
     },
+    spielziel: (() => {
+      const w = wertung(state);
+      return {
+        beschreibung: `Endabrechnung nach ${SPIELZIEL.quartale} Quartalen (15 Jahre): Punkte aus Unternehmenswert, Weltrang, Regionen, Erfolgen, Image/Nachhaltigkeit. Stufen: ${SPIELZIEL.stufen.map((x) => `${x.name} ab ${x.ab}`).join(', ')}.`,
+        restQuartale: restQuartaleBisZiel(state),
+        punkteStandJetzt: w.punkte,
+        stufeStandJetzt: w.stufe,
+        bausteine: w.bausteine.map((b) => ({ baustein: b.name, punkte: Math.round(b.punkte), max: b.max, info: b.text })),
+        endwertung: state.endwertung ? { punkte: state.endwertung.punkte, stufe: state.endwertung.stufe } : null,
+      };
+    })(),
+    koordinationskosten: { anteilVomUmsatz: letzter && letzter.guv.umsatz > 0 ? r4((letzter.guv.koordination ?? 0) / letzter.guv.umsatz) : 0, regel: `+${KOMPLEXITAET.jeWeiteresWerk * 100} % je weiteres Werk, +${KOMPLEXITAET.jeWeitereRegion * 100} % je weitere Region, +${KOMPLEXITAET.jeWeiteresProdukt * 100} % je weiteres Produkt (max. ${KOMPLEXITAET.max * 100} %)` },
+    konkurrenzVerhalten: 'Konkurrenten, deren Umsatz du zur Hälfte erreichst, senken in deinen Märkten dauerhaft die Preise (−5 %) und werben mehr. Deine Features werden nach 4 Quartalen zu 60 % nachgebaut. Golden Spoke altert ab 2029: weniger Zugkraft und Kapazität.',
     kundenzufriedenheit: Object.fromEntries(regionen.map((r) => [r, Object.fromEntries(produkte.map((p) => [p, r2(zufriedenheitVon(state, r, p))]))])),
     offeneAngebote: {
       grossabnehmer: (state.angebote?.grossabnehmer ?? []).map((g) => ({ id: g.id, kunde: g.kunde, region: g.region, produkt: g.produkt, festpreis: g.preis, hoechstmenge: g.hoechstmenge })),

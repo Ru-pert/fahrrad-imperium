@@ -1,3 +1,4 @@
+import { KONKURRENZ_DRUCK } from './config/spielziel';
 import { BALANCE } from './config/balance';
 import { KONKURRENT_BALANCE as KB, KONKURRENTEN } from './config/competitors';
 import { LIEFERANTEN, PRODUKTE } from './config/products';
@@ -62,12 +63,15 @@ export function planKonkurrenten(state: GameState, rng: Rng): Record<string, Kon
         const reagiert = rng.chance(clamp(profil.aggressivitaet * schwierig.reaktion, 0, 0.95));
         const senkung = rng.range(KB.senkungMin, KB.senkungMax);
         if (reaktionAktiv && delta > 0 && reagiert && spielerRegionen.includes(r)) preis *= 1 - senkung * (profil.reaktionAbUmsatz ? 1.5 : 1);
+        // Preiskampf: Wer vom Spieler eingeholt wird, verteidigt sich dauerhaft
+        const kampf = reaktionAktiv && spielerRegionen.includes(r) && spielerJahresumsatz >= KONKURRENZ_DRUCK.kampfAbVerhaeltnis * 4 * Math.max(1, k.letzterUmsatz);
+        if (kampf) preis *= 1 - KONKURRENZ_DRUCK.kampfPreisNachlass;
         eintrag.preis[r] = clamp(preis, 0.5 * ref, 3 * ref);
 
         const absatz = pz.absatzR?.[r] ?? 0;
         const umsatzR = absatz * (pz.preisR?.[r] ?? preis);
         umsatzProdukt += umsatzR;
-        eintrag.marketing[r] = Math.max(KB.mindestMarketing, profil.marketingAnteil * umsatzR * (1 + rng.range(-KB.rauschen, KB.rauschen)));
+        eintrag.marketing[r] = Math.max(KB.mindestMarketing, profil.marketingAnteil * umsatzR * (1 + rng.range(-KB.rauschen, KB.rauschen))) * (kampf ? KONKURRENZ_DRUCK.kampfMarketingFaktor : 1);
         prognoseGesamt += absatz * wachstum;
       }
       eintrag.fe = Math.min(KB.feMaxProProdukt, profil.feAnteil * umsatzProdukt) * (1 + rng.range(-KB.rauschen, KB.rauschen));
@@ -79,7 +83,8 @@ export function planKonkurrenten(state: GameState, rng: Rng): Record<string, Kon
     // Ausbau bei hoher Auslastung; große Hersteller proportional zu ihrer Größe, aber nur wenn profitabel
     const neu = Math.max(1, Math.round(k.linien * 0.03));
     const vorsichtig = profil.zielAnteil ? k.letztesEbit > 0 && k.kasse > neu * KB.linienKosten * 3 : true;
-    if (vorsichtig && k.letzteAuslastung > KB.ausbauAuslastung && k.kasse > KB.linienKosten * neu * (1.2 - 0.6 * profil.expansionsRisiko)) plan.neueLinien = neu;
+    const alternd = profil.altert && t >= KONKURRENZ_DRUCK.alterungAbQuartal;
+    if (!alternd && vorsichtig && k.letzteAuslastung > KB.ausbauAuslastung && k.kasse > KB.linienKosten * neu * (1.2 - 0.6 * profil.expansionsRisiko)) plan.neueLinien = neu;
     plaene[profil.id] = plan;
   }
   return plaene;
@@ -137,7 +142,7 @@ export function konkurrentAnbieter(k: KonkurrentZustand, plan: KonkurrentPlan, p
     qualitaet: k.qualitaet,
     image: k.image,
     kapazitaet: verfuegbar,
-    staerke: k.staerke?.[`${region}:${p}`] ?? 1,
+    staerke: (k.staerke?.[`${region}:${p}`] ?? 1) * (k.alterung ?? 1),
   };
 }
 

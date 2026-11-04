@@ -67,6 +67,9 @@ import { ZUFRIEDENHEIT, rabattFuer, RETTUNG, MARKTFORSCHUNG, AUSSCHREIBUNG } fro
 import { generiereAngebote, marktforschungKosten, zufriedenheitVon } from './tiefe';
 import { technikIndex as tiAusTechnik } from './market';
 import type { SonderabsatzBericht, QuarterReport as QR } from './types';
+import { KOMPLEXITAET, KONKURRENZ_DRUCK, SPIELZIEL } from './config/spielziel';
+import { wertung } from './spielziel';
+import { nachbauWirkung } from './forschung';
 import { featureUnternehmen, featureWirkung, forscheQuartal, normalisiereForschung } from './forschung';
 import { normalisiereExpansion, pruefeFreischaltungen, schliesseExpansionAb, starteExpansion } from './expansion';
 import { pruefeErfolge } from './achievements';
@@ -249,6 +252,13 @@ export function simulateQuarter(
   // Wirkungen bereits erforschter Features je Produkt
   const fw = Object.fromEntries(PRODUKT_IDS.map((p) => [p, featureWirkung(s, p)])) as Record<ProductId, ReturnType<typeof featureWirkung>>;
   const fwU = featureUnternehmen(s);
+  // Was die Konkurrenz von deinen Features nachgebaut hat
+  const nachbau = Object.fromEntries(PRODUKT_IDS.map((p) => [p, nachbauWirkung(s, p, t)])) as Record<ProductId, ReturnType<typeof nachbauWirkung>>;
+  const kopiert = (a: Anbieter | null, p: ProductId): Anbieter | null => {
+    if (!a) return a;
+    const nb = nachbau[p];
+    return { ...a, technik: a.technik + nb.technik, qualitaet: a.qualitaet + nb.qualitaet, staerke: (a.staerke ?? 1) * nb.nachfrage };
+  };
 
   // ------------------------------------------------------------ Expansion (Markteintritt, Produkte, Werke)
   const expansion = normalisiereExpansion(s, dec, warn);
@@ -600,7 +610,7 @@ export function simulateQuarter(
           const k = s.konkurrenten[prof.id];
           const plan = plaene[prof.id];
           if (!k || !plan) continue;
-          const a = konkurrentAnbieter(k, plan, p, r, kRest[`${k.id}:${p}`] ?? 0);
+          const a = kopiert(konkurrentAnbieter(k, plan, p, r, kRest[`${k.id}:${p}`] ?? 0), p);
           if (a && a.preis > 0) anbieter.push(a);
         }
         nachfrage[r] = berechneSegment({ region: r, produkt: p, t, anbieter, zustand, eventFaktor: eff.nachfrage(p) }).nachfrage[SPIELER_ID] ?? 0;
@@ -634,7 +644,7 @@ export function simulateQuarter(
         const k = s.konkurrenten[prof.id];
         const plan = plaene[prof.id];
         if (!k || !plan) continue;
-        const a = konkurrentAnbieter(k, plan, p, r, kRest[`${k.id}:${p}`] ?? 0);
+        const a = kopiert(konkurrentAnbieter(k, plan, p, r, kRest[`${k.id}:${p}`] ?? 0), p);
         if (a && a.preis > 0) anbieter.push(a);
       }
       const out = berechneSegment({ region: r, produkt: p, t, anbieter, zustand, eventFaktor: eff.nachfrage(p) });
@@ -803,6 +813,13 @@ export function simulateQuarter(
   );
   const hqUnterhalt = s.unternehmen.firmensitz.buchwert * B.finanzen.hqUnterhaltSatz;
   const verwaltung = (maVerw + maEink) * B.personal.verwaltungGehalt + B.finanzen.verwaltungSachkosten + hqUnterhalt + abgabe;
+  // Koordinationskosten: jedes weitere Werk, jede Region und jedes Produkt macht die Organisation träger
+  const anzahlWerke = s.werke.filter((w) => (w.status ?? 'aktiv') === 'aktiv').length;
+  const komplexAnteil = Math.min(
+    KOMPLEXITAET.max,
+    KOMPLEXITAET.jeWeiteresWerk * Math.max(0, anzahlWerke - 1) + KOMPLEXITAET.jeWeitereRegion * Math.max(0, regionen.length - 1) + KOMPLEXITAET.jeWeiteresProdukt * Math.max(0, produkte.length - 1),
+  );
+  const koordination = umsatz * komplexAnteil;
 
   // Abschreibungen
   let afa = 0;
@@ -815,7 +832,7 @@ export function simulateQuarter(
 
   const deckungsbeitrag = umsatz - herstellkostenUmsatz - logistik;
   const ebit =
-    deckungsbeitrag - marketingSumme - feSumme - nbBudget - personalKosten - fgk - vertriebKosten - verwaltung - afa + sonstErtrag - sonstAufwand - rueckrufKosten - expansionsAufwand - mfKosten - spionageStrafe;
+    deckungsbeitrag - marketingSumme - feSumme - nbBudget - personalKosten - fgk - vertriebKosten - verwaltung - koordination - afa + sonstErtrag - sonstAufwand - rueckrufKosten - expansionsAufwand - mfKosten - spionageStrafe;
   const zinsen = zinsDarlehen + zinsKontokorrent;
   const ebt = ebit - zinsen;
   let steuern = 0;
@@ -830,7 +847,7 @@ export function simulateQuarter(
   const guv: GuV = {
     umsatz, herstellkosten: herstellkostenUmsatz, logistik, deckungsbeitrag, marketing: marketingSumme, fe: feSumme,
     nachhaltigkeit: nbBudget, marktforschung: mfKosten, fertigungsgemeinkosten: fgk, personal: personalKosten, vertrieb: vertriebKosten,
-    verwaltung, sonstigeErtraege: sonstErtrag, sonstigerAufwand: sonstAufwand + rueckrufKosten + expansionsAufwand + spionageStrafe, abschreibungen: afa, ebit, ebitda: ebit + afa,
+    verwaltung, koordination, sonstigeErtraege: sonstErtrag, sonstigerAufwand: sonstAufwand + rueckrufKosten + expansionsAufwand + spionageStrafe, abschreibungen: afa, ebit, ebitda: ebit + afa,
     zinsen, ebt, steuern, ueberschuss,
   };
 
@@ -844,7 +861,7 @@ export function simulateQuarter(
   const hireFireTrain = sum(werkRes.map((r) => r.hireFireTrain));
   const periodenKosten =
     sum(werkRes.map((r) => r.energie + r.linienFix + r.wartung + r.schicht)) + nacharbeitGesamt + lagerKosten + logistik +
-    marketingSumme + feSumme + nbBudget + vertriebKosten + verwaltung + rueckrufKosten + expansionsAufwand + mfKosten + spionageStrafe;
+    marketingSumme + feSumme + nbBudget + vertriebKosten + verwaltung + koordination + rueckrufKosten + expansionsAufwand + mfKosten + spionageStrafe;
   const operativAuszahlung = auszahlungMaterial + laborCash + hireFireTrain + periodenKosten + zinsen + steuern;
   const regTilgung = sum(fin.kredite.map((k) => Math.min(k.tilgung, k.restbetrag)));
   const dividende = dec.finanzen.dividende;
@@ -985,6 +1002,10 @@ export function simulateQuarter(
     if (k.status === 'aktiv' && plan && kProd[prof.id]) {
       const wasAktiv = k.status === 'aktiv';
       buchungKonkurrent(k, plan, kProd[prof.id], kRegion[prof.id] ?? {});
+      if (prof.altert && t >= KONKURRENZ_DRUCK.alterungAbQuartal) {
+        k.alterung = Math.max(KONKURRENZ_DRUCK.alterungMinimum, (k.alterung ?? 1) * KONKURRENZ_DRUCK.alterungJeQuartal);
+        k.linien = Math.max(1, k.linien * KONKURRENZ_DRUCK.linienSchwundJeQuartal);
+      }
       if (wasAktiv && (k.status as string) === 'pleite') meldungen.push(`${k.name} ist insolvent!`);
     }
     konkurrenzBericht.push({
@@ -1052,6 +1073,7 @@ export function simulateQuarter(
   s.kpiHistorie.push({
     quartal: t, umsatz, ebit, ueberschuss, kasse: cash, marktanteil, unternehmenswert: uw.eigenkapitalwert,
     image: s.unternehmen.image, absatz: sum(produkte.map((p) => verkauft[p] ?? 0)),
+    weltrang: 1 + konkurrenzBericht.filter((k) => k.status === 'aktiv' && k.umsatz > umsatz).length,
   });
 
   // ------------------------------------------------------------ Forschung abschließen, Expansion, Freischaltungen
@@ -1112,6 +1134,11 @@ export function simulateQuarter(
     freischaltungen,
   };
   if (zufall) report.neueErfolge = pruefeErfolge(s, report);
+  // Spielziel: Endabrechnung nach 15 Jahren (oder bei Insolvenz)
+  if (zufall && !s.endwertung && ((!s.endlos && t === SPIELZIEL.quartale - 1) || s.spielende)) {
+    s.endwertung = wertung(s);
+    report.endwertung = s.endwertung;
+  }
   if (zufall) {
     report.zeitung = erzeugeZeitung(s, report, opts.vorherBericht ?? null);
     s.zeitung = report.zeitung;

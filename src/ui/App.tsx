@@ -8,6 +8,7 @@ import { usePreview, useLetzterBericht } from './hooks';
 import { Badge, Icon, Toasts } from './components/ui';
 import { Auswertung } from './components/Auswertung';
 import { GaragenSzene } from './components/Startbild';
+import { Endabrechnung } from './components/Endabrechnung';
 import { Cockpit } from './pages/Cockpit';
 import { Bericht } from './pages/Bericht';
 import { Zeitung } from './pages/Zeitung';
@@ -173,7 +174,7 @@ function Seitenleiste() {
       ))}
       <div className="mt-auto rounded-2xl bg-white/[0.06] p-3 ring-1 ring-white/10">
         <div className="flex items-center justify-between text-xs text-teal-200/80">
-          <span>Spieljahr {Math.floor(state.quartal / 4) + 1}</span>
+          <span>Jahr {Math.min(15, Math.floor(state.quartal / 4) + 1)} von 15{state.endlos ? ' (frei)' : ''}</span>
           <span>{erfolge}/{ERFOLGE.length} Erfolge</span>
         </div>
         <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
@@ -299,6 +300,7 @@ export function App() {
       </div>
       <MobilNav />
       <Auswertung />
+      <Endabrechnung />
       <Toasts />
     </div>
   );

@@ -135,6 +135,8 @@ export interface KonkurrentProduktZustand {
 }
 
 export interface KonkurrentZustand {
+  /** Schwund der Marktstärke (nur alternde Riesen), 1 = voll */
+  alterung?: number;
   id: string;
   name: string;
   farbe: string;
@@ -181,6 +183,8 @@ export interface KpiPunkt {
   unternehmenswert: number;
   image: number;
   absatz: number;
+  /** Platz in der Weltrangliste nach Quartalsumsatz */
+  weltrang?: number;
 }
 
 export interface Einstellungen {
@@ -284,6 +288,10 @@ export interface GameState {
   angebote?: { grossabnehmer: Grossabnehmer[]; ausschreibungen: Ausschreibung[] };
   /** Rettungsangebot eines Investors (statt sofortiger Insolvenz) */
   rettungsangebot?: { quartal: number; kapital: number; anteil: number } | null;
+  /** Endabrechnung (nach 15 Jahren oder bei Insolvenz) */
+  endwertung?: import('./spielziel').Wertung | null;
+  /** Nach der Endabrechnung weiterspielen (ohne Wertung) */
+  endlos?: boolean;
   /** Quartale, in denen spioniert wurde (für das Entdeckungsrisiko) */
   spionageQuartale?: number[];
   /** Konkurrenten, die nach einer entdeckten Spionage Preise senken: id → bis einschließlich Quartal */
@@ -372,6 +380,8 @@ export interface GuV {
   personal: number;
   vertrieb: number;
   verwaltung: number;
+  /** Koordinationskosten durch Größe (Werke, Märkte, Produkte) */
+  koordination?: number;
   sonstigeErtraege: number;
   sonstigerAufwand: number;
   abschreibungen: number;
@@ -557,6 +567,8 @@ export interface QuarterReport {
   sonderabsatz?: SonderabsatzBericht[];
   /** Material-Einkauf je Produkt */
   einkauf?: { produkt: ProductId; bestellt: number; ausLager: number; nachgekauft: number; rabatt: number; ersparnis: number; lagerEnde: number }[];
+  /** Endabrechnung, falls in diesem Quartal fällig */
+  endwertung?: import('./spielziel').Wertung;
   /** Spionage-Ergebnisse */
   spionage?: { konkurrent: string; erwischt: boolean; strafe: number }[];
   zeitung: Zeitung | null;

@@ -6,6 +6,7 @@ import { BikeIcon } from '../components/BikeIcon';
 import { CockpitBanner } from '../components/Banner';
 import { Beraterin } from '../components/Beraterin';
 import { RettungsBanner } from '../components/Tiefe';
+import { ZielKarte } from '../components/Endabrechnung';
 import { Leer } from '../components/Leer';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
@@ -36,6 +37,7 @@ export function Cockpit() {
       <CockpitBanner state={state} bericht={bericht} />
       {state.rettungsangebot && entwurf && <RettungsBanner state={state} d={entwurf} aendere={aendere} />}
       <Beraterin state={state} vorschau={vorschau} bericht={bericht} />
+      <ZielKarte state={state} />
 
       <Weltbuehne />
 

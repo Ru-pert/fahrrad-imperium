@@ -33,6 +33,8 @@ export interface KonkurrentProfil {
   boersennotiert?: boolean;
   /** Faktor auf die Herstellkosten (Fertigung in Niedriglohnländern, Einkaufsmacht) */
   kostenFaktor?: number;
+  /** Verliert mit der Zeit an Schwung (alternder Marktführer) */
+  altert?: boolean;
   start: {
     kasse: number;
     bekanntheit: Partial<Record<RegionId, number>>;
@@ -104,10 +106,10 @@ export const KONKURRENTEN: KonkurrentProfil[] = [
   },
   {
     id: 'goldenspoke', name: 'Golden Spoke Corp.', heimat: 'AS', farbe: '#ca8a04',
-    profil: 'Amtierender Weltmarktführer', beschreibung: 'Wächst 1 % je Quartal, reagiert spät, aber hart.',
+    profil: 'Amtierender Weltmarktführer', beschreibung: 'Riesig, aber träge: verliert mit den Jahren an Schwung, reagiert spät, aber hart.',
     preisFaktor: 0.88, aggressivitaet: 0.9, marketingAnteil: 0.03, feAnteil: 0.03, lieferant: 'standard', preisSprung: 0,
     produkte: ['stadtrad', 'ebike', 'mountainbike', 'rennrad', 'lastenrad', 'emtb'], regionen: ['AS', 'RW', 'NA', 'EU', 'DE'],
-    zielAnteil: { AS: 0.2, RW: 0.08, NA: 0.03, EU: 0.03, DE: 0.004 }, reaktionAbUmsatz: 1_000_000_000, boersennotiert: true, kostenFaktor: 0.62,
+    zielAnteil: { AS: 0.14, RW: 0.055, NA: 0.022, EU: 0.022, DE: 0.004 }, reaktionAbUmsatz: 1_000_000_000, boersennotiert: true, kostenFaktor: 0.62, altert: true,
     start: { kasse: 1_500_000_000, bekanntheit: { AS: 0.6, RW: 0.35, NA: 0.15, EU: 0.12, DE: 0.05 }, image: 50, nachhaltigkeit: 40, feStock: {}, lagerFaktor: 0.3 },
     expansionsRisiko: 1,
   },

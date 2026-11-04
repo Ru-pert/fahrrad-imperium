@@ -211,6 +211,14 @@ export function erzeugeZeitung(state: GameState, report: QuarterReport, vorher: 
       titel: `In stillem Gedenken an ${firma}`,
       text: `${firma} hat den Kampf gegen Kontokorrent und Kassenebbe verloren. Hinterlassen werden ${de0(report.produkte.reduce((s, p) => s + p.lagerEnde, 0))} Räder im Lager und ein Firmenschild in der Garage. Prof. Speiche: „Zu wenig Marge, zu viel Hoffnung.“ Wer mag, lädt einen früheren Spielstand und tritt erneut an.`,
     });
+  } else if (report.endwertung) {
+    sonderausgabe = 'Jubiläumsausgabe';
+    schlagzeile = `15 Jahre ${firma}: ${report.endwertung.stufe}!`;
+    unterzeile = `Die große Bilanz: ${report.endwertung.punkte.toLocaleString('de-DE')} Punkte. ${report.endwertung.stufenText}`;
+  } else if ((report.neueErfolge ?? []).includes('imperator')) {
+    sonderausgabe = 'Thronwechsel';
+    schlagzeile = `Imperator! ${firma} ist der größte Fahrradhersteller der Welt`;
+    unterzeile = 'Vier Quartale in Folge vor Golden Spoke – die Branche verneigt sich.';
   } else if ((report.freischaltungen ?? []).some((f) => f.art === 'region')) {
     const r = report.freischaltungen.find((f) => f.art === 'region')!.id as keyof typeof REGIONEN;
     sonderausgabe = 'Neue Märkte';

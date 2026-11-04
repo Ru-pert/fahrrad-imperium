@@ -704,3 +704,45 @@ describe('Spieltiefe: Einkauf, Sonderabsatz, Zufriedenheit, Rettung, Spionage', 
   });
 });
 type SimErg = ReturnType<typeof simulateQuarter>;
+
+describe('Balancing und Spielziel', () => {
+  it('Koordinationskosten wachsen mit Werken, Regionen und Produkten', () => {
+    const s = neuesSpiel({ firmenname: 'T', farbe: '#000', schwierigkeit: 'normal', profi: true, seed: 4, startProdukte: ['stadtrad', 'ebike'] });
+    const r = simulateQuarter(s, standardEntscheidungen(s), new Rng(1), { zufall: false });
+    expect(r.report.guv.koordination).toBeCloseTo(r.report.guv.umsatz * 0.007, 0);
+    expect(Math.abs(r.report.bilanz.aktiva - r.report.bilanz.passiva)).toBeLessThan(1e-4);
+  });
+
+  it('Die Konkurrenz baut Features nach einigen Quartalen nach', async () => {
+    const { nachbauWirkung } = await import('./forschung');
+    const s = neuesSpiel({ firmenname: 'T', farbe: '#000', schwierigkeit: 'normal', profi: false, seed: 4 });
+    s.forschung = { 'f-alurahmen': { investiert: 400_000, quartale: 2, fertigIm: 10 } };
+    expect(nachbauWirkung(s, 'stadtrad', 12).technik).toBe(0);
+    expect(nachbauWirkung(s, 'stadtrad', 14).technik).toBeCloseTo(0.06 * 0.6);
+  });
+
+  it('Golden Spoke altert: weniger Linien nach einigen Jahren', () => {
+    let s = neuesSpiel({ firmenname: 'T', farbe: '#000', schwierigkeit: 'normal', profi: false, seed: 4 });
+    const start = s.konkurrenten.goldenspoke.linien;
+    for (let i = 0; i < 24; i++) s = simulateQuarter(s, standardEntscheidungen(s)).nextState;
+    expect(s.konkurrenten.goldenspoke.linien).toBeLessThan(start);
+    expect(s.konkurrenten.goldenspoke.alterung).toBeLessThan(1);
+  });
+
+  it('Nach 60 Quartalen gibt es die Endabrechnung; Nichtstun bleibt Garagenbastler', () => {
+    let s = neuesSpiel({ firmenname: 'T', farbe: '#000', schwierigkeit: 'normal', profi: false, seed: 4 });
+    let ende: QuarterReport | null = null;
+    for (let i = 0; i < 61 && !s.spielende; i++) {
+      const r = simulateQuarter(s, standardEntscheidungen(s));
+      s = r.nextState;
+      if (r.report.endwertung) {
+        expect(ende).toBeNull();
+        ende = r.report;
+      }
+    }
+    expect(ende?.quartal).toBe(59);
+    expect(ende?.endwertung?.stufe).toBe('Garagenbastler');
+    expect(s.endwertung?.punkte).toBe(ende?.endwertung?.punkte);
+    expect(s.kpiHistorie[s.kpiHistorie.length - 1].weltrang).toBeGreaterThan(1);
+  });
+});
