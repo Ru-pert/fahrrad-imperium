@@ -25,6 +25,7 @@ import {
 } from '../engine';
 import { hallenPlaetze, lernkurve } from '../engine/production';
 import { ereignisEffekte } from '../engine/events';
+import { einstellungsLimit } from '../engine/expansion';
 import { BEKANNT, SPAETERE_FELDER, entscheidungsSchema } from './schemas';
 
 export interface Aenderung {
@@ -222,7 +223,7 @@ export function importiereEntscheidungen(text: string, state: GameState, basis: 
     }
     const z = d.werke[wid];
     if (we.personalAenderung !== undefined) {
-      const maxPlus = Math.floor(w.mitarbeitende * BALANCE.personal.maxEinstellung * einstellFaktor);
+      const maxPlus = einstellungsLimit(w, einstellFaktor);
       const maxMinus = Math.floor(w.mitarbeitende * BALANCE.personal.maxEntlassung);
       if (!Number.isInteger(we.personalAenderung)) fehler.push(`Personal ${w.name}: ${we.personalAenderung} ist keine ganze Zahl.`);
       else if (we.personalAenderung > maxPlus) fehler.push(`Personal ${w.name}: +${we.personalAenderung} übersteigt das Einstellungslimit von +${maxPlus}.`);

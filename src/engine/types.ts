@@ -39,6 +39,11 @@ export interface Werk {
   motivation: number;
   kompetenz: number;
   wartung: Wartung;
+  /** Standort-Code (DE, PL, US, MX, VN, BR) */
+  standort?: string;
+  /** Werk im Bau */
+  status?: 'bau' | 'aktiv';
+  bauRest?: number;
   /** Linienplätze in der Halle */
   hallenPlaetze?: number;
   /** Quartale bis die Hallenerweiterung fertig ist (0 = keine im Bau) */
@@ -61,6 +66,8 @@ export interface ProduktZustand {
   materialWert: number;
   /** Letzte Herstellkosten je Stück (Anzeige) */
   letzteHk: number;
+  /** Einführung läuft (1 Quartal Vorlauf) */
+  status?: 'vorlauf' | 'aktiv';
 }
 
 export interface Kredit {
@@ -116,6 +123,9 @@ export interface KonkurrentProduktZustand {
   letzterPreis: number;
   letztesMarketing: number;
   letzteProduktion: number;
+  /** Absatz und Preis des Vorquartals je Region */
+  absatzR?: PerRegion<number>;
+  preisR?: PerRegion<number>;
 }
 
 export interface KonkurrentZustand {
@@ -137,6 +147,10 @@ export interface KonkurrentZustand {
   letztesEbit: number;
   letzteAuslastung: number;
   bilanzsumme: number;
+  /** Regionen, in denen verkauft wird */
+  regionen?: RegionId[];
+  /** Kalibrierte Stärke (Händlernetz) je „Region:Produkt“ */
+  staerke?: Record<string, number>;
 }
 
 export interface KonkurrentPlanProdukt {
@@ -228,7 +242,11 @@ export interface GameState {
   einstellungen: Einstellungen;
   unternehmen: Unternehmen;
   finanzen: Finanzen;
-  regionen: PerRegion<{ aktiv: boolean; bekanntheit: number; marktanteil: number }>;
+  regionen: PerRegion<{ aktiv: boolean; bekanntheit: number; marktanteil: number; freigeschaltet?: boolean; aktivSeit?: number }>;
+  /** Reihenfolge der Markteintritte (Lieferreihenfolge) */
+  regionenReihenfolge?: RegionId[];
+  /** Produkte, deren Freischaltbedingung erfüllt ist (einführbar) */
+  produkteVerfuegbar?: ProductId[];
   produkte: PerProduct<ProduktZustand>;
   werke: Werk[];
   markt: PerRegion<PerProduct<MarktSegmentZustand>>;
@@ -280,6 +298,7 @@ export interface Decisions {
   nachhaltigkeitsbudget: number;
   finanzen: { darlehenNeu: number; tilgungExtra: number; dividende: number };
   firmensitz: { kaufen: string[] };
+  expansion?: { maerkteBetreten: RegionId[]; produkteEinfuehren: ProductId[]; werkeBauen: string[] };
 }
 
 // ---------------------------------------------------------------- Bericht
@@ -461,6 +480,8 @@ export interface QuarterReport {
   zeitung: Zeitung | null;
   /** In diesem Quartal neu erreichte Erfolge */
   neueErfolge: string[];
+  /** Neu freigeschaltete Regionen und Produkte */
+  freischaltungen: { art: 'region' | 'produkt'; id: string }[];
 }
 
 export interface PreviewResult {

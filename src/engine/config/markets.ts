@@ -30,12 +30,29 @@ export const REGION_IDS = Object.keys(REGIONEN) as RegionId[];
 /** Logistik: innerhalb der Region / regionsübergreifend (zzgl. Zoll der Zielregion) */
 export const LOGISTIK = { innerhalb: 0.03, uebergreifend: 0.08 };
 
-/** Werkstandorte (Stufe 6 – hier nur Konfiguration) */
-export const WERK_STANDORTE = {
-  DE: { name: 'Deutschland (weiteres Werk)', region: 'DE', lohnIndex: 1.0, baukosten: 12_000_000, bauzeit: 2 },
-  PL: { name: 'Polen', region: 'EU', lohnIndex: 0.5, baukosten: 8_000_000, bauzeit: 2 },
-  US: { name: 'USA', region: 'NA', lohnIndex: 1.1, baukosten: 15_000_000, bauzeit: 2 },
-  MX: { name: 'Mexiko', region: 'NA', lohnIndex: 0.4, baukosten: 10_000_000, bauzeit: 2 },
-  VN: { name: 'Vietnam', region: 'AS', lohnIndex: 0.3, baukosten: 10_000_000, bauzeit: 3 },
-  BR: { name: 'Brasilien', region: 'RW', lohnIndex: 0.45, baukosten: 12_000_000, bauzeit: 3 },
-} as const;
+export interface WerkStandort {
+  name: string;
+  /** Ortsname für die Werksansicht */
+  ort: string;
+  region: RegionId;
+  lohnIndex: number;
+  baukosten: number;
+  bauzeit: number;
+  besonderheit: string;
+  /** Qualitätsabschlag auf dort gebaute Räder */
+  qualitaet: number;
+  /** Wirkung auf den Nachhaltigkeitsindex (Δ_Werke) */
+  nachhaltigkeit: number;
+  /** Voraussetzung: Region freigeschaltet (undefined = immer möglich) */
+  braucht?: RegionId;
+}
+
+/** Werkstandorte (8). Polen, USA und Mexiko dürfen schon vor der Freischaltung ihrer Region gebaut werden (Asien-Bedingung). */
+export const WERK_STANDORTE: Record<string, WerkStandort> = {
+  DE: { name: 'Deutschland (weiteres Werk)', ort: 'Kassel', region: 'DE', lohnIndex: 1.0, baukosten: 12_000_000, bauzeit: 2, besonderheit: 'keine', qualitaet: 0, nachhaltigkeit: 0 },
+  PL: { name: 'Polen', ort: 'Wrocław', region: 'EU', lohnIndex: 0.5, baukosten: 8_000_000, bauzeit: 2, besonderheit: 'günstige Löhne, nah an Europa', qualitaet: 0, nachhaltigkeit: 0 },
+  US: { name: 'USA', ort: 'Denver', region: 'NA', lohnIndex: 1.1, baukosten: 15_000_000, bauzeit: 2, besonderheit: 'spart den US-Zoll', qualitaet: 0, nachhaltigkeit: 0 },
+  MX: { name: 'Mexiko', ort: 'Monterrey', region: 'NA', lohnIndex: 0.4, baukosten: 10_000_000, bauzeit: 2, besonderheit: 'Nachhaltigkeit −3', qualitaet: 0, nachhaltigkeit: -3 },
+  VN: { name: 'Vietnam', ort: 'Hải Phòng', region: 'AS', lohnIndex: 0.3, baukosten: 10_000_000, bauzeit: 3, besonderheit: 'Qualität −0,03, Nachhaltigkeit −5', qualitaet: -0.03, nachhaltigkeit: -5, braucht: 'AS' },
+  BR: { name: 'Brasilien', ort: 'Curitiba', region: 'RW', lohnIndex: 0.45, baukosten: 12_000_000, bauzeit: 3, besonderheit: 'erfordert Rest der Welt', qualitaet: 0, nachhaltigkeit: 0, braucht: 'RW' },
+};
