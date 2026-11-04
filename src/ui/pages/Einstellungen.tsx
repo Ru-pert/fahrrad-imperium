@@ -8,10 +8,12 @@ import { klang, tonAn } from '../klang';
 
 const FARBEN = ['#0d9488', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0891b2', '#ca8a04'];
 
-export function NeuesSpielForm({ abbrechen }: { abbrechen?: () => void }) {
+export function NeuesSpielForm({ abbrechen, onVorschau }: { abbrechen?: () => void; onVorschau?: (name: string, farbe: string) => void }) {
   const neu = useGame((s) => s.neu);
-  const [name, setName] = useState('Rupert Rad GmbH');
-  const [farbe, setFarbe] = useState(FARBEN[0]);
+  const [name, setNameRoh] = useState('Rupert Rad GmbH');
+  const [farbe, setFarbeRoh] = useState(FARBEN[0]);
+  const setName = (n: string) => { setNameRoh(n); onVorschau?.(n, farbe); };
+  const setFarbe = (f: string) => { setFarbeRoh(f); onVorschau?.(name, f); };
   const [schwierigkeit, setSchwierigkeit] = useState<Schwierigkeit>('normal');
   const [profi, setProfi] = useState(false);
   const [seedText, setSeedText] = useState('');
@@ -20,7 +22,7 @@ export function NeuesSpielForm({ abbrechen }: { abbrechen?: () => void }) {
     neu({ firmenname: name.trim() || 'Fahrrad GmbH', farbe, schwierigkeit, profi, seed });
   };
   return (
-    <Card titel="Neues Spiel">
+    <Card titel="Neues Spiel" icon="rad">
       <div className="space-y-4">
         <label className="block text-sm font-medium">
           Firmenname

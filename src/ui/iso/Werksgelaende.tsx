@@ -242,8 +242,53 @@ function Skyline({ breite }: { breite: number }) {
   );
 }
 
-export function Werksgelaende({ state, werk, vorher, produktion }: { state: GameState; werk: Werk; vorher?: GameState; produktion: number }) {
+/** Wetter je Jahreszeit über dem Gelände (Schnee, Blüten, Laub, Sonnenflimmern) */
+function Wetter({ jahreszeit, breite, hoehe }: { jahreszeit: number; breite: number; hoehe: number }) {
+  const art = ['schnee', 'bluete', 'sonne', 'laub'][jahreszeit];
+  if (art === 'sonne') {
+    return (
+      <g opacity="0.5" pointerEvents="none">
+        {Array.from({ length: 6 }, (_, i) => (
+          <circle key={i} cx={(i * 197) % breite} cy={40 + ((i * 71) % 120)} r="2" fill="#fde68a">
+            <animate attributeName="opacity" values="0;1;0" dur={`${2 + (i % 3)}s`} begin={`${i * 0.4}s`} repeatCount="indefinite" />
+          </circle>
+        ))}
+      </g>
+    );
+  }
+  const farbe = art === 'schnee' ? '#ffffff' : art === 'bluete' ? '#f9a8d4' : '#f97316';
+  return (
+    <g pointerEvents="none">
+      {Array.from({ length: art === 'schnee' ? 60 : 28 }, (_, i) => {
+        const x = (i * 137) % breite;
+        const dauer = 6 + (i % 5);
+        return (
+          <g key={i} transform={`translate(${x} 0)`}>
+            {art === 'schnee' ? <circle r={1.5 + (i % 3) * 0.6} fill={farbe} opacity="0.9" /> : <ellipse rx="3.5" ry="2" fill={farbe} opacity="0.85" />}
+            <animateTransform attributeName="transform" type="translate" values={`${x} -10; ${x + (art === 'schnee' ? 20 : 60)} ${hoehe + 10}`} dur={`${dauer}s`} begin={`-${(i * 0.7) % dauer}s`} repeatCount="indefinite" />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+/** Kleine Person (isometrisch, von schräg oben) */
+function Person({ farbe }: { farbe: string }) {
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="5" ry="2.2" fill="#000" opacity="0.22" />
+      <rect x="-2.6" y="-13" width="5.2" height="12" rx="2" fill={farbe} />
+      <circle cx="0" cy="-16" r="3.2" fill="#fcd9b6" />
+      <path d="M-3.2 -17 a3.2 3.2 0 0 1 6.4 0z" fill="#facc15" />
+    </g>
+  );
+}
+
+export function Werksgelaende({ state, werk, vorher, produktion, ueberstunden = false }: { state: GameState; werk: Werk; vorher?: GameState; produktion: number; ueberstunden?: boolean }) {
   const reduziert = useGame((s) => s.reduziert);
+  const nacht = useGame((s) => s.dunkel);
+  const jahreszeit = state.quartal % 4;
   const { module: mods, nx: NX, ny: NY } = module(state, werk);
   const vorherWerk = vorher?.werke.find((w) => w.id === werk.id);
   const alteKeys = new Set(vorher && vorherWerk ? module(vorher, vorherWerk).module.map((x) => x.key) : mods.map((x) => x.key));
@@ -270,11 +315,16 @@ export function Werksgelaende({ state, werk, vorher, produktion }: { state: Game
           <>
             <defs>
               <linearGradient id="himmel" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#bae6fd" />
-                <stop offset="1" stopColor="#f0f9ff" />
+                <stop offset="0" stopColor={nacht ? '#0b1026' : jahreszeit === 0 ? '#dbeafe' : jahreszeit === 3 ? '#fed7aa' : '#bae6fd'} />
+                <stop offset="1" stopColor={nacht ? '#27306b' : '#f0f9ff'} />
               </linearGradient>
+              <radialGradient id="licht">
+                <stop offset="0" stopColor="#fde68a" stopOpacity="0.7" />
+                <stop offset="1" stopColor="#fde68a" stopOpacity="0" />
+              </radialGradient>
             </defs>
             <rect width={breite} height={hoehe} fill="url(#himmel)" />
+            {nacht && Array.from({ length: 30 }, (_, i) => <circle key={i} cx={(i * 173) % breite} cy={8 + ((i * 41) % 110)} r={i % 4 === 0 ? 1.5 : 0.9} fill="#fef9c3" opacity="0.8" />)}
             <Skyline breite={breite} />
           </>
         }
@@ -282,7 +332,7 @@ export function Werksgelaende({ state, werk, vorher, produktion }: { state: Game
         <g transform={`translate(${ox} ${oy})`}>
           {/* Grundstück */}
           <Flaeche gx={-1} gy={-1} sx={NX + 1} sy={NY + 1} farbe="#a3e635" opacity={0.55} />
-          <Flaeche gx={0} gy={0} sx={NX - 1} sy={NY - 1} farbe="#d9f99d" />
+          <Flaeche gx={0} gy={0} sx={NX - 1} sy={NY - 1} farbe={jahreszeit === 0 ? '#f1f5f9' : '#d9f99d'} />
           {Array.from({ length: N }, (_, i) => (
             <g key={i} stroke="#84cc16" strokeWidth="0.4" opacity="0.6">
               {i < NX && <line x1={iso(i, 0)[0]} y1={iso(i, 0)[1]} x2={iso(i, NY - 1)[0]} y2={iso(i, NY - 1)[1]} />}
@@ -309,6 +359,57 @@ export function Werksgelaende({ state, werk, vorher, produktion }: { state: Game
             );
           })}
 
+          {/* Mitarbeitende laufen über das Gelände */}
+          {!reduziert &&
+            Array.from({ length: Math.min(12, Math.ceil(werk.mitarbeitende / 25)) }, (_, i) => {
+              const a = iso(0.3, 0.3);
+              const b = iso(NX - 1.3, 0.3);
+              const c = iso(NX - 1.3, NY - 1.3);
+              const d = iso(0.3, NY - 1.3);
+              const runde = `M${a[0]} ${a[1]} L${b[0]} ${b[1]} L${c[0]} ${c[1]} L${d[0]} ${d[1]} Z`;
+              const farben = ['#2563eb', '#dc2626', '#f59e0b', '#7c3aed', '#0d9488', '#db2777'];
+              return (
+                <g key={`p${i}`}>
+                  <Person farbe={farben[i % farben.length]} />
+                  <animateMotion path={runde} dur={`${36 + (i % 4) * 6}s`} begin={`-${i * 5.3}s`} repeatCount="indefinite" keyPoints={i % 2 ? '1;0' : '0;1'} keyTimes="0;1" calcMode="linear" />
+                </g>
+              );
+            })}
+          {/* Rauch bei Überstunden */}
+          {ueberstunden && !reduziert &&
+            mods.filter((x) => x.key.startsWith('halle')).slice(0, 6).map((x, i) => {
+              const [px, py] = iso(x.gx + x.sx / 2, x.gy + x.sy / 2, 46);
+              return (
+                <g key={`r${x.key}`} transform={`translate(${px} ${py})`}>
+                  {[0, 1, 2].map((j) => (
+                    <circle key={j} r="5" fill="#94a3b8" opacity="0">
+                      <animate attributeName="cy" values="0;-50" dur="2.4s" begin={`${j * 0.8 + i * 0.3}s`} repeatCount="indefinite" />
+                      <animate attributeName="r" values="4;12" dur="2.4s" begin={`${j * 0.8 + i * 0.3}s`} repeatCount="indefinite" />
+                      <animate attributeName="opacity" values="0.7;0" dur="2.4s" begin={`${j * 0.8 + i * 0.3}s`} repeatCount="indefinite" />
+                    </circle>
+                  ))}
+                </g>
+              );
+            })}
+          {/* Nachtlicht: Hallen leuchten, Laternen an der Straße */}
+          {nacht && (
+            <g pointerEvents="none">
+              {mods.filter((x) => /^(halle|werkstatt|lager|kantine)/.test(x.key)).map((x) => {
+                const [px, py] = iso(x.gx + x.sx / 2, x.gy + x.sy / 2, 20);
+                return <ellipse key={`l${x.key}`} cx={px} cy={py} rx="56" ry="30" fill="url(#licht)" />;
+              })}
+              {Array.from({ length: Math.ceil((NX + 3) / 3) }, (_, i) => {
+                const [px, py] = iso(-1 + i * 3, NY + 1.3);
+                return (
+                  <g key={`lat${i}`} transform={`translate(${px} ${py})`}>
+                    <path d="M0 0 V-26" stroke="#57534e" strokeWidth="2" />
+                    <circle cy="-27" r="3" fill="#fde68a" />
+                    <ellipse cy="0" rx="18" ry="8" fill="url(#licht)" />
+                  </g>
+                );
+              })}
+            </g>
+          )}
           {/* Abfahrende Lkw */}
           {Array.from({ length: lkw }, (_, i) => (
             <g key={`lkw${i}`}>
@@ -323,6 +424,8 @@ export function Werksgelaende({ state, werk, vorher, produktion }: { state: Game
             </g>
           ))}
         </g>
+        {!reduziert && <Wetter jahreszeit={jahreszeit} breite={breite} hoehe={hoehe} />}
+        {nacht && <rect width={breite} height={hoehe} fill="#0b1026" opacity="0.18" pointerEvents="none" />}
         <g transform={`translate(${breite - 250} ${hoehe - 44})`}>
           <rect width="236" height="34" rx="8" fill="white" opacity="0.92" />
           <text x="12" y="21" fontSize="12" fontWeight="700" fill="#0f172a">Dieses Quartal: {fmt0(produktion)} Räder · {lkw} Lkw</text>

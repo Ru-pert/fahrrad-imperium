@@ -4,6 +4,7 @@ import { Weltkarte } from '../components/Weltkarte';
 import { ereignisDef } from '../../engine/events';
 import { BikeIcon } from '../components/BikeIcon';
 import { CockpitBanner } from '../components/Banner';
+import { Beraterin } from '../components/Beraterin';
 import { Leer } from '../components/Leer';
 import { useGame } from '../../store/gameStore';
 import { eur, eurKompakt, fmt0, pct } from '../format';
@@ -30,6 +31,7 @@ export function Cockpit() {
     <div className="space-y-4">
       <h1 className="sr-only">Cockpit</h1>
       <CockpitBanner state={state} bericht={bericht} />
+      <Beraterin state={state} vorschau={vorschau} bericht={bericht} />
 
       <Weltbuehne />
 

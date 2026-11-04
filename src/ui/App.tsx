@@ -7,6 +7,7 @@ import { ERFOLGE } from '../engine/achievements';
 import { usePreview, useLetzterBericht } from './hooks';
 import { Badge, Icon, Toasts } from './components/ui';
 import { Auswertung } from './components/Auswertung';
+import { GaragenSzene } from './components/Startbild';
 import { Cockpit } from './pages/Cockpit';
 import { Bericht } from './pages/Bericht';
 import { Zeitung } from './pages/Zeitung';
@@ -15,6 +16,7 @@ import { Markt } from './pages/Markt';
 import { Expansion } from './pages/Expansion';
 import { Finanzen } from './pages/Finanzen';
 import { Werke } from './pages/Werke';
+import { Garage } from './pages/Garage';
 import { Firmensitz } from './pages/Firmensitz';
 import { Erfolge } from './pages/Erfolge';
 import { Austausch } from './pages/Austausch';
@@ -29,6 +31,7 @@ const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
   { id: 'expansion', label: 'Expansion & Weltkarte', kurz: 'Welt', icon: 'expansion' },
   { id: 'finanzen', label: 'Finanzen', kurz: 'Finanzen', icon: 'finanzen' },
   { id: 'werke', label: 'Werke', kurz: 'Werke', icon: 'werke' },
+  { id: 'garage', label: 'Garage', kurz: 'Garage', icon: 'rad' },
   { id: 'firmensitz', label: 'Firmensitz', kurz: 'Firmensitz', icon: 'firmensitz' },
   { id: 'erfolge', label: 'Erfolge', kurz: 'Erfolge', icon: 'erfolge' },
   { id: 'austausch', label: 'Mit Claude planen', kurz: 'Claude', icon: 'austausch' },
@@ -37,7 +40,7 @@ const NAV: { id: Seite; label: string; kurz: string; icon: string }[] = [
 const GRUPPEN: { titel: string; seiten: Seite[] }[] = [
   { titel: 'Überblick', seiten: ['cockpit', 'zeitung', 'bericht'] },
   { titel: 'Steuern', seiten: ['entscheidungen', 'austausch'] },
-  { titel: 'Unternehmen', seiten: ['markt', 'expansion', 'finanzen', 'werke', 'firmensitz'] },
+  { titel: 'Unternehmen', seiten: ['markt', 'expansion', 'finanzen', 'werke', 'garage', 'firmensitz'] },
   { titel: 'Spiel', seiten: ['erfolge', 'einstellungen'] },
 ];
 const JAHRESZEIT = [
@@ -58,6 +61,7 @@ function Seiteninhalt({ seite }: { seite: Seite }) {
     case 'expansion': return <Expansion />;
     case 'finanzen': return <Finanzen />;
     case 'werke': return <Werke />;
+    case 'garage': return <Garage />;
     case 'firmensitz': return <Firmensitz />;
     case 'erfolge': return <Erfolge />;
     case 'austausch': return <Austausch />;
@@ -229,6 +233,40 @@ function MobilNav() {
   );
 }
 
+function Startbildschirm() {
+  const [vorschau, setVorschau] = useState({ name: 'Rupert Rad GmbH', farbe: '#0d9488' });
+  return (
+    <div className="mx-auto grid min-h-screen max-w-6xl items-center gap-8 p-6 lg:grid-cols-[1.2fr_1fr]">
+      <div>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-4 flex items-center gap-3">
+          <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="h-14 w-14 rounded-2xl shadow-lg" />
+          <div>
+            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">Fahrrad-Imperium</h1>
+            <p className="muted mt-1">Vom Garagenbetrieb zum größten Fahrradhersteller der Welt.</p>
+          </div>
+        </motion.div>
+        <GaragenSzene name={vorschau.name} farbe={vorschau.farbe} />
+        <div className="mt-4 grid grid-cols-3 gap-3 text-center text-sm">
+          {[
+            { icon: 'werke', text: 'Werke bauen' },
+            { icon: 'fe', text: 'Abgedrehte Features erforschen' },
+            { icon: 'expansion', text: 'Die Welt erobern' },
+          ].map((x) => (
+            <div key={x.text} className="card flex flex-col items-center gap-1 p-3">
+              <span className="text-brand-600"><Icon name={x.icon} className="h-6 w-6" /></span>
+              {x.text}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <NeuesSpielForm onVorschau={(name, farbe) => setVorschau({ name, farbe })} />
+      </div>
+      <Toasts />
+    </div>
+  );
+}
+
 export function App() {
   const bereit = useGame((s) => s.bereit);
   const start = useGame((s) => s.start);
@@ -240,17 +278,7 @@ export function App() {
   }, [start]);
 
   if (!bereit) return <div className="grid min-h-screen place-items-center muted">Lade …</div>;
-  if (!state) {
-    return (
-      <div className="mx-auto max-w-lg p-4 pt-10">
-        <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="mb-4 h-16 w-16 rounded-2xl" />
-        <h1 className="text-3xl font-bold">Fahrrad-Imperium</h1>
-        <p className="muted mb-6 mt-1">Vom Garagenbetrieb zum größten Fahrradhersteller der Welt – ein Unternehmensplanspiel.</p>
-        <NeuesSpielForm />
-        <Toasts />
-      </div>
-    );
-  }
+  if (!state) return <Startbildschirm />;
   void letzter;
   void eur;
   return (

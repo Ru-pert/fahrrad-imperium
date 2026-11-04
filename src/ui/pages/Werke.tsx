@@ -43,7 +43,7 @@ export function Werke() {
         return (
           <Card icon="werke" key={w.id} titel={`Werk ${w.name}`} aktion={<Badge>{w.region}</Badge>}>
             <div className="mb-4">
-              <Werksgelaende state={state} werk={w} vorher={historie[historie.length - 1]?.stateVor} produktion={bericht?.produkte.reduce((s, p) => s + p.produziert, 0) ?? 0} />
+              <Werksgelaende state={state} werk={w} vorher={historie[historie.length - 1]?.stateVor} produktion={bericht?.produkte.reduce((s, p) => s + p.produziert, 0) ?? 0} ueberstunden={(bericht?.werke.find((x) => x.id === w.id)?.ueberstunden ?? 0) > 0} />
             </div>
             <div className="mb-1 flex justify-between text-sm">
               <span>Auslastung (Vorschau für dieses Quartal)</span>
