@@ -458,7 +458,7 @@ const SCHRITTE: Schritt[] = [
     id: 'fe', icon: 'fe', farbe: '#7c3aed', titel: 'Forschung & Entwicklung',
     render: (c) => (
       <div className="space-y-3">
-        <Card titel="Labor: neue Produkte erforschen" icon="fe" farbe="#7c3aed">
+        <Card titel="Labor: Forschung" icon="fe" farbe="#7c3aed">
           <Forschungsbaum state={c.state} d={c.d} aendere={c.aendere} />
         </Card>
         <ForschungEntwicklung {...c} />

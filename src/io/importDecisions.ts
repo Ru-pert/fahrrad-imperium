@@ -26,7 +26,7 @@ import {
 import { hallenPlaetze, lernkurve } from '../engine/production';
 import { ereignisEffekte } from '../engine/events';
 import { einstellungsLimit, werkBaubar } from '../engine/expansion';
-import { alleProjekte } from '../engine/forschung';
+import { alleFeatures, alleProjekte } from '../engine/forschung';
 import { BEKANNT, SPAETERE_FELDER, entscheidungsSchema } from './schemas';
 
 export interface Aenderung {
@@ -128,7 +128,7 @@ export function flach(state: GameState, d: Decisions): Map<string, string> {
   m.set('Markteintritte', d.expansion?.maerkteBetreten.length ? d.expansion.maerkteBetreten.join(', ') : '–');
   m.set('Produkteinführungen', d.expansion?.produkteEinfuehren.length ? d.expansion.produkteEinfuehren.join(', ') : '–');
   m.set('Werksbau', d.expansion?.werkeBauen.length ? d.expansion.werkeBauen.join(', ') : '–');
-  for (const st of alleProjekte(state)) if (!st.fertig) m.set(`Forschung ${st.projekt.name}`, `${de(d.forschung?.[st.projekt.id] ?? 0)} €`);
+  for (const st of [...alleProjekte(state), ...alleFeatures(state)]) if (!st.fertig && (st.offen || (d.forschung?.[st.projekt.id] ?? 0) > 0)) m.set(`Forschung ${st.projekt.name}`, `${de(d.forschung?.[st.projekt.id] ?? 0)} €`);
   return m;
 }
 
@@ -363,9 +363,10 @@ export function importiereEntscheidungen(text: string, state: GameState, basis: 
   if (e.forschung && Object.keys(e.forschung).length) {
     const neu: Record<string, number> = { ...(d.forschung ?? {}) };
     for (const [id, betrag] of Object.entries(e.forschung)) {
-      const st = alleProjekte(state).find((x) => x.projekt.id === id);
+      const alle = [...alleProjekte(state), ...alleFeatures(state)];
+      const st = alle.find((x) => x.projekt.id === id);
       if (!st) {
-        fehler.push(`Forschung: unbekanntes Projekt „${id}“ (erlaubt: ${alleProjekte(state).map((x) => x.projekt.id).join(', ')}).`);
+        fehler.push(`Forschung: unbekanntes Projekt „${id}“ (erlaubt: ${alle.map((x) => x.projekt.id).join(', ')}).`);
         continue;
       }
       if (betrag < 0) fehler.push(`Forschung ${st.projekt.name}: Budget ist negativ.`);

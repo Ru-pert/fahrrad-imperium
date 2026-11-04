@@ -543,3 +543,44 @@ describe('Forschung und Marktlebenszyklen', () => {
     expect(lastenSpaet).toBeGreaterThan(lastenFrueh);
   });
 });
+
+describe('Feature-Forschung', () => {
+  it('Features wirken nach Abschluss auf Nachfrage, Qualität und Material der passenden Räder', () => {
+    let s = neuesSpiel({ firmenname: 'T', farbe: '#000', schwierigkeit: 'normal', profi: false, seed: 3 });
+    // Voraussetzung fehlt → Warnung
+    let d = standardEntscheidungen(s);
+    d.forschung = { 'f-gps': 100_000, 'f-licht': 250_000, 'f-scheibenbremsen': 350_000 };
+    let r = simulateQuarter(s, d);
+    expect(r.report.warnungen.some((w) => w.includes('GPS') && w.includes('Voraussetzungen'))).toBe(true);
+    s = r.nextState;
+    expect(s.forschung?.['f-licht']?.fertigIm).toBe(0);
+    expect(r.report.freischaltungen.some((f) => f.art === 'feature' && f.id === 'f-licht')).toBe(true);
+    // Scheibenbremsen brauchen 2 Quartale
+    expect(s.forschung?.['f-scheibenbremsen']?.fertigIm).toBeUndefined();
+    d = standardEntscheidungen(s);
+    expect(d.forschung?.['f-licht']).toBeUndefined();
+    r = simulateQuarter(s, d);
+    s = r.nextState;
+    expect(s.forschung?.['f-scheibenbremsen']?.fertigIm).toBe(1);
+
+    // Vergleich mit/ohne Features bei gleichen Entscheidungen
+    const ohne: GameState = structuredClone(s);
+    ohne.forschung = {};
+    const dd = standardEntscheidungen(s);
+    dd.forschung = {};
+    const mit = previewQuarter(s, dd);
+    const basis = previewQuarter(ohne, dd);
+    const a = (x: QuarterReport) => x.angebote.find((y) => y.produkt === 'stadtrad' && y.region === 'DE')!;
+    expect(a(mit).nachfrage).toBeGreaterThan(a(basis).nachfrage * 1.03);
+    expect(a(mit).qualitaet).toBeCloseTo(a(basis).qualitaet + 0.03, 5);
+    expect(mit.produkte.find((p) => p.produkt === 'stadtrad')!.hkProStueck).toBeGreaterThan(basis.produkte.find((p) => p.produkt === 'stadtrad')!.hkProStueck);
+    expect(Math.abs(mit.bilanz.aktiva - mit.bilanz.passiva)).toBeLessThan(1e-6);
+  });
+  it('Feature-Wirkungen gelten nur für passende Produkte', async () => {
+    const { featureWirkung } = await import('./forschung');
+    const s = neuesSpiel({ firmenname: 'T', farbe: '#000', schwierigkeit: 'normal', profi: false, seed: 3 });
+    s.forschung = { 'f-carbon': { investiert: 900_000, quartale: 3, fertigIm: 0 } };
+    expect(featureWirkung(s, 'rennrad').technik).toBeCloseTo(0.15);
+    expect(featureWirkung(s, 'stadtrad').technik).toBe(0);
+  });
+});

@@ -485,7 +485,7 @@ export interface QuarterReport {
   /** In diesem Quartal neu erreichte Erfolge */
   neueErfolge: string[];
   /** Neu freigeschaltete Regionen und Produkte */
-  freischaltungen: { art: 'region' | 'produkt'; id: string }[];
+  freischaltungen: { art: 'region' | 'produkt' | 'feature'; id: string }[];
 }
 
 export interface PreviewResult {

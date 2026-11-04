@@ -19,6 +19,7 @@ Diese Datei hält fest, was umgesetzt ist, wo das Spiel bewusst von der [Spezifi
 ## Bewusste Abweichungen von der Spezifikation
 
 - **Start nur mit dem Stadtrad.** Alle anderen Produkte (auch das E-Bike) entstehen über einen **Forschungsbaum** (`src/engine/config/research.ts`): Budget je Quartal, Mindestdauer, Voraussetzungen. Die Spec-Freischaltbedingungen und die Einführung für 500.000 € entfallen. Startanteil Stadtrad 0,75 % (`START.anteilNurStadtrad`).
+- **Feature-Forschung** (`src/engine/config/features.ts`): 19 Ausstattungsmerkmale in 5 Epochen von realistisch (Nabenschaltung, Scheibenbremsen) bis völlig irre (Anti-Schwerkraft, Fluxkompensator). Gleiche Mechanik wie der Produktbaum (Budget, Mindestdauer, Voraussetzungen, auch Produkt-Projekte). Wirkung ab dem Folgequartal, dauerhaft, je passendem Produkt: Technik/Qualität additiv, Nachfrage als Faktor auf die Attraktivität (`staerke`), Material als Kostenfaktor; Image (gedeckelt +6) und Nachhaltigkeit unternehmensweit. Konkurrenten haben keine Features.
 - **Marktlebenszyklen:** Statt fester Segmentwachstumsraten hat jedes Segment eine Kurve (Basis + Boom + Welle, `PRODUKTE[p].lebenszyklus`): Stadtrad schrumpft langsam, E-Bike boomt früh, Lastenrad später, E-MTB spät, Rennrad/MTB wellenförmig.
 - **Lieferung bei Knappheit anteilig zur Nachfrage** statt „Heimatmarkt zuerst“ (`BALANCE.lieferreihenfolge`), weil sonst neue Märkte dauerhaft leer ausgingen.
 - **Balancing (Stand Testrunde 2):** Materialfaktor 1,35, Preisverfall des Restmarkts 0,8 %/Q, Werbewirkung in der Bekanntheit skaliert (`marke.werbeSkala` 0,12), Verwaltungs-Sachkosten 100.000 €.
@@ -32,7 +33,7 @@ Diese Datei hält fest, was umgesetzt ist, wo das Spiel bewusst von der [Spezifi
 
 ## Balancing-Stand (Standard-Bot, `src/engine/bot.ts`)
 
-- E-Bike erforscht ≈ Q7, weitere Produkte bis ≈ Q16.
+- E-Bike erforscht ≈ Q7, weitere Produkte bis ≈ Q16; Features ab ≈ Q12, Fluxkompensator ≈ Q39.
 - Europa ≈ Q7–Q20 (je nach Verlauf), Nordamerika ≈ Q15–Q20, Asien ≈ Q24–Q33, Rest der Welt ≈ Q36–Q44.
 - Offen: Margen bei großer Skalierung zu hoch; Weltmarktführerschaft gegen Golden Spoke kaum erreichbar; „Alles maximal“ führt zur Pleite (gewollt).
 

@@ -8,6 +8,7 @@ import { useGame } from '../../store/gameStore';
 import { eurKompakt, fmt0, pct } from '../format';
 import { BikeIcon, PRODUKT_FARBE } from './BikeIcon';
 import { NumberField } from './ui';
+import { FeatureBaum } from './FeatureBaum';
 
 const SP = 230;
 const ZE = 150;
@@ -91,7 +92,7 @@ function Knoten({ st, x, y, budget, gewaehlt, onClick }: { st: ProjektStatus; x:
  * Forschungsbaum als „Labor“: Knoten mit Fortschrittsring, Verbindungen zu Voraussetzungen,
  * pulsierende Ringe für laufende Projekte. Auswahl öffnet das Projekt mit Budgetregler.
  */
-export function Forschungsbaum({ state, d, aendere }: { state: GameState; d: Decisions; aendere: (fn: (d: Decisions) => void) => void }) {
+function ProduktBaum({ state, d, aendere }: { state: GameState; d: Decisions; aendere: (fn: (d: Decisions) => void) => void }) {
   const status = useMemo(() => alleProjekte(state), [state]);
   const [auswahl, setAuswahl] = useState<string>(() => status.find((s) => s.offen && !s.fertig)?.projekt.id ?? FORSCHUNG[0].id);
   const pos = (spalte: number, zeile: number) => [80 + spalte * SP, 70 + zeile * ZE] as const;
@@ -199,6 +200,32 @@ export function Forschungsbaum({ state, d, aendere }: { state: GameState; d: Dec
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Labor mit zwei Bäumen: neue Radtypen und Features für die Räder */
+export function Forschungsbaum(props: { state: GameState; d: Decisions; aendere: (fn: (d: Decisions) => void) => void }) {
+  const [tab, setTab] = useState<'produkte' | 'features'>('produkte');
+  const tabs = [
+    { id: 'produkte' as const, label: 'Neue Radtypen', text: 'Elektro, Gelände, Leichtbau …' },
+    { id: 'features' as const, label: 'Features für deine Räder', text: 'Von Scheibenbremse bis Fluxkompensator' },
+  ];
+  return (
+    <div>
+      <div className="mb-3 flex gap-2">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`rounded-xl border px-4 py-2 text-left transition ${tab === t.id ? 'border-violet-500 bg-violet-50 shadow-sm dark:bg-violet-950/40' : 'border-[var(--line)] hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+          >
+            <div className="font-bold">{t.label}</div>
+            <div className="muted text-xs">{t.text}</div>
+          </button>
+        ))}
+      </div>
+      {tab === 'produkte' ? <ProduktBaum {...props} /> : <FeatureBaum {...props} />}
     </div>
   );
 }

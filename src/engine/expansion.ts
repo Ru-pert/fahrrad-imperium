@@ -74,8 +74,8 @@ export function produktBedingungen(s: GameState, p: ProductId): Bedingung[] {
 }
 
 /** Prüft nach dem Quartal, ob neue Regionen oder Produkte freigeschaltet werden. */
-export function pruefeFreischaltungen(s: GameState): { art: 'region' | 'produkt'; id: string }[] {
-  const neu: { art: 'region' | 'produkt'; id: string }[] = [];
+export function pruefeFreischaltungen(s: GameState): { art: 'region' | 'produkt' | 'feature'; id: string }[] {
+  const neu: { art: 'region' | 'produkt' | 'feature'; id: string }[] = [];
   for (const r of REGION_IDS) {
     const reg = s.regionen[r];
     if (!reg || reg.freigeschaltet) continue;

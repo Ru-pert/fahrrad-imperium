@@ -3,7 +3,8 @@ import { LINIENTYPEN, PRODUKTE } from './config/products';
 import { REGIONEN, WERK_STANDORTE } from './config/markets';
 import { aktiveProdukte, aktiveRegionen, standardEntscheidungen } from './decisions';
 import { einstellungsLimit, werkBaubar } from './expansion';
-import { alleProjekte } from './forschung';
+import { alleFeatures, alleProjekte } from './forschung';
+import { FEATURES } from './config/features';
 import { kreditlimit, schuldenGesamt } from './finance';
 import { referenzPreis } from './market';
 import { hallenPlaetze, lernkurve } from './production';
@@ -110,12 +111,15 @@ export function botEntscheidungen(state: GameState, letzter: QuarterReport | nul
       }
     }
     // Forschung: nacheinander die offenen Projekte finanzieren
-    const reihenfolge = ['elektro', 'federung', 'lastenrahmen', 'emtb', 'leichtbau'];
+    const reihenfolge = ['elektro', 'federung', 'lastenrahmen', 'emtb', 'leichtbau', ...[...FEATURES].sort((a, b) => a.epoche - b.epoche || a.kosten - b.kosten).map((f) => f.id)];
     d.forschung = {};
     let projekte = 0;
+    const status = [...alleProjekte(state), ...alleFeatures(state)];
     for (const id of reihenfolge) {
-      const st = alleProjekte(state).find((x) => x.projekt.id === id)!;
+      const st = status.find((x) => x.projekt.id === id)!;
       if (st.fertig || !st.offen || st.investiert >= st.projekt.kosten) continue;
+      // Features erst, wenn das Geschäft trägt
+      if (id.startsWith('f-') && kasse < st.projekt.kosten * 2) continue;
       const budget = Math.min(st.projekt.kosten / st.projekt.mindestQuartale, st.projekt.kosten - st.investiert);
       if (kasse < budget + 400_000 || projekte >= (kasse > 5_000_000 ? 2 : 1)) break;
       d.forschung[id] = Math.round(budget);
